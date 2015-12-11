@@ -76,3 +76,21 @@ add_library(kl STATIC
     ${KL_FILES}
 )
 target_include_directories(kl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+
+set(KL_3RDPARTY_CATCH_FILES
+    ${CMAKE_SOURCE_DIR}/3rdparty/catch/catch.hpp
+)
+set(KL_TEST_FILES
+    tests/zip_test.cpp
+    tests/main_test.cpp
+)
+
+source_group("3rdparty\\catch" FILES ${KL_3RDPARTY_CATCH_FILES})
+source_group("kl" FILES ${KL_TEST_FILES})
+
+add_executable(kl_tests
+    ${KL_3RDPARTY_CATCH_FILES}
+    ${KL_TEST_FILES}
+)
+target_link_libraries(kl_tests kl)
+target_include_directories(kl_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty")
