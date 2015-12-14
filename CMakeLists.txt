@@ -64,6 +64,7 @@ endif()
 
 set(KL_FILES
     src/kl/base_range.hpp
+    src/kl/defer.hpp
     src/kl/index_sequence.hpp
     src/kl/tuple.hpp
     src/kl/type_traits.hpp
