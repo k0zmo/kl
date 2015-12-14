@@ -66,6 +66,7 @@ set(KL_FILES
     src/kl/base_range.hpp
     src/kl/defer.hpp
     src/kl/index_sequence.hpp
+    src/kl/split.hpp
     src/kl/tuple.hpp
     src/kl/type_traits.hpp
     src/kl/zip.hpp
@@ -82,8 +83,9 @@ set(KL_3RDPARTY_CATCH_FILES
     ${CMAKE_SOURCE_DIR}/3rdparty/catch/catch.hpp
 )
 set(KL_TEST_FILES
-    tests/zip_test.cpp
+    tests/split_test.cpp
     tests/main_test.cpp
+    tests/zip_test.cpp
 )
 
 source_group("3rdparty\\catch" FILES ${KL_3RDPARTY_CATCH_FILES})
