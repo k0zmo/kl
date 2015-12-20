@@ -12,6 +12,14 @@ if(CMAKE_BUILD_TYPE STREQUAL "")
     set(CMAKE_BUILD_TYPE "Release")
 endif()
 
+# Configure Boost library
+if(MSVC)
+    set(Boost_USE_STATIC_LIBS ON)
+endif()
+set(Boost_USE_MULTITHREADED ON)
+find_package(Boost 1.58.0 REQUIRED)
+include_directories(SYSTEM "${Boost_INCLUDE_DIRS}")
+
 if(MSVC)
     if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
         string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
@@ -66,6 +74,7 @@ set(KL_FILES
     src/kl/base_range.hpp
     src/kl/defer.hpp
     src/kl/index_sequence.hpp
+    src/kl/match.hpp
     src/kl/split.hpp
     src/kl/string_switch.hpp
     src/kl/tuple.hpp
@@ -87,6 +96,7 @@ set(KL_TEST_FILES
     tests/split_test.cpp
     tests/string_switch_test.cpp
     tests/main_test.cpp
+    tests/match_test.cpp
     tests/zip_test.cpp
 )
 
