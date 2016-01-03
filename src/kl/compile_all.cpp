@@ -1,5 +1,7 @@
 #include "kl/base_range.hpp"
 #include "kl/defer.hpp"
+#include "kl/enum_range.hpp"
+#include "kl/enum_traits.hpp"
 #include "kl/index_sequence.hpp"
 #include "kl/match.hpp"
 #include "kl/split.hpp"
