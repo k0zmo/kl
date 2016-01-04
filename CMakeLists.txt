@@ -74,10 +74,22 @@ elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR
     endif()
 endif()
 
+set(KL_3RDPARTY_GSL_FILES
+    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/gsl.h
+    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/gsl_assert.h
+    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/gsl_util.h
+    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/span.h
+    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/string_span.h
+)
+set(KL_3RDPARTY_FILES
+    ${KL_3RDPARTY_GSL_FILES}
+)
+
 set(KL_FILES
     src/kl/base_range.hpp
     src/kl/defer.hpp
     src/kl/enum_range.hpp
+    src/kl/enum_reflector.hpp
     src/kl/enum_traits.hpp
     src/kl/index_sequence.hpp
     src/kl/match.hpp
@@ -90,8 +102,10 @@ set(KL_FILES
     src/kl/compile_all.cpp
 )
 source_group("kl" FILES ${KL_FILES})
+source_group("3rdparty\\gsl" FILES ${KL_3RDPARTY_GSL_FILES})
 
 add_library(kl STATIC
+    ${KL_3RDPARTY_FILES}
     ${KL_FILES}
 )
 target_include_directories(kl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
