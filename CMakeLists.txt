@@ -87,6 +87,7 @@ set(KL_3RDPARTY_FILES
 
 set(KL_FILES
     src/kl/base_range.hpp
+    src/kl/ctti.hpp
     src/kl/defer.hpp
     src/kl/enum_range.hpp
     src/kl/enum_reflector.hpp
@@ -114,6 +115,7 @@ set(KL_3RDPARTY_CATCH_FILES
     ${CMAKE_SOURCE_DIR}/3rdparty/catch/catch.hpp
 )
 set(KL_TEST_FILES
+    tests/ctti_test.cpp
     tests/enum_test.cpp
     tests/split_test.cpp
     tests/stream_join_test.cpp
