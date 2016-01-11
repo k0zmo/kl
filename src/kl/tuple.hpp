@@ -59,6 +59,30 @@ public:
     }
 };
 
+// Transforms tuple of dereferencable to tuple of dereferenced values:
+//   tuple<int*, boost::optional<double>, std::vector<short>::const_iterator> ->
+//   tuple<int, double, short>
+struct transform_deref_fn
+{
+private:
+    template <typename Tup, std::size_t... Is>
+    static auto impl(Tup&& tup, index_sequence<Is...>)
+        -> decltype(std::make_tuple(*std::get<Is>(std::forward<Tup>(tup))...))
+    {
+        return std::make_tuple(*std::get<Is>(std::forward<Tup>(tup))...);
+    }
+
+public:
+    template <typename Tup>
+    static auto call(Tup&& tup)
+        -> decltype(transform_deref_fn::impl(std::forward<Tup>(tup),
+                                             make_tuple_indices<Tup>{}))
+    {
+        return transform_deref_fn::impl(std::forward<Tup>(tup),
+                                        make_tuple_indices<Tup>{});
+    }
+};
+
 // Increments each value of given tuple
 struct increment_each_fn
 {
@@ -172,6 +196,38 @@ public:
     {
         return distance_fn::impl2(std::forward<Tup>(tup0),
                                   std::forward<Tup>(tup1),
+                                  make_tuple_indices<Tup>{});
+    }
+};
+
+// Checks if all tuple elements are convertible to true
+struct all_true_fn
+{
+private:
+    template <typename Tup>
+    static bool impl(Tup&&)
+    {
+        return true;
+    }
+
+    template <std::size_t I, std::size_t... Is, typename Tup>
+    static bool impl(Tup&& tup)
+    {
+        return !!(std::get<I>(std::forward<Tup>(tup))) &&
+               all_true_fn::template impl<Is...>(std::forward<Tup>(tup));
+    }
+
+    template <typename Tup, std::size_t... Is>
+    static bool impl2(Tup&& tup, index_sequence<Is...>)
+    {
+        return all_true_fn::impl<Is...>(std::forward<Tup>(tup));
+    }
+
+public:
+    template <typename Tup>
+    static bool call(Tup&& tup)
+    {
+        return all_true_fn::impl2(std::forward<Tup>(tup),
                                   make_tuple_indices<Tup>{});
     }
 };

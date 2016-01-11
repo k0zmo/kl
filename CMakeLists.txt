@@ -74,6 +74,10 @@ elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR
     endif()
 endif()
 
+set(KL_3RDPARTY_JSON11_FILES
+    ${CMAKE_SOURCE_DIR}/3rdparty/json11/json11.hpp
+    ${CMAKE_SOURCE_DIR}/3rdparty/json11/json11.cpp
+)
 set(KL_3RDPARTY_GSL_FILES
     ${CMAKE_SOURCE_DIR}/3rdparty/gsl/gsl.h
     ${CMAKE_SOURCE_DIR}/3rdparty/gsl/gsl_assert.h
@@ -82,6 +86,7 @@ set(KL_3RDPARTY_GSL_FILES
     ${CMAKE_SOURCE_DIR}/3rdparty/gsl/string_span.h
 )
 set(KL_3RDPARTY_FILES
+    ${KL_3RDPARTY_JSON11_FILES}
     ${KL_3RDPARTY_GSL_FILES}
 )
 
@@ -93,6 +98,7 @@ set(KL_FILES
     src/kl/enum_reflector.hpp
     src/kl/enum_traits.hpp
     src/kl/index_sequence.hpp
+    src/kl/json_convert.hpp
     src/kl/match.hpp
     src/kl/split.hpp
     src/kl/stream_join.hpp
@@ -102,14 +108,17 @@ set(KL_FILES
     src/kl/zip.hpp
     src/kl/compile_all.cpp
 )
+
+source_group("external\\gsl" FILES ${KL_3RDPARTY_GSL_FILES})
+source_group("external\\json11" FILES ${KL_3RDPARTY_JSON11_FILES})
 source_group("kl" FILES ${KL_FILES})
-source_group("3rdparty\\gsl" FILES ${KL_3RDPARTY_GSL_FILES})
 
 add_library(kl STATIC
     ${KL_3RDPARTY_FILES}
     ${KL_FILES}
 )
 target_include_directories(kl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
+target_include_directories(kl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty")
 
 set(KL_3RDPARTY_CATCH_FILES
     ${CMAKE_SOURCE_DIR}/3rdparty/catch/catch.hpp
@@ -117,11 +126,12 @@ set(KL_3RDPARTY_CATCH_FILES
 set(KL_TEST_FILES
     tests/ctti_test.cpp
     tests/enum_test.cpp
+    tests/json_convert_test.cpp
+    tests/main_test.cpp
+    tests/match_test.cpp
     tests/split_test.cpp
     tests/stream_join_test.cpp
     tests/string_switch_test.cpp
-    tests/main_test.cpp
-    tests/match_test.cpp
     tests/zip_test.cpp
 )
 
