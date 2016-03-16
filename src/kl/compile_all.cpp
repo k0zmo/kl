@@ -1,4 +1,5 @@
 #include "kl/base_range.hpp"
+#include "kl/base64.hpp"
 #include "kl/defer.hpp"
 #include "kl/enum_range.hpp"
 #include "kl/enum_traits.hpp"
