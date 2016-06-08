@@ -249,7 +249,12 @@ struct value_factory
     template <typename T, enable_if<is_optional<T>> = 0>
     static boost::optional<T> create(const json11::Json& json)
     {
-        return from_json<typename T::value_type>(json);
+        if (json.is_null())
+            return boost::optional<T>(T{});
+        auto value = from_json<typename T::value_type>(json);
+        if (!value)
+            return boost::none;
+        return boost::optional<T>(value);
     }
 
     // T is a class type that is reflectable

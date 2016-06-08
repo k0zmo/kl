@@ -256,6 +256,15 @@ TEST_CASE("json_convert")
         REQUIRE(!obj->opt);
     }
 
+    SECTION("deserialize with optional fields invalid")
+    {
+        auto in = R"({"non_opt": 32, "opt": "QWE"})";
+        auto j = json11::Json::parse(in, err);
+        REQUIRE(err.empty());
+        auto obj = kl::from_json<optional_test>(j);
+        REQUIRE(!obj);
+    }
+
     SECTION("serialize complex structure with std/boost containers")
     {
         test_t t;
