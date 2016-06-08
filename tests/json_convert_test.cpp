@@ -12,8 +12,9 @@
 struct optional_test
 {
     boost::optional<int> opt;
+    int non_opt;
 };
-KL_DEFINE_REFLECTABLE(optional_test, (opt))
+KL_DEFINE_REFLECTABLE(optional_test, (opt, non_opt))
 
 struct inner_t
 {
@@ -192,6 +193,69 @@ TEST_CASE("json_convert")
         REQUIRE(!obj);
     }
 
+#if defined(KL_JSON_CONVERT_DONT_SKIP_NULL_VALUES)
+    SECTION("serialize optional fields with null")
+    {
+        optional_test t;
+        t.non_opt = 23;
+
+        REQUIRE(kl::to_json(t).is_object());
+        REQUIRE(kl::to_json(t).object_items().size() == 2);
+        REQUIRE(kl::to_json(t)["non_opt"] == 23);
+        REQUIRE(kl::to_json(t)["opt"] == nullptr);
+
+        t.opt = 78;
+        REQUIRE(kl::to_json(t)["non_opt"] == 23);
+        REQUIRE(kl::to_json(t)["opt"] == 78);
+    }
+#else
+    SECTION("skip serializing optional fields")
+    {
+
+        optional_test t;
+        t.non_opt = 23;
+
+        REQUIRE(kl::to_json(t).is_object());
+        REQUIRE(kl::to_json(t).object_items().size() == 1);
+        REQUIRE(kl::to_json(t)["non_opt"] == 23);
+
+        t.opt = 78;
+        REQUIRE(kl::to_json(t)["non_opt"] == 23);
+        REQUIRE(kl::to_json(t)["opt"] == 78);
+    }
+#endif
+
+    SECTION("deserialize fields with null")
+    {
+        auto in = R"({"opt": null, "non_opt": 3})";
+        auto j = json11::Json::parse(in, err);
+        REQUIRE(err.empty());
+        auto obj = kl::from_json<optional_test>(j);
+        REQUIRE(obj);
+        REQUIRE(!obj->opt);
+        REQUIRE(obj->non_opt == 3);
+
+        in = R"({"opt": 4, "non_opt": 13})";
+        j = json11::Json::parse(in, err);
+        REQUIRE(err.empty());
+        obj = kl::from_json<optional_test>(j);
+        REQUIRE(obj);
+        REQUIRE(obj->opt);
+        REQUIRE(*obj->opt == 4);
+        REQUIRE(obj->non_opt == 13);
+    }
+
+    SECTION("deserialize with optional fields missing")
+    {
+        auto in = R"({"non_opt": 32})";
+        auto j = json11::Json::parse(in, err);
+        REQUIRE(err.empty());
+        auto obj = kl::from_json<optional_test>(j);
+        REQUIRE(obj);
+        REQUIRE(obj->non_opt == 32);
+        REQUIRE(!obj->opt);
+    }
+
     SECTION("serialize complex structure with std/boost containers")
     {
         test_t t;
@@ -238,30 +302,6 @@ TEST_CASE("json_convert")
         auto inner = j["inner"].object_items();
         REQUIRE(inner["r"] == inner_t{}.r);
         REQUIRE(inner["d"] == inner_t{}.d);
-    }
-
-    SECTION("boost optional and nulls")
-    {
-        const char* in = R"({"opt": null})";
-        auto j = json11::Json::parse(in, err);
-        REQUIRE(err.empty());
-        auto obj = kl::from_json<optional_test>(j);
-        REQUIRE(obj);
-        REQUIRE(!obj->opt);
-
-        in = R"({"opt": 4})";
-        j = json11::Json::parse(in, err);
-        REQUIRE(err.empty());
-        obj = kl::from_json<optional_test>(j);
-        REQUIRE(obj);
-        REQUIRE(obj->opt);
-        REQUIRE(*obj->opt == 4);
-
-        in = R"({"opt2": 4})";
-        j = json11::Json::parse(in, err);
-        REQUIRE(err.empty());
-        obj = kl::from_json<optional_test>(j);
-        REQUIRE(!obj);
     }
 
     SECTION("deserialize complex structure")
@@ -331,6 +371,5 @@ TEST_CASE("json_convert")
         REQUIRE(obj->t == false);
         using namespace std::string_literals;
         REQUIRE(obj->tup == std::make_tuple(10, 31.4, "ASD"s));
-
     }
 }

@@ -136,7 +136,19 @@ private:
         template <typename FieldInfo>
         void operator()(FieldInfo f)
         {
-            obj_.emplace(f.name(), to_json(f.get()));
+#if !defined(KL_JSON_CONVERT_DONT_SKIP_NULL_VALUES)
+            if (is_optional<
+                    std::remove_const_t<typename FieldInfo::type>>::value)
+            {
+                auto j = to_json(f.get());
+                if (!j.is_null())
+                    obj_.emplace(f.name(), std::move(j));
+            }
+            else
+#endif
+            {
+                obj_.emplace(f.name(), to_json(f.get()));
+            }
         }
 
     private:
@@ -332,6 +344,11 @@ private:
                     f.get() = std::move(value).get();
                     return;
                 }
+            }
+            else if (is_optional<typename FieldInfo::type>::value)
+            {
+                f.get() = typename FieldInfo::type{};
+                return;
             }
 
             all_fields_ = false;
