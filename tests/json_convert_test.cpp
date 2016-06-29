@@ -91,16 +91,16 @@ TEST_CASE("json_convert")
 
     SECTION("deserialize inner_t - empty json")
     {
-        auto r = kl::from_json<inner_t>({});
-        REQUIRE(!r);
+        REQUIRE_THROWS_AS(kl::from_json<inner_t>({}),
+                          kl::json_deserialize_exception);
     }
 
     SECTION("deserialize inner_t - missing one field")
     {
         const char* in = R"({"d": 1.0})";
         auto j = json11::Json::parse(in, err);
-        auto obj = kl::from_json<inner_t>(j);
-        REQUIRE(!obj);
+        REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
+                          kl::json_deserialize_exception);
     }
 
     SECTION("deserialize inner_t - one additional field")
@@ -108,9 +108,8 @@ TEST_CASE("json_convert")
         const char* in = R"({"d": 1.0, "r": 2, "zzz": null})";
         auto j = json11::Json::parse(in, err);
         auto obj = kl::from_json<inner_t>(j);
-        REQUIRE(obj);
-        REQUIRE(obj->r == 2);
-        REQUIRE(obj->d == 1.0);
+        REQUIRE(obj.r == 2);
+        REQUIRE(obj.d == 1.0);
     }
 
     SECTION("deserialize inner_t")
@@ -119,9 +118,8 @@ TEST_CASE("json_convert")
         auto j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
         auto obj = kl::from_json<inner_t>(j);
-        REQUIRE(obj);
-        REQUIRE(obj->r == 2);
-        REQUIRE(obj->d == 1.0);
+        REQUIRE(obj.r == 2);
+        REQUIRE(obj.d == 1.0);
     }
 
     SECTION("serialize tuple")
@@ -142,20 +140,28 @@ TEST_CASE("json_convert")
         auto j = kl::to_json(t);
 
         auto obj = kl::from_json<decltype(t)>(j);
-        REQUIRE(obj);
-        REQUIRE(std::get<0>(*obj) == 13);
-        REQUIRE(std::get<1>(*obj) == 3.14);
-        REQUIRE(std::get<2>(*obj) == colour_space::lab);
-        REQUIRE(std::get<3>(*obj) == false);
+        REQUIRE(std::get<0>(obj) == 13);
+        REQUIRE(std::get<1>(obj) == 3.14);
+        REQUIRE(std::get<2>(obj) == colour_space::lab);
+        REQUIRE(std::get<3>(obj) == false);
 
         j = json11::Json::parse(R"([7, 13, "rgb", true])", err);
         REQUIRE(err.empty());
         obj = kl::from_json<decltype(t)>(j);
-        REQUIRE(obj);
-        REQUIRE(std::get<0>(*obj) == 7);
-        REQUIRE(std::get<1>(*obj) == 13.0);
-        REQUIRE(std::get<2>(*obj) == colour_space::rgb);
-        REQUIRE(std::get<3>(*obj) == true);
+        REQUIRE(std::get<0>(obj) == 7);
+        REQUIRE(std::get<1>(obj) == 13.0);
+        REQUIRE(std::get<2>(obj) == colour_space::rgb);
+        REQUIRE(std::get<3>(obj) == true);
+
+        j = json11::Json::parse(R"([7, 13, true])", err);
+        REQUIRE(err.empty());
+        REQUIRE_THROWS_AS(kl::from_json<decltype(t)>(j),
+                          kl::json_deserialize_exception);
+
+        j = json11::Json::parse(R"([7, 13, "rgb", 1, true])", err);
+        REQUIRE(err.empty());
+        REQUIRE_THROWS_AS(kl::from_json<decltype(t)>(j),
+                          kl::json_deserialize_exception);
     }
 
     SECTION("serialize different types and 'modes' for enums")
@@ -175,11 +181,10 @@ TEST_CASE("json_convert")
         REQUIRE(err.empty());
 
         auto obj = kl::from_json<enums>(j);
-        REQUIRE(obj);
-        REQUIRE(obj->e0 == ordinary_enum::oe_one);
-        REQUIRE(obj->e1 == scope_enum::one);
-        REQUIRE(obj->e2 == ordinary_enum_reflectable::oe_one_ref);
-        REQUIRE(obj->e3 == scope_enum_reflectable::one);
+        REQUIRE(obj.e0 == ordinary_enum::oe_one);
+        REQUIRE(obj.e1 == scope_enum::one);
+        REQUIRE(obj.e2 == ordinary_enum_reflectable::oe_one_ref);
+        REQUIRE(obj.e3 == scope_enum_reflectable::one);
     }
 
     SECTION("deserialize different types and 'modes' for enums - fail")
@@ -189,8 +194,22 @@ TEST_CASE("json_convert")
         auto j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
 
-        auto obj = kl::from_json<enums>(j);
-        REQUIRE(!obj);
+        REQUIRE_THROWS_AS(kl::from_json<enums>(j),
+                          kl::json_deserialize_exception);
+
+        in = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref2", "e3": 0})";
+        j = json11::Json::parse(in, err);
+        REQUIRE(err.empty());
+        REQUIRE_THROWS_AS(kl::from_json<enums>(j),
+                          kl::json_deserialize_exception);
+
+        in =
+            R"({"e0": 0, "e1": true, "e2": "oe_one_ref", "e3": "one"})";
+        j = json11::Json::parse(in, err);
+        REQUIRE(err.empty());
+
+        REQUIRE_THROWS_AS(kl::from_json<enums>(j),
+                          kl::json_deserialize_exception);
     }
 
 #if defined(KL_JSON_CONVERT_DONT_SKIP_NULL_VALUES)
@@ -231,18 +250,16 @@ TEST_CASE("json_convert")
         auto j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
         auto obj = kl::from_json<optional_test>(j);
-        REQUIRE(obj);
-        REQUIRE(!obj->opt);
-        REQUIRE(obj->non_opt == 3);
+        REQUIRE(!obj.opt);
+        REQUIRE(obj.non_opt == 3);
 
         in = R"({"opt": 4, "non_opt": 13})";
         j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
         obj = kl::from_json<optional_test>(j);
-        REQUIRE(obj);
-        REQUIRE(obj->opt);
-        REQUIRE(*obj->opt == 4);
-        REQUIRE(obj->non_opt == 13);
+        REQUIRE(obj.opt);
+        REQUIRE(*obj.opt == 4);
+        REQUIRE(obj.non_opt == 13);
     }
 
     SECTION("deserialize with optional fields missing")
@@ -251,9 +268,8 @@ TEST_CASE("json_convert")
         auto j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
         auto obj = kl::from_json<optional_test>(j);
-        REQUIRE(obj);
-        REQUIRE(obj->non_opt == 32);
-        REQUIRE(!obj->opt);
+        REQUIRE(obj.non_opt == 32);
+        REQUIRE(!obj.opt);
     }
 
     SECTION("deserialize with optional fields invalid")
@@ -261,8 +277,18 @@ TEST_CASE("json_convert")
         auto in = R"({"non_opt": 32, "opt": "QWE"})";
         auto j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
-        auto obj = kl::from_json<optional_test>(j);
-        REQUIRE(!obj);
+
+        try
+        {
+            kl::from_json<optional_test>(j);
+        }
+        catch (std::exception& ex)
+        {
+            ex.what();
+        }
+
+        REQUIRE_THROWS_AS(kl::from_json<optional_test>(j),
+                          kl::json_deserialize_exception);
     }
 
     SECTION("serialize complex structure with std/boost containers")
@@ -359,26 +385,25 @@ TEST_CASE("json_convert")
         auto j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
         auto obj = kl::from_json<test_t>(j);
-        REQUIRE(obj);
 
-        REQUIRE(obj->a == (std::vector<int>{10, 20, 30, 40}));
-        REQUIRE(obj->ad ==
+        REQUIRE(obj.a == (std::vector<int>{10, 20, 30, 40}));
+        REQUIRE(obj.ad ==
                 (std::vector<std::vector<int>>{std::vector<int>{20},
                                                std::vector<int>{30, 40, 50}}));
-        REQUIRE(obj->f == true);
-        REQUIRE(obj->hello == "new world");
-        REQUIRE(obj->i == 456);
-        REQUIRE(obj->inner.d == 2.71);
-        REQUIRE(obj->inner.r == 667);
-        REQUIRE(obj->map ==
+        REQUIRE(obj.f == true);
+        REQUIRE(obj.hello == "new world");
+        REQUIRE(obj.i == 456);
+        REQUIRE(obj.inner.d == 2.71);
+        REQUIRE(obj.inner.r == 667);
+        REQUIRE(obj.map ==
                 (std::map<std::string, colour_space>{
                     {"10", colour_space::xyz}, {"20", colour_space::lab}}));
-        REQUIRE(obj->n);
-        REQUIRE(*obj->n == 3);
-        REQUIRE(obj->pi == 3.1416);
-        REQUIRE(obj->space == colour_space::rgb);
-        REQUIRE(obj->t == false);
+        REQUIRE(obj.n);
+        REQUIRE(*obj.n == 3);
+        REQUIRE(obj.pi == 3.1416);
+        REQUIRE(obj.space == colour_space::rgb);
+        REQUIRE(obj.t == false);
         using namespace std::string_literals;
-        REQUIRE(obj->tup == std::make_tuple(10, 31.4, "ASD"s));
+        REQUIRE(obj.tup == std::make_tuple(10, 31.4, "ASD"s));
     }
 }

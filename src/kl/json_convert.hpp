@@ -2,19 +2,46 @@
 
 #include <boost/optional.hpp>
 #include <json11/json11.hpp>
+#include <exception>
 
 #include "kl/enum_reflector.hpp"
 #include "kl/ctti.hpp"
 #include "kl/index_sequence.hpp"
 #include "kl/tuple.hpp"
 
+KL_DEFINE_ENUM_REFLECTOR(json11::Json::Type,
+                         (NUL, NUMBER, BOOL, STRING, ARRAY, OBJECT))
+
 namespace kl {
+
+struct json_deserialize_exception : std::exception
+{
+    explicit json_deserialize_exception(const char* message)
+        : json_deserialize_exception(std::string(message))
+    {
+    }
+    explicit json_deserialize_exception(std::string message)
+        : messages_(std::move(message))
+    {
+    }
+
+    char const* what() const noexcept override { return messages_.c_str(); }
+
+    void add(const char* message)
+    {
+        messages_.insert(end(messages_), '\n');
+        messages_.append(message);
+    }
+
+private:
+    std::string messages_;
+};
 
 // Forward declarations for top-level functions: to- and from- json conversions
 template <typename T>
 json11::Json to_json(const T& t);
 template <typename T>
-boost::optional<T> from_json(const json11::Json& json);
+T from_json(const json11::Json& json);
 
 namespace detail {
 
@@ -181,6 +208,11 @@ json11::Json to_json_impl(const T& t, std::true_type /*is_json_constructible*/)
 
 // from_json implementation
 
+std::string json_type_name(const json11::Json& json)
+{
+    return {enum_reflector<json11::Json::Type>::to_string(json.type())};
+}
+
 template <typename T>
 using is_json_simple = std::integral_constant<
     bool, std::is_integral<T>::value || std::is_floating_point<T>::value ||
@@ -188,49 +220,60 @@ using is_json_simple = std::integral_constant<
               std::is_convertible<std::string, T>::value>;
 
 template <typename T, enable_if<std::is_integral<T>> = 0>
-boost::optional<T> from_json_simple(const json11::Json& json)
+T from_json_simple(const json11::Json& json)
 {
-    return json.is_number()
-               ? boost::optional<T>{static_cast<T>(json.int_value())}
-               : boost::none;
+    if (!json.is_number())
+        throw json_deserialize_exception{"type must be an integral but is " +
+                                         json_type_name(json)};
+    return static_cast<T>(json.int_value());
 }
 
 template <>
-inline boost::optional<bool> from_json_simple<bool>(const json11::Json& json)
+bool from_json_simple<bool>(const json11::Json& json)
 {
-    return json.is_bool() ? boost::optional<bool>{json.bool_value()}
-                          : boost::none;
+    if (!json.is_bool())
+        throw json_deserialize_exception{"type must be a bool but is " +
+                                         json_type_name(json)};
+    return json.bool_value();
 }
 
 template <typename T, enable_if<std::is_floating_point<T>> = 0>
-boost::optional<T> from_json_simple(const json11::Json& json)
+T from_json_simple(const json11::Json& json)
 {
-    return json.is_number()
-               ? boost::optional<T>{static_cast<T>(json.number_value())}
-               : boost::none;
+    if (!json.is_number())
+        throw json_deserialize_exception{"type must be a float but is " +
+                                         json_type_name(json)};
+    return static_cast<T>(json.number_value());
 }
 
 template <typename T, enable_if<is_enum_reflectable<T>> = 0>
-boost::optional<T> from_json_simple(const json11::Json& json)
+T from_json_simple(const json11::Json& json)
 {
-    return json.is_string() ? boost::optional<T>{enum_reflector<T>::from_string(
-                                  json.string_value())}
-                            : boost::none;
+    if (!json.is_string())
+        throw json_deserialize_exception{"type must be a string-enum but is " +
+                                         json_type_name(json)};
+    if (auto enum_value = enum_reflector<T>::from_string(json.string_value()))
+        return enum_value.get();
+    throw json_deserialize_exception{"invalid enum value: " +
+                                     json.string_value()};
 }
 
 template <typename T, enable_if<is_enum_nonreflectable<T>> = 0>
-boost::optional<T> from_json_simple(const json11::Json& json)
+T from_json_simple(const json11::Json& json)
 {
-    return json.is_number()
-               ? boost::optional<T>{static_cast<T>(json.int_value())}
-               : boost::none;
+    if (!json.is_number())
+        throw json_deserialize_exception{"type must be a number-enum but is " +
+                                         json_type_name(json)};
+    return static_cast<T>(json.int_value());
 }
 
 template <typename T, enable_if<std::is_convertible<std::string, T>> = 0>
-boost::optional<T> from_json_simple(const json11::Json& json)
+T from_json_simple(const json11::Json& json)
 {
-    return json.is_string() ? boost::optional<T>{json.string_value()}
-                            : boost::none;
+    if (!json.is_string())
+        throw json_deserialize_exception{"type must be a string but is " +
+                                         json_type_name(json)};
+    return json.string_value();
 }
 
 // Same as is_string_associative byt with arguments swapped in is_constructible<> type trait
@@ -247,45 +290,43 @@ struct value_factory
 {
     // T is optional<U>
     template <typename T, enable_if<is_optional<T>> = 0>
-    static boost::optional<T> create(const json11::Json& json)
+    static T create(const json11::Json& json)
     {
         if (json.is_null())
-            return boost::optional<T>(T{});
-        auto value = from_json<typename T::value_type>(json);
-        if (!value)
-            return boost::none;
-        return boost::optional<T>(value);
+            return T{};
+        return from_json<typename T::value_type>(json);
     }
 
-    // T is a class type that is reflectable
-    template <typename T, enable_if<is_reflectable<T>> = 0>
-    static boost::optional<T> create(const json11::Json& json)
+    // T is a class type that is reflectable and default constructible
+    template <typename T, enable_if<is_reflectable<T>,
+                                    std::is_default_constructible<T>> = 0>
+    static T create(const json11::Json& json)
     {
-        boost::optional<T> obj = T{};
+        T obj{};
         json_obj_deserializer visitor{json.object_items()};
-        ctti::reflect(obj.get(), visitor);
-        if (!visitor.all_fields())
-            obj = boost::none;
+        ctti::reflect(obj, visitor);
         return obj;
     }
 
     // T is vector-like container of simple json types or types that are reflectable
     template <typename T, enable_if<is_vector<T>> = 0>
-    static boost::optional<T> create(const json11::Json& json)
+    static T create(const json11::Json& json)
     {
-        boost::optional<T> ret = T{};
-        ret->reserve(json.array_items().size());
+        T ret{};
+        ret.reserve(json.array_items().size());
 
         for (const auto& item : json.array_items())
         {
-            if (auto value = from_json<typename T::value_type>(item))
+            try
             {
-                ret->push_back(std::move(value).get());
+                ret.push_back(from_json<typename T::value_type>(item));
             }
-            else
+            catch (json_deserialize_exception& ex)
             {
-                ret = boost::none;
-                return ret;
+                std::string msg = "error when deserializing element " +
+                                  std::to_string(ret.size());
+                ex.add(msg.c_str());
+                throw;
             }
         }
 
@@ -294,20 +335,22 @@ struct value_factory
 
     // T is map-like container of simple json types or types that are reflectable
     template <typename T, enable_if<is_associative_string<T>> = 0>
-    static boost::optional<T> create(const json11::Json& json)
+    static T create(const json11::Json& json)
     {
-        boost::optional<T> ret = T{};
+        T ret{};
 
         for (const auto& obj : json.object_items())
         {
-            if (auto value = from_json<typename T::mapped_type>(obj.second))
+            try
             {
-                ret->emplace(obj.first, std::move(value).get());
+                ret.emplace(obj.first,
+                            from_json<typename T::mapped_type>(obj.second));
             }
-            else
+            catch (json_deserialize_exception& ex)
             {
-                ret = boost::none;
-                return ret;
+                std::string msg = "error when deserializing field " + obj.first;
+                ex.add(msg.c_str());
+                throw;
             }
         }
 
@@ -316,13 +359,16 @@ struct value_factory
 
     // T is a tuple<Ts...>
     template <typename T, enable_if<is_tuple<T>> = 0>
-    static boost::optional<T> create(const json11::Json& json)
+    static T create(const json11::Json& json)
     {
-        return json.is_array()
-                   ? json.array_items().size() == std::tuple_size<T>::value
-                         ? from_json_tuple<T>(json, make_tuple_indices<T>{})
-                         : boost::none
-                   : boost::none;
+        if (!json.is_array())
+            throw json_deserialize_exception{"type must be an array but is " +
+                                             json_type_name(json)};
+        if (json.array_items().size() != std::tuple_size<T>::value)
+            throw json_deserialize_exception{
+                "array size is different than tuple size"};
+
+        return from_json_tuple<T>(json, make_tuple_indices<T>{});
     }
 
 private:
@@ -337,63 +383,57 @@ private:
         template <typename FieldInfo>
         void operator()(FieldInfo f)
         {
-            if (!all_fields_)
-                return;
-
             const auto it = obj_.find(f.name());
             if (it != obj_.cend())
             {
-                if (auto value =
-                        from_json<typename FieldInfo::type>(it->second))
+                try
                 {
-                    f.get() = std::move(value).get();
-                    return;
+                    f.get() = from_json<typename FieldInfo::type>(it->second);
                 }
+                catch (json_deserialize_exception& ex)
+                {
+                    std::string msg = "error when deserializing field " +
+                                      std::string(f.name());
+                    ex.add(msg.c_str());
+                    throw;
+                }
+                return;
             }
             else if (is_optional<typename FieldInfo::type>::value)
             {
+                // optional fields doesnt have to be present in json
                 f.get() = typename FieldInfo::type{};
                 return;
             }
 
-            all_fields_ = false;
+            throw json_deserialize_exception{"missing field " +
+                                             std::string(f.name())};
         }
-
-        bool all_fields() const { return all_fields_; }
 
     private:
         const json11::Json::object& obj_;
-        bool all_fields_{true};
     };
 
 private:
     template <typename T, std::size_t... Is>
-    static boost::optional<T> from_json_tuple(const json11::Json& json,
-                                              index_sequence<Is...>)
+    static T from_json_tuple(const json11::Json& json, index_sequence<Is...>)
     {
         const auto& arr = json.array_items();
-        // deserialize all elements from array into tuple of optionals
-        auto tuple_opt = std::make_tuple(
+        return std::make_tuple(
             from_json<typename std::tuple_element<Is, T>::type>(arr[Is])...);
-        // check if all of optionals are initialized
-        if (tuple::all_true_fn::call(tuple_opt))
-            return tuple::transform_deref_fn::call(tuple_opt);
-        return boost::none;
     }
 };
 
 // Dispatch function when T cannot be created from given Json
 template <typename T>
-boost::optional<T> from_json_impl(const json11::Json& json,
-                                  std::false_type /*is_json_simple*/)
+T from_json_impl(const json11::Json& json, std::false_type /*is_json_simple*/)
 {
     return value_factory::create<T>(json);
 }
 
 // Dispatch function when T can be "almost" directly created from given Json
 template <typename T>
-boost::optional<T> from_json_impl(const json11::Json& json,
-                                  std::true_type /*is_json_simple*/)
+T from_json_impl(const json11::Json& json, std::true_type /*is_json_simple*/)
 {
     return from_json_simple<T>(json);
 }
@@ -407,7 +447,7 @@ json11::Json to_json(const T& t)
 }
 
 template <typename T>
-boost::optional<T> from_json(const json11::Json& json)
+T from_json(const json11::Json& json)
 {
     return detail::from_json_impl<T>(json, detail::is_json_simple<T>{});
 }
