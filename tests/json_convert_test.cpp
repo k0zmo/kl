@@ -75,13 +75,22 @@ struct test_t
 KL_DEFINE_REFLECTABLE(test_t,
                       (hello, t, f, n, i, pi, a, ad, space, tup, map, inner))
 
+struct unsigned_test
+{
+    unsigned char u8{128};
+    unsigned short u16{32768};
+    unsigned int u32{std::numeric_limits<unsigned int>::max()};
+    // unsigned long long u64{0}; // can't represent losslessly u64 in double
+};
+KL_DEFINE_REFLECTABLE(unsigned_test, (u8, u16, u32))
+
 TEST_CASE("json_convert")
 {
     std::string err;
 
     SECTION("serialize inner_t")
     {
-        auto j = kl::to_json<inner_t>(inner_t{});
+        auto j = kl::to_json(inner_t{});
         REQUIRE(j.is_object());
         REQUIRE(j.has_shape(
             {{"r", json11::Json::NUMBER}, {"d", json11::Json::NUMBER}}, err));
@@ -405,5 +414,20 @@ TEST_CASE("json_convert")
         REQUIRE(obj.t == false);
         using namespace std::string_literals;
         REQUIRE(obj.tup == std::make_tuple(10, 31.4, "ASD"s));
+    }
+
+    SECTION("test unsigned types")
+    {
+        unsigned_test t;
+        auto j = kl::to_json(t);
+
+        REQUIRE(j["u8"].number_value() == t.u8);
+        REQUIRE(j["u16"].number_value() == t.u16);
+        REQUIRE(j["u32"].number_value() == t.u32);
+
+        auto obj = kl::from_json<unsigned_test>(j);
+        REQUIRE(obj.u8 == t.u8);
+        REQUIRE(obj.u16 == t.u16);
+        REQUIRE(obj.u32 == t.u32);
     }
 }

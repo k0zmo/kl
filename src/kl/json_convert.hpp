@@ -91,8 +91,21 @@ struct is_tuple : std::false_type {};
 template <typename... Ts>
 struct is_tuple<std::tuple<Ts...>> : std::true_type {};
 
+template <typename T>
+using is_representable_as_double =
+    std::integral_constant<bool,
+                           std::is_integral<T>::value && (sizeof(T) <= 4)>;
+
 struct json_factory
 {
+    // T is integral type with no more bytes than 4. Effectively, it's u32 as
+    // all other cases are covered with is_json_constructible<T> 'true branch'
+    template <typename T, enable_if<is_representable_as_double<T>> = 0>
+    static json11::Json create(const T& t)
+    {
+        return to_json(static_cast<double>(t));
+    }
+
     // T is an enum type (with enum_reflector defined)
     template <typename T, enable_if<is_enum_reflectable<T>> = 0>
     static json11::Json create(const T& t)
@@ -225,6 +238,9 @@ T from_json_simple(const json11::Json& json)
     if (!json.is_number())
         throw json_deserialize_exception{"type must be an integral but is " +
                                          json_type_name(json)};
+    // This check will be ellided by the compiler since it's a constant expr
+    if (std::is_unsigned<T>::value && sizeof(T) == 4)
+        return static_cast<T>(json.number_value());
     return static_cast<T>(json.int_value());
 }
 
