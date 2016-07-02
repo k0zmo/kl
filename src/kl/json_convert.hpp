@@ -221,7 +221,7 @@ json11::Json to_json_impl(const T& t, std::true_type /*is_json_constructible*/)
 
 // from_json implementation
 
-std::string json_type_name(const json11::Json& json)
+inline std::string json_type_name(const json11::Json& json)
 {
     return {enum_reflector<json11::Json::Type>::to_string(json.type())};
 }
@@ -245,7 +245,7 @@ T from_json_simple(const json11::Json& json)
 }
 
 template <>
-bool from_json_simple<bool>(const json11::Json& json)
+inline bool from_json_simple<bool>(const json11::Json& json)
 {
     if (!json.is_bool())
         throw json_deserialize_exception{"type must be a bool but is " +
