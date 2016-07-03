@@ -91,7 +91,6 @@ TEST_CASE("ctti")
         REQUIRE(kl::ctti::full_name<T>() == typeid(T).name());
         REQUIRE(kl::ctti::name<T>() == typeid(T).name());
 
-        static_assert(std::is_same<kl::ctti::type<T>, T>::value, "???");
         static_assert(
             std::is_same<kl::ctti::base_types<T>, kl::type_pack<>>::value,
             "???");
@@ -119,7 +118,6 @@ TEST_CASE("ctti")
         REQUIRE(kl::ctti::full_name<A>() == "A"s);
         REQUIRE(kl::ctti::name<A>() == "A"s);
 
-        static_assert(std::is_same<kl::ctti::type<A>, A>::value, "???");
         static_assert(
             std::is_same<kl::ctti::base_types<A>, kl::type_pack<>>::value,
             "???");

@@ -80,7 +80,7 @@ struct type_pack : std::integral_constant<std::size_t, sizeof...(Ts)>
 template <typename T>
 struct type_info
 {
-    using type = std::decay_t<T>;
+    using this_type = T;
     using base_types = type_pack<>;
 
     static const char* name() { return typeid(T).name(); }
@@ -130,9 +130,6 @@ struct ctti
         type_info<non_ref>::template reflect<Reflectable>(
             std::forward<Visitor>(visitor));
     }
-
-    template <typename Reflectable>
-    using type = typename type_info<Reflectable>::type;
 
     template <typename Reflectable>
     using base_types = typename type_info<Reflectable>::base_types;
@@ -233,7 +230,7 @@ constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
     template <>                                                                \
     struct type_info<full_name_>                                               \
     {                                                                          \
-        using type = full_name_;                                               \
+        using this_type = full_name_;                                          \
         using base_types = type_pack<KL_TYPE_INFO_GET_BASE_TYPES(bases_)>;     \
                                                                                \
         static const char* name() { return BOOST_PP_STRINGIZE(name_); }        \
@@ -299,7 +296,7 @@ constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
 #define KL_TYPE_INFO_VISIT_WITH_FIELD_INFO_IMPL(name_)                         \
     std::forward<Visitor>(visitor)(                                            \
         detail::field_info<std::remove_reference_t<Type>,                      \
-                           decltype(type::name_)>{obj.name_,                   \
+                           decltype(this_type::name_)>{obj.name_,              \
                                                   BOOST_PP_STRINGIZE(name_)});
 
 #define KL_TYPE_INFO_VISIT_WITH_FIELD_INFO(values_)                            \
@@ -309,7 +306,7 @@ constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
 #define KL_TYPE_INFO_VISIT_WITH_FIELD_KL_TYPE_INFO_IMPL(name_)                 \
     std::forward<Visitor>(visitor)(                                            \
         detail::field_type_info<std::remove_reference_t<Type>,                 \
-                                decltype(type::name_)>{                        \
+                                decltype(this_type::name_)>{                   \
             BOOST_PP_STRINGIZE(name_)});
 
 #define KL_TYPE_INFO_VISIT_WITH_FIELD_TYPE_INFO(values_)                       \
