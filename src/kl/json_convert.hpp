@@ -302,6 +302,19 @@ struct is_associative_string<
                                                      std::string>::value>>>
     : std::true_type {};
 
+// Checks if this expression is valid for given T class-type:
+// T::from_json(const json11::Json&) -> T
+template <typename T>
+using from_json_memfun_type =
+    decltype(T::from_json(std::declval<const json11::Json&>()));
+template <typename T, typename = kl::void_t<>>
+struct is_constructible_from_json : std::false_type {};
+template <typename T>
+struct is_constructible_from_json<
+    T, kl::void_t<from_json_memfun_type<T>,
+                  kl::enable_if<std::is_same<T, from_json_memfun_type<T>>>>>
+    : std::true_type {};
+
 struct value_factory
 {
     // T is optional<U>
@@ -322,6 +335,13 @@ struct value_factory
         json_obj_deserializer visitor{json.object_items()};
         ctti::reflect(obj, visitor);
         return obj;
+    }
+
+    // T is a class type with a static member function: T from_json(const json11::Json&)
+    template <typename T, enable_if<is_constructible_from_json<T>> = 0>
+    static T create(const json11::Json& json)
+    {
+        return T::from_json(json);
     }
 
     // T is vector-like container of simple json types or types that are reflectable

@@ -431,3 +431,71 @@ TEST_CASE("json_convert")
         REQUIRE(obj.u32 == t.u32);
     }
 }
+
+#include <chrono>
+
+class our_type
+{
+public:
+    our_type() = default;
+
+    // These two functions must be present in order to json_convert to work with
+    // them without KL_DEFINE_REFLECTABLE macro
+    static our_type from_json(const json11::Json& json)
+    {
+        return our_type(kl::from_json<int>(json["i"]),
+                        kl::from_json<double>(json["d"]),
+                        kl::from_json<std::string>(json["str"]));
+    }
+
+    json11::Json to_json() const
+    {
+        return json11::Json::object{
+            {"i", i},
+            {"d", d},
+            {"str", str}
+        };
+    }
+
+private:
+    our_type(int i, double d, std::string str)
+        : i(i), d(d), str(std::move(str))
+    {
+    }
+
+private:
+    int i{10};
+    double d{3.14};
+    std::string str = "zxc";
+};
+
+struct chrono_test
+{
+    int t;
+    std::chrono::seconds sec;
+    our_type o;
+};
+KL_DEFINE_REFLECTABLE(chrono_test, (t, sec, o))
+
+// Specialize to_json/from_json for std::chrono::seconds
+// Don't overload since from_json only differs by return type
+namespace kl {
+template <>
+json11::Json to_json(const std::chrono::seconds& t)
+{
+    return {static_cast<double>(t.count())};
+}
+
+template <>
+std::chrono::seconds from_json(const json11::Json& json)
+{
+    return std::chrono::seconds{from_json<unsigned>(json)};
+}
+}
+
+TEST_CASE("json_convert - extended")
+{
+    chrono_test t{2, std::chrono::seconds{10}, our_type{}};
+    auto j = kl::to_json(t);
+    auto obj = kl::from_json<chrono_test>(j);
+}
