@@ -307,12 +307,12 @@ struct is_associative_string<
 template <typename T>
 using from_json_memfun_type =
     decltype(T::from_json(std::declval<const json11::Json&>()));
-template <typename T, typename = kl::void_t<>>
+template <typename T, typename = void_t<>>
 struct is_constructible_from_json : std::false_type {};
 template <typename T>
 struct is_constructible_from_json<
-    T, kl::void_t<from_json_memfun_type<T>,
-                  kl::enable_if<std::is_same<T, from_json_memfun_type<T>>>>>
+    T, void_t<from_json_memfun_type<T>,
+                  enable_if<std::is_same<T, from_json_memfun_type<T>>>>>
     : std::true_type {};
 
 struct value_factory
