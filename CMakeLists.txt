@@ -109,7 +109,6 @@ set(KL_FILES
     src/kl/tuple.hpp
     src/kl/type_traits.hpp
     src/kl/zip.hpp
-    src/kl/compile_all.cpp
 )
 
 source_group("external\\gsl" FILES ${KL_3RDPARTY_GSL_FILES})
@@ -127,15 +126,21 @@ set(KL_3RDPARTY_CATCH_FILES
     ${CMAKE_SOURCE_DIR}/3rdparty/catch/catch.hpp
 )
 set(KL_TEST_FILES
+    tests/base_range_test.cpp
     tests/base64_test.cpp
+    tests/byte_test.cpp
     tests/ctti_test.cpp
+    tests/defer_test.cpp
     tests/enum_test.cpp
+    tests/index_sequence_test.cpp
     tests/json_convert_test.cpp
     tests/main_test.cpp
     tests/match_test.cpp
     tests/split_test.cpp
     tests/stream_join_test.cpp
     tests/string_switch_test.cpp
+    tests/tuple_test.cpp
+    tests/type_traits_test.cpp
     tests/zip_test.cpp
 )
 
