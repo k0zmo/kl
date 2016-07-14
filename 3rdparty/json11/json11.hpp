@@ -57,16 +57,17 @@
 #include <initializer_list>
 
 #if defined(_MSC_VER)
-#  if _MSC_VER > 1800
-#    define JSON11_NOEXCEPT noexcept
-#  else
-#    define JSON11_NOEXCEPT throw()
-#  endif
-#else
-#  define JSON11_NOEXCEPT noexcept
-#endif
+#  if _MSC_VER <= 1800
+#    pragma push_macro("noexcept")
+#    define noexcept throw()
+#  endif // _MSC_VER <= 1800
+#endif // _MSC_VER
 
 namespace json11 {
+
+enum JsonParse {
+    STANDARD, COMMENTS
+};
 
 // Options structure for pretty_print
 struct PrettyPrintOptions {
@@ -90,18 +91,18 @@ public:
     typedef std::map<std::string, Json> object;
 
     // Constructors for the various types of JSON value.
-    Json() JSON11_NOEXCEPT;                // NUL
-    Json(std::nullptr_t) JSON11_NOEXCEPT;  // NUL
-    Json(double value);                    // NUMBER
-    Json(int value);                       // NUMBER
-    Json(bool value);                      // BOOL
-    Json(const std::string &value);        // STRING
-    Json(std::string &&value);             // STRING
-    Json(const char * value);              // STRING
-    Json(const array &values);             // ARRAY
-    Json(array &&values);                  // ARRAY
-    Json(const object &values);            // OBJECT
-    Json(object &&values);                 // OBJECT
+    Json() noexcept;                // NUL
+    Json(std::nullptr_t) noexcept;  // NUL
+    Json(double value);             // NUMBER
+    Json(int value);                // NUMBER
+    Json(bool value);               // BOOL
+    Json(const std::string &value); // STRING
+    Json(std::string &&value);      // STRING
+    Json(const char * value);       // STRING
+    Json(const array &values);      // ARRAY
+    Json(array &&values);           // ARRAY
+    Json(const object &values);     // OBJECT
+    Json(object &&values);          // OBJECT
 
     // Implicit constructor: anything with a to_json() function.
     template <class T, class = decltype(&T::to_json)>
@@ -181,17 +182,33 @@ public:
     }
 
     // Parse. If parse fails, return Json() and assign an error message to err.
-    static Json parse(const std::string & in, std::string & err);
-    static Json parse(const char * in, std::string & err) {
+    static Json parse(const std::string & in,
+                      std::string & err,
+                      JsonParse strategy = JsonParse::STANDARD);
+    static Json parse(const char * in,
+                      std::string & err,
+                      JsonParse strategy = JsonParse::STANDARD) {
         if (in) {
-            return parse(std::string(in), err);
+            return parse(std::string(in), err, strategy);
         } else {
             err = "null input";
             return nullptr;
         }
     }
     // Parse multiple objects, concatenated or separated by whitespace
-    static std::vector<Json> parse_multi(const std::string & in, std::string & err);
+    static std::vector<Json> parse_multi(
+        const std::string & in,
+        std::string::size_type & parser_stop_pos,
+        std::string & err,
+        JsonParse strategy = JsonParse::STANDARD);
+
+    static inline std::vector<Json> parse_multi(
+        const std::string & in,
+        std::string & err,
+        JsonParse strategy = JsonParse::STANDARD) {
+        std::string::size_type parser_stop_pos;
+        return parse_multi(in, parser_stop_pos, err, strategy);
+    }
 
     bool operator== (const Json &rhs) const;
     bool operator<  (const Json &rhs) const;
@@ -235,3 +252,10 @@ protected:
 };
 
 } // namespace json11
+
+#if defined(_MSC_VER)
+#  if _MSC_VER <= 1800
+#    undef noexcept
+#    pragma pop_macro("noexcept")
+#  endif // _MSC_VER <= 1800
+#endif // _MSC_VER
