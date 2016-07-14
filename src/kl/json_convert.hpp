@@ -103,6 +103,8 @@ struct json_factory
     template <typename T, enable_if<is_representable_as_double<T>> = 0>
     static json11::Json create(const T& t)
     {
+        if (static_cast<int>(t) >= 0)
+            return to_json(static_cast<int>(t));
         return to_json(static_cast<double>(t));
     }
 

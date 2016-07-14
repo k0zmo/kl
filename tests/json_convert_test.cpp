@@ -499,3 +499,24 @@ TEST_CASE("json_convert - extended")
     auto j = kl::to_json(t);
     auto obj = kl::from_json<chrono_test>(j);
 }
+
+TEST_CASE("json_convert - unsigned")
+{
+    SECTION("check 32")
+    {
+        auto j = kl::to_json(unsigned(32));
+        REQUIRE(j.number_value() == 32.0);
+        REQUIRE(j.int_value() == 32);
+        auto str = j.pretty_print();
+        REQUIRE(str == "32");
+    }
+
+    SECTION("check value greater than 0x7FFFFFFU")
+    {
+        auto j = kl::to_json(2147483648UL);
+        REQUIRE(j.number_value() == 2147483648.0);
+        REQUIRE(j.int_value() == -2147483648LL);
+        auto str = j.pretty_print();
+        REQUIRE(str == "2147483648");
+    }
+}
