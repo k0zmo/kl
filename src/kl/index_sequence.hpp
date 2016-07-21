@@ -11,12 +11,10 @@ template <std::size_t... I>
 struct index_sequence {};
 
 template <std::size_t N, std::size_t... I>
-struct make_index_sequence
-    : make_index_sequence < N - 1, N - 1, I... >
+struct make_index_sequence : make_index_sequence<N - 1, N - 1, I...>
 {};
 template <std::size_t... I>
-struct make_index_sequence<0, I...>
-    : index_sequence < I... >
+struct make_index_sequence<0, I...> : index_sequence<I...>
 {};
 #else
 using std::make_index_sequence;

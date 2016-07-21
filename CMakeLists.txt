@@ -103,6 +103,7 @@ set(KL_FILES
     src/kl/index_sequence.hpp
     src/kl/json_convert.hpp
     src/kl/match.hpp
+    src/kl/signal.hpp
     src/kl/split.hpp
     src/kl/stream_join.hpp
     src/kl/string_switch.hpp
@@ -136,6 +137,7 @@ set(KL_TEST_FILES
     tests/json_convert_test.cpp
     tests/main_test.cpp
     tests/match_test.cpp
+    tests/signal_test.cpp
     tests/split_test.cpp
     tests/stream_join_test.cpp
     tests/string_switch_test.cpp
