@@ -1,6 +1,7 @@
 #include "kl/signal.hpp"
 
 #include <catch/catch.hpp>
+#include <boost/optional.hpp>
 #include <vector>
 
 namespace test {
@@ -376,5 +377,61 @@ TEST_CASE("scoped_connection")
         REQUIRE(!s.empty());
         c.disconnect();
         REQUIRE(s.empty());
+    }
+}
+
+namespace test {
+
+bool foo() { return false; }
+bool bar() { return true; }
+
+float product(float x, float y) { return x * y; }
+float quotient(float x, float y) { return x / y; }
+float sum(float x, float y) { return x + y; }
+float difference(float x, float y) { return x - y; }
+} // namespace test
+
+TEST_CASE("signal combiners")
+{
+    // http://www.boost.org/doc/libs/1_60_0/doc/html/signals2/rationale.html
+    // We use push model - with lambdas and all it's not that bad
+
+    kl::signal<float(float, float)> sig;
+    sig.connect(&test::product);
+    sig.connect(&test::quotient);
+    sig.connect(&test::sum);
+    sig.connect(&test::difference);
+
+    SECTION("optional last value")
+    {
+        // The default combiner returns a boost::optional containing the return
+        // value of the last slot in the slot list, in this case the
+        // difference function.
+        boost::optional<float> srv;
+        sig(5, 3, [&](float v) { srv = v; });
+        REQUIRE(srv);
+        REQUIRE(*srv == 2);
+    }
+
+    SECTION("maximum")
+    {
+        float srv{};
+        sig(5, 3, [&](float v) { srv = std::max(srv, v); });
+
+        // Outputs the maximum value returned by the connected slots, in this
+        // case 15 from the product function.
+        REQUIRE(srv == Approx(15.0f));
+    }
+
+    SECTION("aggregate values")
+    {
+        std::vector<float> srv;
+        sig(5, 3, [&](float v) { srv.push_back(v); });
+
+        REQUIRE(srv.size() == 4);
+        REQUIRE(srv[0] == Approx(15.0f));
+        REQUIRE(srv[1] == Approx(1.666666667f));
+        REQUIRE(srv[2] == Approx(8.0f));
+        REQUIRE(srv[3] == Approx(2.0f));
     }
 }
