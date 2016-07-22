@@ -447,6 +447,9 @@ private:
              it = slots_.begin(),
              last = slots_.end();
 
+        for (auto& slot : slots_)
+            slot.prepare();
+
         while (it != last)
         {
             if (!it->valid())
@@ -455,7 +458,7 @@ private:
                 continue;
             }
 
-            if (!it->blocked())
+            if (!it->blocked() && it->prepared())
             {
                 using invoker = detail::sink_invoker<return_type>;
                 invoker::call(std::forward<Sink>(sink), *it,
@@ -486,6 +489,8 @@ private:
             return impl_(std::forward<Args>(args)...);
         }
 
+        void prepare() { prepared_ = true; }
+
         void invalidate() { connection_info().parent = nullptr; }
 
         const detail::connection_info& connection_info() const
@@ -497,10 +502,12 @@ private:
 
         bool valid() const { return connection_info().parent != nullptr; }
         bool blocked() const { return connection_info().blocking > 0; }
+        bool prepared() const { return valid() && prepared_; }
 
     private:
         slot_type impl_;
         std::shared_ptr<detail::connection_info> connection_info_;
+        bool prepared_{false};
     };
 
     std::forward_list<slot> slots_;

@@ -435,3 +435,64 @@ TEST_CASE("signal combiners")
         REQUIRE(srv[3] == Approx(2.0f));
     }
 }
+
+TEST_CASE("connect/disconnect during signal emission")
+{
+    class Test
+    {
+    public:
+        Test()
+        {
+            c0 = sig.connect([&] {
+                trace.push_back(0);
+                do_run();
+                return 0;
+            });
+
+            c1 = sig.connect([&] {
+                REQUIRE(false); // never called because c1.disconnect()
+                do_run();
+                return 0;
+            });
+
+            c2 = sig.connect([&] {
+                trace.push_back(2);
+                do_run();
+                return 0;
+            });
+        }
+
+        void run()
+        {
+            sig();
+        }
+
+    private:
+        void do_run()
+        {
+            trace.push_back(99);
+            sig.connect([&] {
+                // This is called only during 2nd run
+                trace.push_back(4);
+                do_run();
+                return 1;
+            });
+            c1.disconnect();
+        }
+
+        kl::signal<int()> sig;
+        kl::connection c0;
+        kl::connection c1;
+        kl::connection c2;
+
+    public:
+        std::vector<int> trace;
+    };
+
+    Test test;
+    test.run();
+    REQUIRE(test.trace == (std::vector<int>{0, 99, 2, 99}));
+    test.run();
+    REQUIRE(test.trace ==
+            (std::vector<int>{0, 99, 2, 99, 0, 99, 2, 99, 4, 99, 4, 99}));
+}
