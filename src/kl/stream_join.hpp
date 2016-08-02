@@ -57,43 +57,40 @@ stream_joiner<Iterable> stream_join(const Iterable& xs)
 }
 
 // Based on http://en.cppreference.com/w/cpp/experimental/ostream_joiner
-template <typename DelimT, typename CharT = char,
-          typename Traits = std::char_traits<CharT>>
-class ostream_joiner
+template <typename OutStream, typename DelimT>
+class outstream_joiner
 {
 public:
-    using char_type = CharT;
-    using traits_type = Traits;
-    using ostream_type = std::basic_ostream<CharT, Traits>;
+    using outstream_type = OutStream;
     using value_type = void;
     using difference_type = void;
     using pointer = void;
     using reference = void;
     using iterator_category = std::output_iterator_tag;
 
-    ostream_joiner(ostream_type& stream, const DelimT& delimiter)
+    outstream_joiner(OutStream& stream, const DelimT& delimiter)
         : stream_{std::addressof(stream)}, delimiter_{delimiter}
     {
     }
 
-    ostream_joiner(ostream_type& stream, DelimT&& delimiter)
+    outstream_joiner(OutStream& stream, DelimT&& delimiter)
         : stream_{std::addressof(stream)}, delimiter_{std::move(delimiter)}
     {
     }
 
-    ostream_joiner(const ostream_joiner& other) = default;
-    ostream_joiner(ostream_joiner&& other) = default;
+    outstream_joiner(const outstream_joiner& other) = default;
+    outstream_joiner(outstream_joiner&& other) = default;
 
-    ostream_joiner& operator=(const ostream_joiner& other) = default;
-    ostream_joiner& operator=(ostream_joiner&& other) = default;
+    outstream_joiner& operator=(const outstream_joiner& other) = default;
+    outstream_joiner& operator=(outstream_joiner&& other) = default;
 
     // No-op
-    ostream_joiner& operator*() { return *this; }
-    ostream_joiner& operator++() { return *this; }
-    ostream_joiner& operator++(int) { return *this; }
+    outstream_joiner& operator*() { return *this; }
+    outstream_joiner& operator++() { return *this; }
+    outstream_joiner& operator++(int) { return *this; }
 
     template <typename T>
-    ostream_joiner& operator=(const T& value)
+    outstream_joiner& operator=(const T& value)
     {
         if (!first_)
             *stream_ << delimiter_;
@@ -103,17 +100,16 @@ public:
     }
 
 private:
-    ostream_type* stream_;
+    OutStream* stream_;
     DelimT delimiter_;
     bool first_{true};
 };
 
-template <typename CharT, typename Traits, typename DelimT>
-ostream_joiner<std::decay_t<DelimT>, CharT, Traits>
-    make_ostream_joiner(std::basic_ostream<CharT, Traits>& os,
-                        DelimT&& delimiter)
+template <typename OutStream, typename DelimT>
+outstream_joiner<OutStream, std::decay_t<DelimT>>
+    make_outstream_joiner(OutStream& os, DelimT&& delimiter)
 {
-    return ostream_joiner<std::decay_t<DelimT>, CharT, Traits>(
+    return outstream_joiner<OutStream, std::decay_t<DelimT>>(
         os, std::forward<DelimT>(delimiter));
 }
 } // namespace kl

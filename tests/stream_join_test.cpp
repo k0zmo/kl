@@ -35,7 +35,7 @@ TEST_CASE("stream_join")
 TEST_CASE("ostream_joiner")
 {
     std::stringstream ss;
-    auto joiner = kl::make_ostream_joiner(ss, ", ");
+    auto joiner = kl::make_outstream_joiner(ss, ", ");
 
     SECTION("manual assignment")
     {
