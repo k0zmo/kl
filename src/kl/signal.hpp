@@ -260,21 +260,67 @@ namespace detail {
 template <typename Ret>
 struct sink_invoker
 {
+private:
     template <typename Sink, typename Slot, typename... Args>
-    static void call(Sink&& sink, const Slot& slot, Args&&... args)
+    static bool call_impl(std::false_type /*is_sink_return_type_void*/,
+                          Sink&& sink, const Slot& slot, Args&&... args)
+    {
+        return !!std::forward<Sink>(sink)(slot(std::forward<Args>(args)...));
+    }
+
+    template <typename Sink, typename Slot, typename... Args>
+    static bool call_impl(std::true_type /*is_sink_return_type_void*/,
+                          Sink&& sink, const Slot& slot, Args&&... args)
     {
         std::forward<Sink>(sink)(slot(std::forward<Args>(args)...));
+        return false;
+    }
+
+public:
+    template <typename Sink, typename Slot, typename... Args>
+    static bool call(Sink&& sink, const Slot& slot, Args&&... args)
+    {
+        using is_sink_return_type_void = std::integral_constant<
+            bool, std::is_same<void, std::result_of_t<Sink(
+                                         typename Slot::return_type)>>::value>;
+
+        return sink_invoker::call_impl(is_sink_return_type_void{},
+                                       std::forward<Sink>(sink), slot,
+                                       std::forward<Args>(args)...);
     }
 };
 
 template <>
 struct sink_invoker<void>
 {
+private:
     template <typename Sink, typename Slot, typename... Args>
-    static void call(Sink&& sink, const Slot& slot, Args&&... args)
+    static bool call_impl(std::false_type /*is_sink_return_type_void*/,
+                          Sink&& sink, const Slot& slot, Args&&... args)
     {
         slot(std::forward<Args>(args)...);
-        sink();
+        return !!std::forward<Sink>(sink)();
+    }
+
+    template <typename Sink, typename Slot, typename... Args>
+    static bool call_impl(std::true_type /*is_sink_return_type_void*/,
+                          Sink&& sink, const Slot& slot, Args&&... args)
+    {
+        slot(std::forward<Args>(args)...);
+        std::forward<Sink>(sink)();
+        return false;
+    }
+
+public:
+    template <typename Sink, typename Slot, typename... Args>
+    static bool call(Sink&& sink, const Slot& slot, Args&&... args)
+    {
+        using is_sink_return_type_void = std::integral_constant<
+            bool, std::is_same<void, std::result_of_t<Sink()>>::value>;
+
+        return sink_invoker::call_impl(is_sink_return_type_void{},
+                                       std::forward<Sink>(sink), slot,
+                                       std::forward<Args>(args)...);
     }
 };
 
@@ -424,6 +470,11 @@ private:
             });
         if (target != slots_.end())
             target->invalidate();
+
+        // We can't delete the node here since we could be in the middle of
+        // signal emission or we are called from extended slot. In that case it
+        // would lead to removal of connection (proxy slot keeps the copy) that
+        // is invoking this very function.
     }
 
     void rebind()
@@ -458,11 +509,14 @@ private:
                 continue;
             }
 
-            if (!it->blocked() && it->prepared())
+            if (!it->is_blocked() && it->is_prepared())
             {
                 using invoker = detail::sink_invoker<return_type>;
-                invoker::call(std::forward<Sink>(sink), *it,
-                              std::forward<Args>(args)...);
+                if (invoker::call(std::forward<Sink>(sink), *it,
+                                  std::forward<Args>(args)...))
+                {
+                    break;
+                }
             }
 
             ++it_before;
@@ -473,6 +527,9 @@ private:
 private:
     class slot final
     {
+    public:
+        using return_type = typename signal::return_type;
+
     public:
         slot(slot_type impl,
              std::shared_ptr<detail::connection_info> connection_info)
@@ -490,7 +547,6 @@ private:
         }
 
         void prepare() { prepared_ = true; }
-
         void invalidate() { connection_info().parent = nullptr; }
 
         const detail::connection_info& connection_info() const
@@ -501,8 +557,8 @@ private:
         detail::connection_info& connection_info() { return *connection_info_; }
 
         bool valid() const { return connection_info().parent != nullptr; }
-        bool blocked() const { return connection_info().blocking > 0; }
-        bool prepared() const { return valid() && prepared_; }
+        bool is_blocked() const { return connection_info().blocking > 0; }
+        bool is_prepared() const { return valid() && prepared_; }
 
     private:
         slot_type impl_;

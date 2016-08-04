@@ -513,7 +513,7 @@ TEST_CASE("json_convert - unsigned")
 
     SECTION("check value greater than 0x7FFFFFFU")
     {
-        auto j = kl::to_json(2147483648UL);
+        auto j = kl::to_json(2147483648U);
         REQUIRE(j.number_value() == 2147483648.0);
         REQUIRE(j.int_value() == -2147483648LL);
         auto str = j.pretty_print();

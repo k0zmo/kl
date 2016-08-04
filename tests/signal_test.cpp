@@ -436,6 +436,51 @@ TEST_CASE("signal combiners")
     }
 }
 
+TEST_CASE("stopping signal emission")
+{
+    kl::signal<int()> signal;
+    signal.connect([] { return 10; });
+    signal.connect([] { return 100; });
+    signal.connect([] { return 1000; });
+
+    SECTION("run all")
+    {
+        int cnt = 0;
+        signal([&](int ret) {
+            ++cnt;
+            return false;
+        });
+        REQUIRE(cnt == 3);
+    }
+
+    SECTION("distribute request")
+    {
+        int rv = 0;
+        signal([&](int ret) {
+            rv = ret;
+            if (ret > 50)
+                return true; // Dont bother calling next slot
+            return false;
+        });
+        REQUIRE(rv == 100); // 3rd slot not called
+    }
+
+    SECTION("sink with void returning signal")
+    {
+        int cnt = 0;
+        kl::signal<void()> s;
+        s.connect([&] { cnt++; });
+        s.connect([&] { cnt++; });
+        s.connect([&] { cnt++; });
+
+        s([&] {
+            return cnt >= 1;
+        });
+
+        REQUIRE(cnt == 1);
+    }
+}
+
 TEST_CASE("connect/disconnect during signal emission")
 {
     class Test
