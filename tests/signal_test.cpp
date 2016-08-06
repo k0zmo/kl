@@ -213,6 +213,16 @@ TEST_CASE("signal")
 
         REQUIRE(counter == 1);
     }
+
+    SECTION("connect signal to signal")
+    {
+        kl::signal<void(int)> s;
+        kl::signal<void(int)> t;
+
+        t.connect([](int i) { REQUIRE(i == 2); });
+        s.connect(kl::make_slot(t));
+        s(2);
+    }
 }
 
 TEST_CASE("connection")
