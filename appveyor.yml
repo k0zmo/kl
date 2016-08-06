@@ -24,7 +24,7 @@ build_script:
   - cmd: cmake --build . --config Release -- /verbosity:minimal /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
 
 test_script:
-  - cmd: "Release\\kl_tests" -r junit -o results.xml
+  - cmd: Release\\kl_tests -r junit -o results.xml
 
 after_test:
   - ps: |
