@@ -323,13 +323,6 @@ public:
                                        std::forward<Args>(args)...);
     }
 };
-
-struct null_sink
-{
-    template <typename Ret>
-    void operator()(const Ret&) {}
-    void operator()() {}
-};
 } // namespace detail
 
 template <typename Signature>
@@ -417,15 +410,21 @@ public:
     // Emits signal
     void operator()(Args... args)
     {
-        static auto null_sink = detail::null_sink{};
-        emit(std::forward<Args>(args)..., null_sink);
+        call_each_slot([&](const slot& s) {
+            s(std::forward<Args>(args)...);
+            return false;
+        });
     }
 
     // Emits signal and sinks signal return values
     template <typename Sink>
     void operator()(Args... args, Sink&& sink)
     {
-        emit(std::forward<Args>(args)..., std::forward<Sink>(sink));
+        call_each_slot([&](const slot& s) {
+            using invoker = detail::sink_invoker<return_type>;
+            return invoker::call(std::forward<Sink>(sink), s,
+                                 std::forward<Args>(args)...);
+        });
     }
 
     // Disconnects all slots bound to this signal
@@ -491,36 +490,37 @@ private:
         }
     }
 
-    template <typename Sink>
-    void emit(Args&&... args, Sink&& sink)
+    void prepare_slots()
     {
         auto it_before = slots_.before_begin(),
              it = slots_.begin(),
              last = slots_.end();
 
-        for (auto& slot : slots_)
-            slot.prepare();
-
         while (it != last)
         {
-            if (!it->valid())
+            if (!it->prepare())
             {
                 it = slots_.erase_after(it_before);
                 continue;
             }
 
-            if (!it->is_blocked() && it->is_prepared())
-            {
-                using invoker = detail::sink_invoker<return_type>;
-                if (invoker::call(std::forward<Sink>(sink), *it,
-                                  std::forward<Args>(args)...))
-                {
-                    break;
-                }
-            }
-
             ++it_before;
             ++it;
+        }
+    }
+
+    template <typename Func>
+    void call_each_slot(Func&& func)
+    {
+        prepare_slots();
+
+        for (const auto& slot : slots_)
+        {
+            if (!slot.is_blocked() && slot.is_prepared())
+            {
+                if (func(slot))
+                    break;
+            }
         }
     }
 
@@ -546,7 +546,14 @@ private:
             return impl_(std::forward<Args>(args)...);
         }
 
-        void prepare() { prepared_ = true; }
+        bool prepare()
+        {
+            if (!valid())
+                return false;
+            prepared_ = true;
+            return true;
+        }
+
         void invalidate() { connection_info().parent = nullptr; }
 
         const detail::connection_info& connection_info() const
