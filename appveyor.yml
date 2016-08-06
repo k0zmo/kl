@@ -6,10 +6,6 @@ environment:
   global:
     BOOST_INCLUDEDIR: "C:/Libraries/boost_1_60_0"
   matrix:
-    - CMAKE_GENERATOR_NAME: "Visual Studio 12 2013"
-      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_60_0/lib32-msvc-12.0"
-    - CMAKE_GENERATOR_NAME: "Visual Studio 12 2013 Win64"
-      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_60_0/lib64-msvc-12.0"
     - CMAKE_GENERATOR_NAME: "Visual Studio 14 2015"
       BOOST_LIBRARYDIR: "C:/Libraries/boost_1_60_0/lib32-msvc-14.0"
     - CMAKE_GENERATOR_NAME: "Visual Studio 14 2015 Win64"
