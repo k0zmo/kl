@@ -348,12 +348,7 @@ public:
 public:
     // Constructs empty, disconnected signal
     signal() = default;
-    ~signal()
-    {
-        // Don't leave any dangling pointers in still-alive connection objects
-        for (auto& slot : slots_)
-            slot.invalidate();
-    }
+    ~signal() { disconnect_all_slots(); }
 
     signal(signal&& other) : slots_(std::move(other.slots_)), id_{other.id_}
     {
@@ -434,13 +429,8 @@ public:
     // Retrieves number of slots connected to this signal
     size_t num_slots() const
     {
-        size_t num{0};
-        for (const auto& slot : slots_)
-        {
-            if (slot.valid())
-                ++num;
-        }
-        return num;
+        return std::count_if(slots_.begin(), slots_.end(),
+                             [](const slot& s) { return s.valid(); });
     }
 
     // Returns true if signal isn't connected to any slot
@@ -460,7 +450,7 @@ private:
     virtual void disconnect(int id) override
     {
         auto target =
-            std::find_if(slots_.begin(), slots_.end(), [&](slot& slot) {
+            std::find_if(slots_.begin(), slots_.end(), [&](const slot& slot) {
                 return slot.connection_info().id == id;
             });
         if (target != slots_.end())
@@ -474,7 +464,7 @@ private:
 
     void rebind()
     {
-        slots_.remove_if([&](slot& slot) {
+        slots_.remove_if([&](const slot& slot) {
             return !slot.valid();
         });
 
