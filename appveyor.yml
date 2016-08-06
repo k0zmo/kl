@@ -24,4 +24,10 @@ build_script:
   - cmd: cmake --build . --config Release -- /verbosity:minimal /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
 
 test_script:
-  - cmd: "%APPVEYOR_BUILD_FOLDER%\\build\\Release\\kl_tests"
+  - cmd: "Release\\kl_tests" -r junit -o results.xml
+
+after_test:
+  - ps: |
+      $url = "https://ci.appveyor.com/api/testresults/junit/$($env:APPVEYOR_JOB_ID)"
+      $file = 'results.xml'
+      (New-Object 'System.Net.WebClient').UploadFile($url, (Resolve-Path $file))
