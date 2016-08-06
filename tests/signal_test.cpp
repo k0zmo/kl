@@ -541,3 +541,56 @@ TEST_CASE("connect/disconnect during signal emission")
     REQUIRE(test.trace ==
             (std::vector<int>{0, 99, 2, 99, 0, 99, 2, 99, 4, 99, 4, 99}));
 }
+
+TEST_CASE("by value vs by const ref")
+{
+    using kl::signal;
+
+    SECTION("exact match slot and signal signature")
+    {
+        signal<void(std::vector<int>)> s0;
+        signal<void(const std::vector<int>&)> s1;
+
+        // We should get exaclty one copy constructor and one move constructor
+        // for each slot invocation (+1 move for extended connection)
+        s0.connect([](std::vector<int> vec) { REQUIRE(vec.size() == 5); });
+        s0.connect([](std::vector<int> vec) { REQUIRE(vec.size() == 5); });
+        s0.connect_extended([](kl::connection, std::vector<int> vec) {
+            REQUIRE(vec.size() == 5);
+        });
+        s0.connect_extended([](kl::connection, std::vector<int> vec) {
+            REQUIRE(vec.size() == 5);
+        });
+
+        // No copy/move ctor in this case
+        s1.connect(
+            [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); });
+        s1.connect(
+            [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); });
+        s1.connect_extended([](kl::connection, const std::vector<int>& vec) {
+            REQUIRE(vec.size() == 7);
+        });
+        s1.connect_extended([](kl::connection, const std::vector<int>& vec) {
+            REQUIRE(vec.size() == 7);
+        });
+
+        s0(std::vector<int>{0, 1, 2, 3, 4}, [] {});
+        s0(std::vector<int>{0, 1, 2, 3, 4});
+
+        std::vector<int> vec{0, 1, 2, 3, 4, 5, 6};
+        s1(vec, [] {});
+        s1(vec);
+    }
+
+    SECTION("slot by value, signal by const-ref")
+    {
+        // We should get exaclty one copy constructor for each slot invocation
+        signal<void(const std::vector<int>&)> s;
+
+        s.connect([](std::vector<int> vec) { REQUIRE(vec.size() == 5); });
+        s.connect([](std::vector<int> vec) { REQUIRE(vec.size() == 5); });
+
+        s(std::vector<int>{0, 1, 2, 3, 4}, [] {});
+        s(std::vector<int>{0, 1, 2, 3, 4});
+    }
+}

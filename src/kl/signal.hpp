@@ -263,30 +263,29 @@ struct sink_invoker
 private:
     template <typename Sink, typename Slot, typename... Args>
     static bool call_impl(std::false_type /*is_sink_return_type_void*/,
-                          Sink&& sink, const Slot& slot, Args&&... args)
+                          Sink&& sink, const Slot& slot, const Args&... args)
     {
-        return !!std::forward<Sink>(sink)(slot(std::forward<Args>(args)...));
+        return !!std::forward<Sink>(sink)(slot(args...));
     }
 
     template <typename Sink, typename Slot, typename... Args>
     static bool call_impl(std::true_type /*is_sink_return_type_void*/,
-                          Sink&& sink, const Slot& slot, Args&&... args)
+                          Sink&& sink, const Slot& slot, const Args&... args)
     {
-        std::forward<Sink>(sink)(slot(std::forward<Args>(args)...));
+        std::forward<Sink>(sink)(slot(args...));
         return false;
     }
 
 public:
     template <typename Sink, typename Slot, typename... Args>
-    static bool call(Sink&& sink, const Slot& slot, Args&&... args)
+    static bool call(Sink&& sink, const Slot& slot, const Args&... args)
     {
         using is_sink_return_type_void = std::integral_constant<
             bool, std::is_same<void, std::result_of_t<Sink(
                                          typename Slot::return_type)>>::value>;
 
         return sink_invoker::call_impl(is_sink_return_type_void{},
-                                       std::forward<Sink>(sink), slot,
-                                       std::forward<Args>(args)...);
+                                       std::forward<Sink>(sink), slot, args...);
     }
 };
 
@@ -296,31 +295,30 @@ struct sink_invoker<void>
 private:
     template <typename Sink, typename Slot, typename... Args>
     static bool call_impl(std::false_type /*is_sink_return_type_void*/,
-                          Sink&& sink, const Slot& slot, Args&&... args)
+                          Sink&& sink, const Slot& slot, const Args&... args)
     {
-        slot(std::forward<Args>(args)...);
+        slot(args...);
         return !!std::forward<Sink>(sink)();
     }
 
     template <typename Sink, typename Slot, typename... Args>
     static bool call_impl(std::true_type /*is_sink_return_type_void*/,
-                          Sink&& sink, const Slot& slot, Args&&... args)
+                          Sink&& sink, const Slot& slot, const Args&... args)
     {
-        slot(std::forward<Args>(args)...);
+        slot(args...);
         std::forward<Sink>(sink)();
         return false;
     }
 
 public:
     template <typename Sink, typename Slot, typename... Args>
-    static bool call(Sink&& sink, const Slot& slot, Args&&... args)
+    static bool call(Sink&& sink, const Slot& slot, const Args&... args)
     {
         using is_sink_return_type_void = std::integral_constant<
             bool, std::is_same<void, std::result_of_t<Sink()>>::value>;
 
         return sink_invoker::call_impl(is_sink_return_type_void{},
-                                       std::forward<Sink>(sink), slot,
-                                       std::forward<Args>(args)...);
+                                       std::forward<Sink>(sink), slot, args...);
     }
 };
 } // namespace detail
@@ -411,7 +409,7 @@ public:
     void operator()(Args... args)
     {
         call_each_slot([&](const slot& s) {
-            s(std::forward<Args>(args)...);
+            s(args...);
             return false;
         });
     }
@@ -422,8 +420,7 @@ public:
     {
         call_each_slot([&](const slot& s) {
             using invoker = detail::sink_invoker<return_type>;
-            return invoker::call(std::forward<Sink>(sink), s,
-                                 std::forward<Args>(args)...);
+            return invoker::call(std::forward<Sink>(sink), s, args...);
         });
     }
 
@@ -541,9 +538,9 @@ private:
         slot(const slot&) = delete;
         slot& operator=(const slot&) = delete;
 
-        return_type operator()(Args&&... args) const
+        return_type operator()(const Args&... args) const
         {
-            return impl_(std::forward<Args>(args)...);
+            return impl_(args...);
         }
 
         bool prepare()
