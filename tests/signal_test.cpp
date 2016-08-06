@@ -604,3 +604,43 @@ TEST_CASE("by value vs by const ref")
         s(std::vector<int>{0, 1, 2, 3, 4});
     }
 }
+
+TEST_CASE("make_slot and KL_SLOT macro inside class contructor")
+{
+    using kl::signal;
+
+    signal<void(int)> s;
+
+    class C
+    {
+    public:
+        C(signal<void(int)>& s)
+        {
+            s.connect(kl::make_slot(&C::handler, this));
+            C& inst = *this;
+            s.connect(kl::make_slot(&C::handler, inst));
+#if defined(KL_SLOT)
+            s.connect(KL_SLOT(handler));
+#endif
+        }
+
+    private:
+        void handler(int i)
+        {
+            REQUIRE(i == 3);
+            ++cnt;
+        }
+
+    public:
+        int cnt = 0;
+    };
+
+    C c{s};
+    s(3);
+
+#if defined(KL_SLOT)
+    REQUIRE(c.cnt == 3);
+#else
+    REQUIRE(c.cnt == 2);
+#endif
+}

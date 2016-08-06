@@ -377,16 +377,15 @@ public:
 
         // Create proxy slot that would add connection as a first argument
         auto connection = make_connection(connection_info);
-#if (defined(_MSC_VER) && _MSC_VER < 1900) ||                                  \
-    (!defined(_MSC_VER) && __cplusplus < 201402)
-        auto proxy_slot = [=](Args&&... args) mutable {
-            return extended_slot(connection, std::forward<Args>(args)...);
-        };
-#else
+#if (defined(_MSC_VER) && _MSC_VER >= 1900) || __cplusplus >= 201402
         auto proxy_slot = [connection, slot = std::move(extended_slot)]
             (Args&&... args) mutable {
                 return slot(connection, std::forward<Args>(args)...);
             };
+#else
+        auto proxy_slot = [=](Args&&... args) mutable {
+            return extended_slot(connection, std::forward<Args>(args)...);
+        };
 #endif
         slots_.emplace_after(find_slot_place(at), std::move(proxy_slot),
                              connection_info);
@@ -612,7 +611,7 @@ std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
 template <typename T, typename Ret, typename... Args>
 std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T& instance)
 {
-    return {[=](Args&&... args) {
+    return {[mem_func, &instance](Args&&... args) {
         return (const_cast<T&>(instance).*mem_func)(std::forward<Args>(args)...);
     }};
 }
@@ -621,7 +620,7 @@ template <typename T, typename Ret, typename... Args>
 std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
                                       const T& instance)
 {
-    return {[=](Args&&... args) {
+    return {[mem_func, &instance](Args&&... args) {
         return (instance.*mem_func)(std::forward<Args>(args)...);
     }};
 }
@@ -653,9 +652,10 @@ struct hash<kl::scoped_connection>
 };
 } // namespace std
 
-// Handy macro for slot connecting inside a class (requires C++14 generic
-// lambdas)
+// Handy macro for slot connecting inside a class (requires C++14 generic lambdas)
+#if (defined(_MSC_VER) && _MSC_VER >= 1900) || __cplusplus >= 201402
 #define KL_SLOT(mem_fn)                                                        \
     [this](auto&&... args) {                                                   \
-        return mem_fn(std::forward<decltype(args)>(args)...);                  \
+        return this->mem_fn(std::forward<decltype(args)>(args)...);            \
     }
+#endif
