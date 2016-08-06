@@ -1,0 +1,31 @@
+version: "1.0.{build}"
+
+os: Visual Studio 2015
+
+environment:
+  global:
+    - BOOST_INCLUDEDIR: "C:/Libraries/boost_1_60_0"
+  matrix:
+    - CMAKE_GENERATOR_NAME: "Visual Studio 12 2013"
+      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_60_0/lib32-msvc-12.0"
+    - CMAKE_GENERATOR_NAME: "Visual Studio 12 2013 Win64"
+      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_60_0/lib64-msvc-12.0"
+    - CMAKE_GENERATOR_NAME: "Visual Studio 14 2015"
+      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_60_0/lib32-msvc-14.0"
+    - CMAKE_GENERATOR_NAME: "Visual Studio 14 2015 Win64"
+      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_60_0/lib64-msvc-14.0"
+
+init:
+  - cmd: cmake --version
+  - cmd: msbuild /version
+
+before_build:
+  - cmd: mkdir build
+  - cmd: cd build
+  - cmd: cmake -G "%CMAKE_GENERATOR_NAME%" ..
+
+build_script:
+  - cmd: cmake --build . --config Release -- /verbosity:minimal /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+
+test_script:
+  - cmd: "%APPVEYOR_BUILD_FOLDER%\\build\\Release\\kl_tests"
