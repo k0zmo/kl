@@ -5,6 +5,8 @@ if(POLICY CMP0054)
     cmake_policy(SET CMP0054 NEW)
 endif()
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+
 include(CheckCXXCompilerFlag)
 
 # Default to Release build if non provided
@@ -68,7 +70,6 @@ elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR
     endif()
 
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-        add_compile_options("-fcxx-exceptions")
         add_compile_options("-Wno-missing-braces")
         add_compile_options("-Wno-unused-const-variable")
     endif()
@@ -149,9 +150,15 @@ set(KL_TEST_FILES
 source_group("3rdparty\\catch" FILES ${KL_3RDPARTY_CATCH_FILES})
 source_group("kl" FILES ${KL_TEST_FILES})
 
-add_executable(kl_tests
+add_executable(kl-tests
     ${KL_3RDPARTY_CATCH_FILES}
     ${KL_TEST_FILES}
 )
-target_link_libraries(kl_tests kl)
-target_include_directories(kl_tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty")
+target_link_libraries(kl-tests kl)
+target_include_directories(kl-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty")
+
+include(SetupCoverage)
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    setup_coverage_lcov(kl-coverage kl-tests coverage
+                        FILTERS '${CMAKE_SOURCE_DIR}/src/*')
+endif()
