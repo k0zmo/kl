@@ -72,9 +72,9 @@ elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
         add_compile_options("-Wno-missing-braces")
         add_compile_options("-Wno-unused-const-variable")
-        add_compile_options("-stdlib=libc++")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi")
+        #add_compile_options("-stdlib=libc++")
+        #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
+        #set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi")
     endif()
 endif()
 
