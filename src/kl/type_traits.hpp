@@ -2,15 +2,7 @@
 
 #include <type_traits>
 #include <utility>
-
-namespace std {
-template <typename T, std::size_t N>
-#if defined(_MSC_VER)
-class array; // MSVC defines array as class
-#else
-struct array;
-#endif
-} // namespace std
+#include <array>
 
 namespace kl {
 

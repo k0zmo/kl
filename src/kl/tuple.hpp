@@ -5,6 +5,8 @@
 #include <tuple>
 #include <type_traits>
 #include <limits>
+#include <algorithm>
+#include <initializer_list>
 
 namespace kl {
 
