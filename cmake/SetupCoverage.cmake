@@ -90,7 +90,7 @@ function(setup_coverage_lcov _target_name _test_runner _output_name)
     list(APPEND _coverage_args COMMAND ${GENHTML_EXECUTABLE}
          -q --output-directory ${_output_name} ${_output_name}.info  ${_branch_coverage})
     list(APPEND _coverage_args COMMAND ${CMAKE_COMMAND}
-         -E remove ${_output_name}.info ${_output_name}.all.info)
+         -E remove ${_output_name}.all.info)
 
     add_custom_target(${_target_name} ${_coverage_args}
                       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}

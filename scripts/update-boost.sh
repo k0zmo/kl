@@ -1,19 +1,17 @@
 #!/bin/bash
-# Builds the latest version of Boost
 
-if [ ! -d ".travis/boost-install/lib" ]; then
-	rm -rf ".travis/boost"
-	rm -rf ".travis/boost-install"
-	mkdir -p ".travis" && cd ".travis"
-	git clone --recursive --depth 1 --branch boost-1.61.0 https://github.com/boostorg/boost.git boost >/dev/null 2>&1 || echo "clone failed"
-	cd boost && chmod +x bootstrap.sh
-	./bootstrap.sh --prefix="$(pwd)/../boost-install"
-	./b2 headers
-	# We have to build boost using GCC
-	# If you know how to build boost with Clang, fix this!
-	./b2 toolset=gcc-6 variant=release link=static "$@" install -d0
+if [ ! -d ".travis/boost/lib" ]; then
+    rm -rf ".travis/boost"
+    mkdir -p ".travis" && cd ".travis"
+    wget 'http://downloads.sourceforge.net/project/boost/boost/1.60.0/boost_1_60_0.tar.gz'
+    tar xzf boost_1_60_0.tar.gz
+    cd ./boost_1_60_0
+    chmod +x bootstrap.sh
+    ./bootstrap.sh --prefix="$(pwd)/../boost"
+    ./b2 toolset=gcc-6 variant=release link=static "$@" install
+    cd ../boost
 else
-	mkdir -p ".travis/boost" && cd ".travis/boost"
+    cd ".travis/boost"
+    echo "Using cached boost at $(pwd)"
 fi
-cd ../boost-install
 export BOOST_ROOT="$(pwd)"

@@ -9,21 +9,27 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-6']
-      env: COMPILER=gcc-6 COMPILERXX=g++-6
+      env: 
+        - COMPILER=gcc-6
+        - COMPILERXX=g++-6
+        - VARIANT=Coverage
     - os: linux
       compiler: clang
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.8']
           packages: ['clang-3.8', 'g++-6']
-      env: COMPILER=clang-3.8 COMPILERXX=clang++-3.8
+      env:
+        - COMPILER=clang-3.8
+        - COMPILERXX=clang++-3.8
+        - VARIANT=Release
 
 cache:
   apt: true
   directories:
-    - ".travis/cmake/build/install"
-    - ".travis/boost-install"
-    - ".travis/lcov-install"
+    - ".travis/cmake"
+    - ".travis/boost"
+    - ".travis/lcov"
 
 before_install:
   - export CC="$COMPILER" && export CXX="$COMPILERXX"
@@ -31,15 +37,9 @@ before_install:
   - pushd . && source "./scripts/update-boost.sh" && popd
   - pushd . && source "./scripts/update-lcov.sh"  && popd
   - pip install --user codecov
-  - CODECOVPATH=~/.local/bin && export PATH="$CODECOVPATH:$PATH"
 
 script:
-  - cmake --version
-  - $CC --version
-  - $CXX --version
-  - lcov --version
-  - gcov --version
-  - codecov --version
+  - ./scripts/build-and-test.sh
 
 notifications:
   email: false

@@ -1,14 +1,15 @@
 #!/bin/bash
-# Builds lcov 1.11
 
-if [ ! -d ".travis/lcov-install" ]; then
-    rm -rf ".travis/lcov-install"
-    mkdir -p ".travis/lcov-install" && cd ".travis/lcov-install"
-    wget http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
-    tar xf lcov_1.11.orig.tar.gz
-    cd ./lcov-1.11/bin
+if [ ! -d ".travis/lcov/bin" ]; then
+    rm -rf ".travis/lcov"
+    mkdir -p ".travis" && cd ".travis"
+    curl -O http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.11.orig.tar.gz
+    tar xzf lcov_1.11.orig.tar.gz
+    mv lcov-1.11 lcov
+    cd ./lcov/bin
 else
-    cd ".travis/lcov-install/lcov-1.11/bin"
+    cd ".travis/lcov/bin"
+    echo "Using cached lcov at $(pwd)"
 fi
 LCOVPATH=$(pwd)
 export PATH="$LCOVPATH:$PATH"
