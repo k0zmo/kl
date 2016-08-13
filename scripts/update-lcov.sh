@@ -11,5 +11,4 @@ else
     cd ".travis/lcov/bin"
     echo "Using cached lcov at $(pwd)"
 fi
-LCOVPATH=$(pwd)
-export PATH="$LCOVPATH:$PATH"
+export PATH="$(pwd):$PATH"

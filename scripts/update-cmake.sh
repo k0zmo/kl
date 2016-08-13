@@ -11,5 +11,4 @@ else
     cd ".travis/cmake/bin"
     echo "Using cached cmake at $(pwd)"
 fi
-CMAKEPATH=$(pwd)
-export PATH="$CMAKEPATH:$PATH"
+export PATH="$(pwd):$PATH"
