@@ -1,5 +1,5 @@
 #!/bin/bash
-set -eux
+set -e
 
 # Override gcc and his friends version to gcc-6
 # Put an appropriate symlink at the front of the path.
@@ -24,6 +24,7 @@ if [ "$VARIANT" = "Coverage" ]; then
     make kl-coverage
 else 
     make
+    ./kl-tests
 fi
 
 if [ "$VARIANT" = "Coverage" ]; then 
