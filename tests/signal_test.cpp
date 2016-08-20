@@ -28,6 +28,15 @@ TEST_CASE("signal")
         REQUIRE(s.num_slots() == 0);
     }
 
+    SECTION("connect null function")
+    {
+        kl::signal<float(int)> s;
+        s.connect(nullptr);
+        REQUIRE(s.empty());
+        s.connect_extended(nullptr);
+        REQUIRE(s.empty());
+    }
+
     SECTION("connect lambda")
     {
         static const int arg = 2;
@@ -307,6 +316,10 @@ TEST_CASE("connection")
         {
             auto b = c1.get_blocker();
             auto b2 = c1.get_blocker();
+            s();
+            REQUIRE(cnt == 0);
+
+            b2 = b;
             s();
             REQUIRE(cnt == 0);
         }

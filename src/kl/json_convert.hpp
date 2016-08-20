@@ -350,6 +350,10 @@ struct value_factory
     template <typename T, enable_if<is_vector<T>> = 0>
     static T create(const json11::Json& json)
     {
+        if (!json.is_array())
+            throw json_deserialize_exception{"type must be an array but is " +
+                                             json_type_name(json)};
+
         T ret{};
         ret.reserve(json.array_items().size());
 
@@ -375,6 +379,10 @@ struct value_factory
     template <typename T, enable_if<is_associative_string<T>> = 0>
     static T create(const json11::Json& json)
     {
+        if (!json.is_object())
+            throw json_deserialize_exception{"type must be an object but is " +
+                                             json_type_name(json)};
+
         T ret{};
 
         for (const auto& obj : json.object_items())

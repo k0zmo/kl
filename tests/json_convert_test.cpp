@@ -143,6 +143,33 @@ TEST_CASE("json_convert")
         REQUIRE(j.array_items()[3] == false);
     }
 
+    SECTION("deserialize simple - wrong types")
+    {
+        json11::Json null;
+        REQUIRE_THROWS_AS(kl::from_json<int>(null),
+                          kl::json_deserialize_exception);
+        REQUIRE_THROWS_AS(kl::from_json<bool>(null),
+                          kl::json_deserialize_exception);
+        REQUIRE_THROWS_AS(kl::from_json<float>(null),
+                          kl::json_deserialize_exception);
+        REQUIRE_THROWS_AS(kl::from_json<std::string>(null),
+                          kl::json_deserialize_exception);
+        REQUIRE_THROWS_AS(kl::from_json<std::tuple<int>>(null),
+                          kl::json_deserialize_exception);
+        REQUIRE_THROWS_AS(kl::from_json<std::vector<int>>(null),
+                          kl::json_deserialize_exception);
+        REQUIRE_THROWS_AS((kl::from_json<std::map<std::string, int>>(null)),
+                          kl::json_deserialize_exception);
+
+        json11::Json arr{json11::Json::array{3, true}};
+        REQUIRE_THROWS_AS(kl::from_json<std::vector<int>>(arr),
+                          kl::json_deserialize_exception);
+
+        json11::Json obj{json11::Json::object{{"key0", 3}, {"key2", true}}};
+        REQUIRE_THROWS_AS((kl::from_json<std::map<std::string, int>>(obj)),
+                          kl::json_deserialize_exception);
+    }
+
     SECTION("deserialize tuple")
     {
         auto t = std::make_tuple(13, 3.14, colour_space::lab, false);
@@ -287,13 +314,16 @@ TEST_CASE("json_convert")
         auto j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
 
+
         try
         {
             kl::from_json<optional_test>(j);
         }
         catch (std::exception& ex)
         {
-            ex.what();
+            REQUIRE(!strcmp(ex.what(),
+                            "type must be an integral but is STRING\n"
+                            "error when deserializing field opt"));
         }
 
         REQUIRE_THROWS_AS(kl::from_json<optional_test>(j),
@@ -473,9 +503,10 @@ struct chrono_test
 {
     int t;
     std::chrono::seconds sec;
+    std::vector<std::chrono::seconds> secs;
     our_type o;
 };
-KL_DEFINE_REFLECTABLE(chrono_test, (t, sec, o))
+KL_DEFINE_REFLECTABLE(chrono_test, (t, sec, secs, o))
 
 // Specialize to_json/from_json for std::chrono::seconds
 // Don't overload since from_json only differs by return type
@@ -495,7 +526,8 @@ std::chrono::seconds from_json(const json11::Json& json)
 
 TEST_CASE("json_convert - extended")
 {
-    chrono_test t{2, std::chrono::seconds{10}, our_type{}};
+    using namespace std::chrono;
+    chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}, our_type{}};
     auto j = kl::to_json(t);
     auto obj = kl::from_json<chrono_test>(j);
 }

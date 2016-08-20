@@ -2,6 +2,14 @@
 
 #include <catch/catch.hpp>
 
+namespace test {
+
+bool foo(int) { return true; }
+bool bar(double) { return true; }
+
+struct dummy {};
+} // namespace test
+
 TEST_CASE("match")
 {
     SECTION("overloader")
@@ -20,5 +28,21 @@ TEST_CASE("match")
                                 [](float f) { return f * 2.5f; },
                                 [](bool b) { return b * 2.0f; });
         REQUIRE(res == 2.0f);
+    }
+
+    SECTION("match func")
+    {
+        boost::variant<int, double, test::dummy> v = test::dummy{};
+
+        auto res = kl::match(v, kl::make_func_overload(&test::foo),
+                                kl::make_func_overload(&test::bar),
+                                [](const test::dummy&) { return false; });
+        REQUIRE(!res);
+
+        v = 3;
+        res = kl::match(v, kl::make_func_overload(&test::foo),
+                           kl::make_func_overload(&test::bar),
+                           [](const test::dummy&) { return false; });
+        REQUIRE(res);
     }
 }

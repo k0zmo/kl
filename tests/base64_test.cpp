@@ -82,5 +82,7 @@ TEST_CASE("base64")
         REQUIRE(base64_decode("aaaa"));
         REQUIRE(!base64_decode("aa=a"));
         REQUIRE(!base64_decode("a==="));
+        REQUIRE(!base64_decode("a!=="));
+        REQUIRE(!base64_decode("a@!="));
     }
 }
