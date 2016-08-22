@@ -11,11 +11,18 @@ template <std::size_t... I>
 struct index_sequence {};
 
 template <std::size_t N, std::size_t... I>
-struct make_index_sequence : make_index_sequence<N - 1, N - 1, I...>
+struct make_index_sequence_impl : make_index_sequence_impl<N - 1, N - 1, I...>
 {};
+
 template <std::size_t... I>
-struct make_index_sequence<0, I...> : index_sequence<I...>
-{};
+struct make_index_sequence_impl<0, I...>
+{
+    using type = index_sequence<I...>;
+};
+
+template <std::size_t N>
+using make_index_sequence = typename make_index_sequence_impl<N>::type;
+
 #else
 using std::make_index_sequence;
 using std::index_sequence;
