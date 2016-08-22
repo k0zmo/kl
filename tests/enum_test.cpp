@@ -51,7 +51,7 @@ struct enum_traits<access_mode>
 
 KL_DEFINE_ENUM_REFLECTOR(unscoped_enum_type, (prefix_one, prefix_two))
 
-KL_DEFINE_ENUM_REFLECTOR(access_mode, (read_write, write_only, read_only))
+KL_DEFINE_ENUM_REFLECTOR(access_mode, (read_write, write_only, read_only, max))
 
 KL_DEFINE_ENUM_REFLECTOR(ns::inner, colour_space,
                          (rgb, xyz, ycrcb, hsv, lab, hls, luv))

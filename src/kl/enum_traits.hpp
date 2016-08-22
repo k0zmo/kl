@@ -72,7 +72,7 @@ struct enum_trait_support_range
         return open_closed ? underlying_cast(Max) : underlying_cast(Max) + 1;
     }
 
-    static constexpr Enum min() { return static_cast<Enum>(min_value()); };
+    static constexpr Enum min() { return static_cast<Enum>(min_value()); }
     static constexpr Enum max() { return static_cast<Enum>(max_value()); }
     static constexpr std::size_t count() { return max_value() - min_value(); }
 

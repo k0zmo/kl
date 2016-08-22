@@ -34,10 +34,10 @@ private:
 
 struct connection_info final
 {
-    connection_info(int id, signal_base* parent) : id{id}, parent{parent} {}
+    connection_info(signal_base* parent, int id) : parent{parent}, id{id} {}
 
-    const int id;
     signal_base* parent;
+    const int id;
     unsigned blocking{0};
 };
 
@@ -368,7 +368,7 @@ public:
             return {};
 
         auto connection_info =
-            std::make_shared<detail::connection_info>(++id_, this);
+            std::make_shared<detail::connection_info>(this, ++id_);
 
         // Create proxy slot that would add connection as a first argument
         auto connection = make_connection(connection_info);
@@ -382,8 +382,8 @@ public:
             return extended_slot(connection, std::forward<Args>(args)...);
         };
 #endif
-        slots_.emplace_after(find_slot_place(at), std::move(proxy_slot),
-                             connection_info);
+        slots_.emplace_after(find_slot_place(at), connection_info,
+                             std::move(proxy_slot));
         return connection;
     }
 
@@ -393,9 +393,9 @@ public:
         if (!slot)
             return {};
         auto connection_info =
-            std::make_shared<detail::connection_info>(++id_, this);
-        slots_.emplace_after(find_slot_place(at), std::move(slot),
-                             connection_info);
+            std::make_shared<detail::connection_info>(this, ++id_);
+        slots_.emplace_after(find_slot_place(at), connection_info,
+                             std::move(slot));
         return make_connection(std::move(connection_info));
     }
 
@@ -517,10 +517,11 @@ private:
         using return_type = typename signal::return_type;
 
     public:
-        slot(slot_type impl,
-             std::shared_ptr<detail::connection_info> connection_info)
-            : impl_{std::move(impl)},
-              connection_info_{std::move(connection_info)}
+        slot(std::shared_ptr<detail::connection_info> connection_info,
+             slot_type impl)
+            : connection_info_{std::move(connection_info)},
+              impl_{std::move(impl)}
+
         {
         }
 
@@ -554,8 +555,8 @@ private:
         bool is_prepared() const { return valid() && prepared_; }
 
     private:
-        slot_type impl_;
         std::shared_ptr<detail::connection_info> connection_info_;
+        slot_type impl_;
         bool prepared_{false};
     };
 

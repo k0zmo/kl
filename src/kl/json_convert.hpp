@@ -58,7 +58,7 @@ using is_json_constructible =
                            // but causes compilation error
                            std::is_constructible<json11::Json, T>::value &&
                                !is_optional<T>::value && !std::is_enum<T>::value
-#if _MSC_VER < 1900
+#if defined(_MSC_VER) && (_MSC_VER < 1900)
                                // MSVC2013 has some issues with deleted ctor
                                // and is_constructible<T> trait
                                && (!std::is_convertible<T, void*>::value ||

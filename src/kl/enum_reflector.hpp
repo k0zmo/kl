@@ -182,9 +182,8 @@ using is_enum_nonreflectable =
                 BOOST_PP_TUPLE_SIZE(values_),                                  \
                 KL_ENUM_REFLECTOR_FOR_EACH_IN_TUPLE2,                          \
                 (full_name_, values_, KL_ENUM_REFLECTOR_VALUE_TO_STRING))      \
-        default:                                                               \
-            return "(unknown)";                                                \
         }                                                                      \
+        return "(unknown)";                                                    \
     }
 
 // makes sure arg is a tuple (works for tuples and single arg)
