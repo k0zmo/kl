@@ -135,14 +135,15 @@ TEST_CASE("enum_reflector")
 
         REQUIRE(reflector::name() == "access_mode"s);
         REQUIRE(reflector::full_name() == "access_mode"s);
-        REQUIRE(reflector::count() == 3);
+        REQUIRE(reflector::count() == 4);
 
         SECTION("to_string")
         {
             REQUIRE(reflector::to_string(access_mode::read_write) == "read_write"s);
             REQUIRE(reflector::to_string(access_mode::write_only) == "write_only"s);
             REQUIRE(reflector::to_string(access_mode::read_only) == "read_only"s);
-            REQUIRE(reflector::to_string(access_mode::max) == "(unknown)"s);
+            REQUIRE(reflector::to_string(access_mode::max) == "max"s);
+            REQUIRE(reflector::to_string((access_mode)4) == "(unknown)"s);
         }
 
         SECTION("from_string")
@@ -152,7 +153,8 @@ TEST_CASE("enum_reflector")
                     access_mode::read_write);
 
             REQUIRE(!reflector::from_string("read_writ"));
-            REQUIRE(!reflector::from_string("max"));
+            REQUIRE(reflector::from_string("max"));
+            REQUIRE(reflector::from_string("max").get() == access_mode::max);
         }
     }
 
@@ -226,7 +228,7 @@ TEST_CASE("enum_range")
         }
 
         REQUIRE(vec.size() == 3);
-        REQUIRE(vec.size() == reflector::count());
+        REQUIRE(vec.size() == reflector::count() - 1); // max
         REQUIRE(vec[0] == access_mode::read_write);
         REQUIRE(vec[1] == access_mode::write_only);
         REQUIRE(vec[2] == access_mode::read_only);
