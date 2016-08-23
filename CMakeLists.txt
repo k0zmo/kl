@@ -1,17 +1,30 @@
 cmake_minimum_required(VERSION 3.1.2)
-project(kl CXX)
+project(KL CXX)
 
 if(POLICY CMP0054)
     cmake_policy(SET CMP0054 NEW)
 endif()
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
+# Set CMake modules path
+set(KL_CMAKE_DIR "${KL_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH ${KL_CMAKE_DIR} ${CMAKE_MODULE_PATH})
 
-include(CheckCXXCompilerFlag)
+# Determine if kl is build as a subproject (using add_subdirectory)
+# or if it is the master project.
+set(MASTER_PROJECT OFF)
+if(KL_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    set(MASTER_PROJECT ON)
+endif()
 
-# Default to Release build if non provided
-if(CMAKE_BUILD_TYPE STREQUAL "")
-    set(CMAKE_BUILD_TYPE "Release")
+# Build tests in the master project by default
+option(KL_TEST "Generate the test target." ${MASTER_PROJECT})
+
+# Set a default build type if none was specified
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    message(STATUS "Setting build type to 'Release' as none was specified.")
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
+    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+                 "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
 endif()
 
 # Configure Boost library
@@ -46,10 +59,10 @@ if(MSVC)
         set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /bigobj")
     endif()
 
-elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR 
-       ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
+elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
+       (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
     # Generate JSON Compilation Database
-    set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE) 
+    set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
     # Turn on standard set of warnings
     add_compile_options("-Wall")
     add_compile_options("-pedantic")
@@ -58,8 +71,9 @@ elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR
     add_compile_options("-Wno-unused-parameter")
 
     # Activate C++14 or bail-out
-    CHECK_CXX_COMPILER_FLAG("-std=c++14" COMPILER_SUPPORTS_CXX14)
-    CHECK_CXX_COMPILER_FLAG("-std=c++1y" COMPILER_SUPPORTS_CXX1Y)
+    include(CheckCXXCompilerFlag)
+    check_cxx_compiler_flag("-std=c++14" COMPILER_SUPPORTS_CXX14)
+    check_cxx_compiler_flag("-std=c++1y" COMPILER_SUPPORTS_CXX1Y)
     if(COMPILER_SUPPORTS_CXX14)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14")
     elseif(COMPILER_SUPPORTS_CXX1Y)
@@ -69,7 +83,7 @@ elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR
                         Please use a different C++ compiler.")
     endif()
 
-    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
         add_compile_options("-Wno-missing-braces")
         add_compile_options("-Wno-unused-const-variable")
         #add_compile_options("-stdlib=libc++")
@@ -79,15 +93,15 @@ elseif(("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") OR
 endif()
 
 set(KL_3RDPARTY_JSON11_FILES
-    ${CMAKE_SOURCE_DIR}/3rdparty/json11/json11.hpp
-    ${CMAKE_SOURCE_DIR}/3rdparty/json11/json11.cpp
+    3rdparty/json11/json11.hpp
+    3rdparty/json11/json11.cpp
 )
 set(KL_3RDPARTY_GSL_FILES
-    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/gsl.h
-    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/gsl_assert.h
-    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/gsl_util.h
-    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/span.h
-    ${CMAKE_SOURCE_DIR}/3rdparty/gsl/string_span.h
+    3rdparty/gsl/gsl.h
+    3rdparty/gsl/gsl_assert.h
+    3rdparty/gsl/gsl_util.h
+    3rdparty/gsl/span.h
+    3rdparty/gsl/string_span.h
 )
 set(KL_3RDPARTY_FILES
     ${KL_3RDPARTY_JSON11_FILES}
@@ -124,44 +138,46 @@ add_library(kl STATIC
     ${KL_3RDPARTY_FILES}
     ${KL_FILES}
 )
-target_include_directories(kl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/src")
-target_include_directories(kl PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty")
+target_include_directories(kl PUBLIC src)
+target_include_directories(kl PUBLIC 3rdparty)
 
-set(KL_3RDPARTY_CATCH_FILES
-    ${CMAKE_SOURCE_DIR}/3rdparty/catch/catch.hpp
-)
-set(KL_TEST_FILES
-    tests/base_range_test.cpp
-    tests/base64_test.cpp
-    tests/byte_test.cpp
-    tests/ctti_test.cpp
-    tests/defer_test.cpp
-    tests/enum_test.cpp
-    tests/index_sequence_test.cpp
-    tests/json_convert_test.cpp
-    tests/main_test.cpp
-    tests/match_test.cpp
-    tests/signal_test.cpp
-    tests/split_test.cpp
-    tests/stream_join_test.cpp
-    tests/string_switch_test.cpp
-    tests/tuple_test.cpp
-    tests/type_traits_test.cpp
-    tests/zip_test.cpp
-)
+if(KL_TEST)
+    set(KL_3RDPARTY_CATCH_FILES
+        3rdparty/catch/catch.hpp
+    )
+    set(KL_TEST_FILES
+        tests/base_range_test.cpp
+        tests/base64_test.cpp
+        tests/byte_test.cpp
+        tests/ctti_test.cpp
+        tests/defer_test.cpp
+        tests/enum_test.cpp
+        tests/index_sequence_test.cpp
+        tests/json_convert_test.cpp
+        tests/main_test.cpp
+        tests/match_test.cpp
+        tests/signal_test.cpp
+        tests/split_test.cpp
+        tests/stream_join_test.cpp
+        tests/string_switch_test.cpp
+        tests/tuple_test.cpp
+        tests/type_traits_test.cpp
+        tests/zip_test.cpp
+    )
 
-source_group("3rdparty\\catch" FILES ${KL_3RDPARTY_CATCH_FILES})
-source_group("kl" FILES ${KL_TEST_FILES})
+    source_group("3rdparty\\catch" FILES ${KL_3RDPARTY_CATCH_FILES})
+    source_group("kl" FILES ${KL_TEST_FILES})
 
-add_executable(kl-tests
-    ${KL_3RDPARTY_CATCH_FILES}
-    ${KL_TEST_FILES}
-)
-target_link_libraries(kl-tests kl)
-target_include_directories(kl-tests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty")
+    add_executable(kl-tests
+        ${KL_3RDPARTY_CATCH_FILES}
+        ${KL_TEST_FILES}
+    )
+    target_link_libraries(kl-tests kl)
+    target_include_directories(kl-tests PRIVATE 3rdparty)
 
-include(SetupCoverage)
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    setup_coverage_lcov(kl-coverage kl-tests coverage
-                        FILTERS '${CMAKE_SOURCE_DIR}/src/*')
+    include(SetupCoverage)
+    if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+        setup_coverage_lcov(kl-coverage kl-tests coverage
+                            FILTERS '${KL_SOURCE_DIR}/src/*')
+    endif()
 endif()
