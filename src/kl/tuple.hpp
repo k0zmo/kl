@@ -21,17 +21,22 @@ struct apply_fn
 {
 private:
     template <typename Tup, typename Fun, std::size_t... Is>
-    static void impl(Tup&& tup, Fun&& fun, index_sequence<Is...>)
+    static auto impl(Tup&& tup, Fun&& fun, index_sequence<Is...>) -> decltype(
+        std::forward<Fun>(fun)((std::get<Is>(std::forward<Tup>(tup)))...))
     {
-        std::forward<Fun>(fun)((std::get<Is>(std::forward<Tup>(tup)))...);
+        return std::forward<Fun>(fun)(
+            (std::get<Is>(std::forward<Tup>(tup)))...);
     }
 
 public:
     template <typename Tup, typename Fun>
-    static void call(Tup&& tup, Fun&& fun)
+    static auto call(Tup&& tup, Fun&& fun)
+        -> decltype(apply_fn::impl(std::forward<Tup>(tup),
+                                   std::forward<Fun>(fun),
+                                   make_tuple_indices<Tup>{}))
     {
-        apply_fn::impl(std::forward<Tup>(tup), std::forward<Fun>(fun),
-                       make_tuple_indices<Tup>{});
+        return apply_fn::impl(std::forward<Tup>(tup), std::forward<Fun>(fun),
+                              make_tuple_indices<Tup>{});
     }
 };
 
