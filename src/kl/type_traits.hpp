@@ -54,6 +54,25 @@ struct at_type<0, Head, Tail...>
 template <unsigned N, typename... Args>
 using at_type_t = typename at_type<N, Args...>::type;
 
+template <typename... Ts>
+struct type_pack : std::integral_constant<std::size_t, sizeof...(Ts)>
+{
+    template <std::size_t N>
+    struct extract
+    {
+        using type = at_type_t<N, Ts...>;
+    };
+};
+
+template <typename T>
+struct identity_type
+{
+    using type = T;
+};
+
+template <typename T>
+using identity_type_t = typename identity_type<T>::type;
+
 /*
  * Query traits of function (can be function, lambda, functor or member
  * function)
@@ -71,6 +90,9 @@ template <typename Ret, typename... Args>
 struct func_traits<Ret(Args...)>
 {
     using return_type = Ret;
+    // MSVC2013 doesn't like: using signature_type = Ret(Args...);
+    using signature_type = identity_type_t<Ret(Args...)>;
+    using args_type = type_pack<Args...>;
     static const std::size_t arity = sizeof...(Args);
 
     template <std::size_t N>

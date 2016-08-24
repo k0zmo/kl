@@ -67,16 +67,6 @@ private:
 };
 } // namespace detail
 
-template <typename... Ts>
-struct type_pack : std::integral_constant<std::size_t, sizeof...(Ts)>
-{
-    template <std::size_t N>
-    struct extract
-    {
-        using type = at_type_t<N, Ts...>;
-    };
-};
-
 template <typename T>
 struct type_info
 {
