@@ -460,6 +460,41 @@ TEST_CASE("json_convert")
         REQUIRE(obj.u16 == t.u16);
         REQUIRE(obj.u32 == t.u32);
     }
+
+    SECTION("deserialize to struct from an array")
+    {
+        auto j = json11::Json::parse(R"([3,4.0])", err);
+        REQUIRE(err.empty());
+        auto obj = kl::from_json<inner_t>(j);
+        REQUIRE(obj.r == 3);
+        REQUIRE(obj.d == 4.0);
+    }
+
+    SECTION("deserialize to struct from an array - num elements differs")
+    {
+        auto j = json11::Json::parse(R"([3,4.0,"QWE"])", err);
+        REQUIRE(err.empty());
+        REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
+                          kl::json_deserialize_exception);
+
+        j = json11::Json::parse(R"([3])", err);
+        REQUIRE(err.empty());
+        REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
+                          kl::json_deserialize_exception);
+    }
+
+    SECTION("deserialize to struct from an array - type mismatch")
+    {
+        auto j = json11::Json::parse(R"([3,"QWE"])", err);
+        REQUIRE(err.empty());
+        REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
+                          kl::json_deserialize_exception);
+
+        j = json11::Json::parse(R"([false,4])", err);
+        REQUIRE(err.empty());
+        REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
+                          kl::json_deserialize_exception);
+    }
 }
 
 #include <chrono>

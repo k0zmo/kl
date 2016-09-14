@@ -334,8 +334,30 @@ struct value_factory
     static T create(const json11::Json& json)
     {
         T obj{};
-        json_obj_deserializer visitor{json.object_items()};
-        ctti::reflect(obj, visitor);
+
+        if (json.is_object())
+        {
+            json_obj_deserializer visitor{json.object_items()};
+            ctti::reflect(obj, visitor);
+        }
+        else if (json.is_array())
+        {
+            if (json.array_items().size() != ctti::total_num_fields<T>())
+            {
+                throw json_deserialize_exception{"array size is different than "
+                                                 "declared struct's field "
+                                                 "count"};
+            }
+            json_obj_array_deserializer visitor{json.array_items()};
+            ctti::reflect(obj, visitor);
+        }
+        else
+        {
+            throw json_deserialize_exception{
+                "type must be an array or object but is " +
+                json_type_name(json)};
+        }
+
         return obj;
     }
 
@@ -458,6 +480,24 @@ private:
 
     private:
         const json11::Json::object& obj_;
+    };
+
+    struct json_obj_array_deserializer
+    {
+        explicit json_obj_array_deserializer(const json11::Json::array& arr)
+            : arr_{arr}, index_{0}
+        {
+        }
+
+        template <typename FieldInfo>
+        void operator()(FieldInfo f)
+        {
+            f.get() = from_json<typename FieldInfo::type>(arr_[index_++]);
+        }
+
+    private:
+        const json11::Json::array& arr_;
+        size_t index_;
     };
 
 private:
