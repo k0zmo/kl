@@ -1,16 +1,10 @@
 #pragma once
 
-#include <type_traits>
+#include "kl/type_traits.hpp"
+
 #include <utility>
 
 namespace kl {
-
-// Casts any kind of enum (enum, enum class) to its underlying type (i.e int32_t)
-template <typename Enum>
-constexpr auto underlying_cast(Enum e)
-{
-    return static_cast<std::underlying_type_t<Enum>>(e);
-}
 
 // Iteratates over continuous range [first, last) of given enum and execute a
 // unary function over it

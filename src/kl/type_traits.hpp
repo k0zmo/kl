@@ -6,6 +6,13 @@
 
 namespace kl {
 
+// Casts any kind of enum (enum, enum class) to its underlying type (i.e int32_t)
+template <typename Enum>
+constexpr auto underlying_cast(Enum e)
+{
+    return static_cast<std::underlying_type_t<Enum>>(e);
+}
+
 #if defined(_MSC_VER) && _MSC_VER < 1900
 template <typename T>
 struct array_size;

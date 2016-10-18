@@ -1,7 +1,6 @@
 #pragma once
 
 #include "kl/type_traits.hpp"
-#include "kl/enum_traits.hpp"
 #include "kl/enum_reflector.hpp"
 #include "kl/ctti.hpp"
 
