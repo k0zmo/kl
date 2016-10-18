@@ -178,7 +178,7 @@ private:
         template <typename FieldInfo>
         void operator()(FieldInfo f)
         {
-#if !defined(KL_JSON_CONVERT_DONT_SKIP_NULL_VALUES)
+#if !defined(KL_JSON_DONT_SKIP_NULL_VALUES)
             if (is_optional<
                     std::remove_const_t<typename FieldInfo::type>>::value)
             {

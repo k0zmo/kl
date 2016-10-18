@@ -120,6 +120,7 @@ set(KL_FILES
     src/kl/enum_traits.hpp
     src/kl/index_sequence.hpp
     src/kl/json_convert.hpp
+    src/kl/json_print.hpp
     src/kl/match.hpp
     src/kl/signal.hpp
     src/kl/split.hpp
@@ -154,6 +155,7 @@ if(KL_TEST)
         tests/enum_test.cpp
         tests/index_sequence_test.cpp
         tests/json_convert_test.cpp
+        tests/json_print_test.cpp
         tests/main_test.cpp
         tests/match_test.cpp
         tests/signal_test.cpp

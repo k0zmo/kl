@@ -248,7 +248,7 @@ TEST_CASE("json_convert")
                           kl::json_deserialize_exception);
     }
 
-#if defined(KL_JSON_CONVERT_DONT_SKIP_NULL_VALUES)
+#if defined(KL_JSON_DONT_SKIP_NULL_VALUES)
     SECTION("serialize optional fields with null")
     {
         optional_test t;
