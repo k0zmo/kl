@@ -1,13 +1,13 @@
 #pragma once
 
+#include "kl/type_class.hpp"
+#include "kl/enum_reflector.hpp"
+#include "kl/index_sequence.hpp"
+#include "kl/tuple.hpp"
+
 #include <boost/optional.hpp>
 #include <json11/json11.hpp>
 #include <exception>
-
-#include "kl/enum_reflector.hpp"
-#include "kl/ctti.hpp"
-#include "kl/index_sequence.hpp"
-#include "kl/tuple.hpp"
 
 KL_DEFINE_ENUM_REFLECTOR(json11::Json::Type,
                          (NUL, NUMBER, BOOL, STRING, ARRAY, OBJECT))
@@ -45,10 +45,9 @@ T from_json(const json11::Json& json);
 
 namespace detail {
 
-template <typename T>
-struct is_optional : std::false_type {};
-template <typename T>
-struct is_optional<boost::optional<T>> : std::true_type {};
+using ::kl::type_class::is_optional;
+using ::kl::type_class::is_vector;
+using ::kl::type_class::is_tuple;
 
 // Checks if we can construct a Json object with given T
 template <typename T>
@@ -66,30 +65,14 @@ using is_json_constructible =
 #endif
                            >;
 
-// To serialize T we just need to be sure T models Container concept
-// We can create as many specialization as we want (it's never enough),
-// work out some template voodoo/black magic or
-// let's just assume vector is the choice in 98,3% of cases
-template <typename T>
-struct is_vector : std::false_type {};
-template <typename T>
-struct is_vector<std::vector<T>> : std::true_type {};
-// To deserialize we must constaint T a bit more: push_back() + reverse() optionally
-// So let's just stick to std::vector.
-
 template <typename T, typename = void_t<>>
 struct is_string_associative : std::false_type {};
 template <typename T>
 struct is_string_associative<
-    T, void_t<typename T::mapped_type,
-              std::enable_if_t<std::is_constructible<
-                  std::string, typename T::key_type>::value>>> : std::true_type
-{};
-
-template <typename T>
-struct is_tuple : std::false_type {};
-template <typename... Ts>
-struct is_tuple<std::tuple<Ts...>> : std::true_type {};
+    T, void_t<std::enable_if_t<
+           type_class::equals<T, type_class::map>::value &&
+           std::is_constructible<std::string, typename T::key_type>::value>>>
+    : std::true_type {};
 
 template <typename T>
 using is_representable_as_double =
@@ -299,9 +282,9 @@ template <typename T, typename = void_t<>>
 struct is_associative_string : std::false_type {};
 template <typename T>
 struct is_associative_string<
-    T, void_t<typename T::mapped_type,
-              std::enable_if_t<std::is_constructible<typename T::key_type,
-                                                     std::string>::value>>>
+    T, void_t<std::enable_if_t<
+           type_class::equals<T, type_class::map>::value &&
+           std::is_constructible<typename T::key_type, std::string>::value>>>
     : std::true_type {};
 
 // Checks if this expression is valid for given T class-type:

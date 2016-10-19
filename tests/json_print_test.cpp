@@ -164,17 +164,6 @@ R"({
     REQUIRE(os.str() == R"({"opt":13,"non_opt":32})");
 
     os.str("");
-    int* ptr = nullptr;
-    kl::json_print(os, ptr);
-    REQUIRE(os.str() == "null");
-
-    os.str("");
-    int int_value = 997;
-    ptr = &int_value;
-    kl::json_print(os, ptr);
-    REQUIRE(os.str() == "997");
-
-    os.str("");
     struct_inner ss;
     kl::json_print(os, ss);
     REQUIRE(os.str() == R"({"ad":[[1,2],[3,4,5]],"inner_vec":[{"r":1337,"d":3.14593}]})");

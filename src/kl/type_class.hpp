@@ -38,9 +38,6 @@ template <typename T>
 struct is_optional : std::false_type {};
 
 template <typename T>
-struct is_optional<T*> : std::true_type {};
-
-template <typename T>
 struct is_vector: std::false_type {};
 
 template <typename T>
@@ -69,6 +66,8 @@ using get = std::conditional_t<
                                                        type_class::map,
                                                        unknown>>>>>>>>>>;
 
+template <typename T, typename TypeClass>
+struct equals : std::is_same<type_class::get<T>, TypeClass> {};
 } // namespace type_class
 } // namespace kl
 
