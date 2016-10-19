@@ -94,14 +94,60 @@ TEST_CASE("json_print")
     REQUIRE(os.str() == "[6,5,4,3]");
 
     os.str("");
+    kl::json_print(os, vec, 4);
+    REQUIRE(os.str() == 
+R"([
+    6,
+    5,
+    4,
+    3
+])");
+
+    os.str("");
+    kl::json_print(os, vec, 2);
+    REQUIRE(os.str() ==
+R"([
+  6,
+  5,
+  4,
+  3
+])");
+
+    os.str("");
     std::vector<std::string> vec_string = {"a", "B", "c"};
     kl::json_print(os, vec_string);
     REQUIRE(os.str() == R"(["a","B","c"])");
 
     os.str("");
+    kl::json_print(os, vec_string, 4);
+    REQUIRE(os.str() == 
+R"([
+    "a",
+    "B",
+    "c"
+])");
+
+    os.str("");
     test_struct t;
     kl::json_print(os, t);
     REQUIRE(os.str() == R"({"hello":"world","t":true,"f":false,"i":123,"pi":3.1416,"a":[1,2,3,4]})");
+
+    os.str("");
+    kl::json_print(os, t, 2);
+    REQUIRE(os.str() == 
+R"({
+  "hello": "world",
+  "t": true,
+  "f": false,
+  "i": 123,
+  "pi": 3.1416,
+  "a": [
+    1,
+    2,
+    3,
+    4
+  ]
+})");
 
     os.str("");
     optional_test t2{boost::none, 32};
@@ -111,6 +157,11 @@ TEST_CASE("json_print")
 #else
     REQUIRE(os.str() == R"({"non_opt":32})");
 #endif
+
+    os.str("");
+    t2.opt = 13;
+    kl::json_print(os, t2);
+    REQUIRE(os.str() == R"({"opt":13,"non_opt":32})");
 
     os.str("");
     int* ptr = nullptr;
@@ -129,12 +180,59 @@ TEST_CASE("json_print")
     REQUIRE(os.str() == R"({"ad":[[1,2],[3,4,5]],"inner_vec":[{"r":1337,"d":3.14593}]})");
 
     os.str("");
+    ss.inner_vec.emplace_back();
+    kl::json_print(os, ss, 2);
+    REQUIRE(os.str() == 
+R"({
+  "ad": [
+    [
+      1,
+      2
+    ],
+    [
+      3,
+      4,
+      5
+    ]
+  ],
+  "inner_vec": [
+    {
+      "r": 1337,
+      "d": 3.14593
+    },
+    {
+      "r": 1337,
+      "d": 3.14593
+    }
+  ]
+})");
+
+    os.str("");
     std::tuple<int, double, std::string> tup = std::make_tuple(1, 3.14f, "QWE");
     kl::json_print(os, tup);
     REQUIRE(os.str() == R"([1,3.14,"QWE"])");
 
     os.str("");
+    kl::json_print(os, tup, 4);
+    REQUIRE(os.str() == 
+R"([
+    1,
+    3.14,
+    "QWE"
+])");
+
+    os.str("");
     std::map<std::string, int> map = {{"1", 1}, {"3", 3}, {"5", 5}, {"7", 7}};
     kl::json_print(os, map);
     REQUIRE(os.str() == R"({"1":1,"3":3,"5":5,"7":7})");
+
+    os.str("");
+    kl::json_print(os, map, 2);
+    REQUIRE(os.str() == 
+R"({
+  "1": 1,
+  "3": 3,
+  "5": 5,
+  "7": 7
+})");
 }
