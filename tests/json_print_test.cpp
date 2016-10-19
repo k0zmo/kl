@@ -2,37 +2,26 @@
 #include "kl/ctti.hpp"
 
 #include <catch/catch.hpp>
-
-#include <string>
-#include <vector>
-#include <array>
-#include <unordered_map>
-#include <tuple>
 #include <sstream>
-#include <map>
+
+namespace {
 
 enum enum_ { eA, eB, eC };
 enum class enum_class { A, B, C };
-
 enum enum_reflectable { erA, erB, erC };
-KL_DEFINE_ENUM_REFLECTOR(enum_reflectable, (erA, erB, erC))
-
 enum class enum_class_reflectable { A, B, C };
-KL_DEFINE_ENUM_REFLECTOR(enum_class_reflectable, (A, B, C))
 
 struct optional_test
 {
     boost::optional<int> opt;
     int non_opt;
 };
-KL_DEFINE_REFLECTABLE(optional_test, (opt, non_opt))
 
 struct inner_t
 {
     int r = 1337;
     double d = 3.145926;
 };
-KL_DEFINE_REFLECTABLE(inner_t, (r, d))
 
 struct test_struct
 {
@@ -43,7 +32,6 @@ struct test_struct
     double pi = 3.1416;
     std::vector<int> a = {1, 2, 3, 4};
 };
-KL_DEFINE_REFLECTABLE(test_struct, (hello, t, f, i, pi, a))
 
 struct struct_inner
 {
@@ -51,17 +39,14 @@ struct struct_inner
                                         std::vector<int>{3, 4, 5}};
     std::vector<inner_t> inner_vec = {inner_t{}};
 };
-KL_DEFINE_REFLECTABLE(struct_inner, (ad, inner_vec))
+}
 
-//enum_class_reflectable space = enum_class_reflectable::B;
-//std::tuple<int, double, std::string> tup = std::make_tuple(1, 3.14f, "QWE");
-//
-//std::map<std::string, enum_class_reflectable> map = {
-//    {"1", enum_class_reflectable::C},{"2", enum_class_reflectable::A}};
-//std::unordered_map<std::string, enum_class_reflectable> hash_map = {
-//    {"3", enum_class_reflectable::C},{"1", enum_class_reflectable::A}};
-//
-//inner_t inner;
+KL_DEFINE_ENUM_REFLECTOR(enum_reflectable, (erA, erB, erC))
+KL_DEFINE_ENUM_REFLECTOR(enum_class_reflectable, (A, B, C))
+KL_DEFINE_REFLECTABLE(optional_test, (opt, non_opt))
+KL_DEFINE_REFLECTABLE(inner_t, (r, d))
+KL_DEFINE_REFLECTABLE(test_struct, (hello, t, f, i, pi, a))
+KL_DEFINE_REFLECTABLE(struct_inner, (ad, inner_vec))
 
 TEST_CASE("json_print")
 {
@@ -142,4 +127,14 @@ TEST_CASE("json_print")
     struct_inner ss;
     kl::json_print(os, ss);
     REQUIRE(os.str() == R"({"ad":[[1,2],[3,4,5]],"inner_vec":[{"r":1337,"d":3.14593}]})");
+
+    os.str("");
+    std::tuple<int, double, std::string> tup = std::make_tuple(1, 3.14f, "QWE");
+    kl::json_print(os, tup);
+    REQUIRE(os.str() == R"([1,3.14,"QWE"])");
+
+    os.str("");
+    std::map<std::string, int> map = {{"1", 1}, {"3", 3}, {"5", 5}, {"7", 7}};
+    kl::json_print(os, map);
+    REQUIRE(os.str() == R"({"1":1,"3":3,"5":5,"7":7})");
 }

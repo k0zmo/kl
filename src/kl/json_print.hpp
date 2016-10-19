@@ -1,90 +1,22 @@
 #pragma once
 
-#include "kl/type_traits.hpp"
+#include "kl/type_class.hpp"
 #include "kl/enum_reflector.hpp"
-#include "kl/ctti.hpp"
-
-#include <string>
-#include <vector>
-#include <boost/optional.hpp>
+#include "kl/tuple.hpp"
 
 namespace kl {
 
 template <typename T, typename OutStream>
-OutStream& json_print(OutStream& os, const T& t);
+OutStream& json_print(OutStream& os, const T& value);
 
 namespace detail {
-namespace type_class {
-
-struct boolean {};
-struct integral {};
-struct floating {};
-struct enumeration {};
-struct string {};
-struct reflectable {};
-template <typename Value>
-struct optional { using value = Value;  };
-template <typename Value>
-struct list { using value = Value;  };
-template <typename Key, typename Value>
-struct map { using key = Key; using value = Value; };
-
-template <typename T>
-struct is_bool : std::false_type {};
-template <>
-struct is_bool<bool> : std::true_type {};
-
-template <typename T>
-struct is_string : std::false_type {};
-template <typename Char, typename CharTraits, typename Allocator>
-struct is_string<std::basic_string<Char, CharTraits, Allocator>>
-    : std::true_type
-{
-};
-template <std::size_t N>
-struct is_string<char[N]> : std::true_type {};
-
-template <typename T>
-struct is_optional : std::false_type {};
-template <typename T>
-struct is_optional<boost::optional<T>> : std::true_type {};
-template <typename T>
-struct is_optional<T*> : std::true_type {};
-
-template <typename T>
-struct is_list : std::false_type {};
-template <typename T, typename Allocator>
-struct is_list<std::vector<T, Allocator>> : std::true_type {};
-
-template <typename T>
-struct get_impl
-{
-    using type = std::conditional_t<
-        is_bool<T>::value, boolean,
-        std::conditional_t<
-            std::is_integral<T>::value, integral,
-            std::conditional_t<
-                std::is_floating_point<T>::value, floating,
-                std::conditional_t<
-                    std::is_enum<T>::value, enumeration,
-                    std::conditional_t<
-                        is_string<T>::value, string,
-                        std::conditional_t<
-                            is_list<T>::value, list<T>,
-                            std::conditional_t<
-                                is_reflectable<T>::value, reflectable,
-                                std::conditional_t<is_optional<T>::value,
-                                                   optional<T>, T>>>>>>>>;
-};
-
-template <typename T>
-using get = typename get_impl<T>::type;
-} // namespace type_class
 
 // Default implementation (integral, floating)
-template <typename /*Class*/>
+template <typename TypeClass>
 struct json_printer
 {
+    static_assert(!std::is_same<TypeClass, type_class::unknown>::value, "!!!");
+
     template <typename OutStream, typename T>
     static OutStream& print(OutStream& os, const T& value)
     {
@@ -198,8 +130,39 @@ private:
     };
 };
 
-template <typename Value>
-struct json_printer<type_class::optional<Value>>
+template <>
+struct json_printer<type_class::tuple>
+{
+    template <typename OutStream, typename T>
+    static OutStream& print(OutStream& os, const T& value)
+    {
+        os << '[';
+        print_tuple(os, value, make_tuple_indices<T>{});
+        os << ']';
+        return os;
+    }
+
+private:
+    template <typename OutStream, typename T, std::size_t... Is>
+    static void print_tuple(OutStream& os, const T& value,
+                            index_sequence<Is...>)
+    {
+        using swallow = std::initializer_list<int>;
+        (void)swallow{
+            (print_comma<Is>(os), json_print(os, std::get<Is>(value)), 0)...};
+    }
+
+    template <std::size_t Is, typename OutStream>
+    static int print_comma(OutStream& os)
+    {
+        if (Is)
+            os << ',';
+        return 0;
+    }
+};
+
+template <>
+struct json_printer<type_class::optional>
 {
     template <typename OutStream, typename T>
     static OutStream& print(OutStream& os, const T& value)
@@ -212,23 +175,51 @@ struct json_printer<type_class::optional<Value>>
     }
 };
 
-template <typename ElemValue>
-struct json_printer<type_class::list<ElemValue>>
+template <>
+struct json_printer<type_class::vector>
 {
     template <typename OutStream, typename T>
-    static OutStream& print(OutStream& os, const T& list)
+    static OutStream& print(OutStream& os, const T& value)
     {
         os << '[';
         bool first = true;
-        for (const auto& value : list)
+        for (const auto& elem : value)
         {
             if (!first)
                 os << ',';
             else
                 first = false;
-            json_print(os, value);
+            json_print(os, elem);
         }
         os << ']';
+        return os;
+    }
+};
+
+template <>
+struct json_printer<type_class::map>
+{
+    template <typename OutStream, typename T>
+    static OutStream& print(OutStream& os, const T& value)
+    {
+        using key_type = typename T::key_type;
+        static_assert(std::is_same<kl::type_class::string,
+                                   kl::type_class::get<key_type>>::value,
+                      "Key type must be a String");
+
+        os << '{';
+        bool first = true;
+        for (const auto& kv : value)
+        {
+            if (!first)
+                os << ',';
+            else
+                first = false;
+
+            os << '"' << kv.first << "\":";
+            json_print(os, kv.second);
+        }
+        os << '}';
         return os;
     }
 };
@@ -239,7 +230,6 @@ struct json_printer<type_class::list<ElemValue>>
 template <typename T, typename OutStream>
 OutStream& json_print(OutStream& os, const T& value)
 {
-    using type_class = detail::type_class::get<T>;
-    return detail::json_printer<type_class>::print(os, value);
+    return detail::json_printer<type_class::get<T>>::print(os, value);
 }
 } // namespace kl

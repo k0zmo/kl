@@ -128,6 +128,7 @@ set(KL_FILES
     src/kl/string_switch.hpp
     src/kl/tuple.hpp
     src/kl/type_traits.hpp
+    src/kl/type_class.hpp
     src/kl/zip.hpp
 )
 
@@ -164,6 +165,7 @@ if(KL_TEST)
         tests/string_switch_test.cpp
         tests/tuple_test.cpp
         tests/type_traits_test.cpp
+        tests/type_class_test.cpp
         tests/zip_test.cpp
     )
 
