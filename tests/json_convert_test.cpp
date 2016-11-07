@@ -587,3 +587,18 @@ TEST_CASE("json_convert - unsigned")
         REQUIRE(str == "2147483648");
     }
 }
+
+TEST_CASE("json_convert - optional<string>")
+{
+    std::string err;
+    auto j = json11::Json::parse(R"(null)", err);
+    REQUIRE(err.empty());
+    auto a = kl::from_json<boost::optional<std::string>>(j);
+    REQUIRE(!a);
+
+    j = json11::Json::parse(R"("asd")", err);
+    REQUIRE(err.empty());
+    auto b = kl::from_json<boost::optional<std::string>>(j);
+    REQUIRE(b);
+    REQUIRE(b.get() == "asd");
+}

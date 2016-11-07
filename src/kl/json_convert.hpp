@@ -213,9 +213,10 @@ inline std::string json_type_name(const json11::Json& json)
 
 template <typename T>
 using is_json_simple = std::integral_constant<
-    bool, std::is_integral<T>::value || std::is_floating_point<T>::value ||
-              std::is_enum<T>::value ||
-              std::is_convertible<std::string, T>::value>;
+    bool,
+    std::is_integral<T>::value || std::is_floating_point<T>::value ||
+        std::is_enum<T>::value ||
+        (std::is_convertible<std::string, T>::value && !is_optional<T>::value)>;
 
 template <typename T, enable_if<std::is_integral<T>> = 0>
 T from_json_simple(const json11::Json& json)
