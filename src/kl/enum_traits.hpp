@@ -92,13 +92,13 @@ namespace operators {
 template <typename Enum>
 constexpr auto operator+(Enum e)
 {
-    return kl::underlying_cast(e);
+    return underlying_cast(e);
 }
 
 template <typename Enum>
 constexpr Enum& operator++(Enum& e)
 {
-    return e = static_cast<Enum>(+e + 1);
+    return e = static_cast<Enum>(underlying_cast(e) + 1);
 }
 
 template <typename Enum>
@@ -106,7 +106,7 @@ constexpr Enum operator++(Enum& e, int)
 {
     // postfix
     const auto ret = e;
-    e = static_cast<Enum>(+e + 1);
+    e = static_cast<Enum>(underlying_cast(e) + 1);
     return ret;
 }
 

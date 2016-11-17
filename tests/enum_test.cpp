@@ -49,6 +49,16 @@ struct enum_traits<access_mode>
 };
 } // namespace kl
 
+enum class eee { a, b, c };
+
+namespace kl {
+template <>
+struct enum_traits<eee>
+    : enum_trait_support_indexing
+{
+};
+} // namespace kl
+
 KL_DEFINE_ENUM_REFLECTOR(unscoped_enum_type, (prefix_one, prefix_two))
 
 KL_DEFINE_ENUM_REFLECTOR(access_mode, (read_write, write_only, read_only, max))
@@ -116,6 +126,11 @@ TEST_CASE("enum_traits")
             REQUIRE(e_ == access_mode::max);
 #endif
         }
+    }
+
+    {
+        eee e{eee::a};
+        ++e;
     }
 }
 
