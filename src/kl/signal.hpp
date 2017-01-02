@@ -351,6 +351,9 @@ public:
     signal() = default;
     ~signal() { disconnect_all_slots(); }
 
+    signal(const signal&) = delete;
+    signal& operator=(const signal&) = delete;
+
     signal(signal&& other) : slots_(std::move(other.slots_)), id_{other.id_}
     {
         rebind();
@@ -373,19 +376,31 @@ public:
 
         // Create proxy slot that would add connection as a first argument
         auto connection = make_connection(connection_info);
-#if (defined(_MSC_VER) && _MSC_VER >= 1900) || __cplusplus >= 201402
-        auto proxy_slot = [connection, slot = std::move(extended_slot)]
-            (Args&&... args) mutable {
-                return slot(connection, std::forward<Args>(args)...);
-            };
-#else
-        auto proxy_slot = [=](Args&&... args) mutable {
-            return extended_slot(connection, std::forward<Args>(args)...);
+
+        class proxy_slot
+        {
+        public:
+            explicit proxy_slot(const kl::connection& connection,
+                                extended_slot_type slot)
+                : connection_{connection}, slot_{std::move(slot)}
+            {
+            }
+
+            return_type operator()(Args&&... args)
+            {
+                return slot_(connection_, std::forward<Args>(args)...);
+            }
+
+        private:
+            kl::connection connection_;
+            extended_slot_type slot_;
         };
-#endif
+
         slots_.insert_after(
             find_slot_place(at),
-            *new signal::slot(connection_info, std::move(proxy_slot)));
+            *new signal::slot(
+                connection_info,
+                proxy_slot{connection, std::move(extended_slot)}));
         return connection;
     }
 
