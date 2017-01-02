@@ -1,7 +1,5 @@
 #pragma once
 
-#include <boost/intrusive/slist.hpp>
-
 #include <memory>
 #include <tuple>
 #include <functional>
@@ -354,8 +352,9 @@ public:
     signal(const signal&) = delete;
     signal& operator=(const signal&) = delete;
 
-    signal(signal&& other) : slots_(std::move(other.slots_)), id_{other.id_}
+    signal(signal&& other) : slots_(other.slots_), id_{other.id_}
     {
+        other.slots_ = nullptr;
         rebind();
     }
 
@@ -396,11 +395,10 @@ public:
             extended_slot_type slot_;
         };
 
-        slots_.insert_after(
-            find_slot_place(at),
-            *new signal::slot(
-                connection_info,
-                proxy_slot{connection, std::move(extended_slot)}));
+        insert_new_slot(
+            new signal::slot(connection_info,
+                             proxy_slot{connection, std::move(extended_slot)}),
+            at);
         return connection;
     }
 
@@ -411,9 +409,7 @@ public:
             return {};
         auto connection_info =
             std::make_shared<detail::connection_info>(this, ++id_);
-        slots_.insert_after(
-            find_slot_place(at),
-            *new signal::slot(connection_info, std::move(slot)));
+        insert_new_slot(new signal::slot(connection_info, std::move(slot)), at);
         return make_connection(std::move(connection_info));
     }
 
@@ -439,16 +435,26 @@ public:
     // Disconnects all slots bound to this signal
     void disconnect_all_slots()
     {
-        for (auto& slot : slots_)
-            slot.invalidate();
-        slots_.clear_and_dispose(slot_disposer{});
+        for (auto iter = slots_; iter;)
+        {
+            iter->invalidate();
+            auto prev = iter;
+            iter = iter->next;
+            delete prev;
+        }
+        slots_ = nullptr;
     }
 
     // Retrieves number of slots connected to this signal
     size_t num_slots() const
     {
-        return std::count_if(slots_.begin(), slots_.end(),
-                             [](const slot& s) { return s.valid(); });
+        size_t sum{0};
+        for (auto iter = slots_; iter; iter = iter->next)
+        {
+            if (iter->valid())
+                ++sum;
+        }
+        return sum;
     }
 
     // Returns true if signal isn't connected to any slot
@@ -467,62 +473,65 @@ public:
 private:
     virtual void disconnect(int id) override
     {
-        auto target =
-            std::find_if(slots_.begin(), slots_.end(), [&](const slot& slot) {
-                return slot.connection_info().id == id;
-            });
-        if (target != slots_.end())
-            target->invalidate();
-
-        // We can't delete the node here since we could be in the middle of
-        // signal emission or we are called from extended slot. In that case it
-        // would lead to removal of connection (proxy slot keeps the copy) that
-        // is invoking this very function.
+        for (auto iter = slots_; iter; iter = iter->next)
+        {
+            if (iter->connection_info().id == id)
+            {
+                // We can't delete the node here since we could be in the middle
+                // of signal emission or we are called from extended slot. In
+                // that case it would lead to removal of connection (proxy slot
+                // keeps the copy) that is invoking this very function.
+                iter->invalidate();
+                return;
+            }
+        }
     }
 
     void rebind()
     {
-        slots_.remove_and_dispose_if(
-            [&](const slot& slot) { return !slot.valid(); }, slot_disposer{});
+        remove_slots_if([this](slot& s) { return !s.valid(); });
 
         // Rebind back-pointer to new signal
-        for (auto& slot : slots_)
+        for (auto iter = slots_; iter; iter = iter->next)
         {
-            assert(slot.connection_info().parent);
-            slot.connection_info().parent = this;
-        }
-    }
-
-    void prepare_slots()
-    {
-        auto it_before = slots_.before_begin(),
-             it = slots_.begin(),
-             last = slots_.end();
-
-        while (it != last)
-        {
-            if (!it->prepare())
-            {
-                it = slots_.erase_after_and_dispose(it_before, slot_disposer{});
-                continue;
-            }
-
-            ++it_before;
-            ++it;
+            assert(iter->connection_info().parent);
+            iter->connection_info().parent = this;
         }
     }
 
     template <typename Func>
     void call_each_slot(Func&& func)
     {
-        prepare_slots();
+        remove_slots_if([this](slot& s) { return !s.prepare(); });
 
-        for (const auto& slot : slots_)
+        for (auto iter = slots_; iter; iter = iter->next)
         {
-            if (!slot.is_blocked() && slot.is_prepared())
+            if (!iter->is_blocked() && iter->is_prepared())
             {
-                if (func(slot))
+                if (func(*iter))
                     break;
+            }
+        }
+    }
+
+    template <typename Pred>
+    void remove_slots_if(Pred&& pred)
+    {
+        for (auto iter = slots_, prev = slots_; iter;)
+        {
+            if (pred(*iter))
+            {
+                auto next = iter->next;
+                prev->next = next;
+                if (slots_ == iter)
+                    slots_ = next;
+                delete iter;
+                iter = next;
+            }
+            else
+            {
+                prev = iter;
+                iter = iter->next;
             }
         }
     }
@@ -532,9 +541,7 @@ private:
     {
     public:
         using return_type = typename signal::return_type;
-        using hook_type = boost::intrusive::slist_member_hook<
-            boost::intrusive::link_mode<boost::intrusive::normal_link>>;
-        hook_type hook_;
+        slot* next{nullptr};
 
     public:
         slot(std::shared_ptr<detail::connection_info> connection_info,
@@ -580,35 +587,35 @@ private:
         bool prepared_{false};
     };
 
-    struct slot_disposer
-    {
-        void operator()(slot* s) { delete s; }
-    };
-
-    using slot_hook_type =
-        boost::intrusive::member_hook<slot, typename slot::hook_type,
-                                      &slot::hook_>;
-    using slot_list_type =
-        boost::intrusive::slist<slot, slot_hook_type,
-                                boost::intrusive::constant_time_size<false>>;
-    slot_list_type slots_;
+    slot* slots_{nullptr};
     int id_{0};
 
 private:
-    typename slot_list_type::iterator find_slot_place(connect_position at)
+    void insert_new_slot(slot* new_slot, connect_position at)
     {
-        // We want to insert/emplace at the end of the list
-        auto iter = slots_.before_begin();
-        if (at == at_back)
+        if (!slots_)
         {
-            for (auto& _ : slots_)
-            {
-                (void)_; // Suppress "unreferenced variable"
-                ++iter;
-            }
+            slots_ = new_slot;
+            return;
         }
 
-        return iter;
+        if (at == at_back)
+        {
+            auto iter = slots_, prev = slots_;
+            while (iter)
+            {
+                prev = iter;
+                iter = iter->next;
+            }
+
+            iter = prev;
+            iter->next = new_slot;
+        }
+        else
+        {
+            new_slot->next = slots_;
+            slots_ = new_slot;
+        }
     }
 };
 
