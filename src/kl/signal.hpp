@@ -1,9 +1,10 @@
 #pragma once
 
+#include <boost/intrusive/slist.hpp>
+
 #include <memory>
 #include <tuple>
 #include <functional>
-#include <forward_list>
 #include <cassert>
 #include <type_traits>
 #include <algorithm>
@@ -382,8 +383,9 @@ public:
             return extended_slot(connection, std::forward<Args>(args)...);
         };
 #endif
-        slots_.emplace_after(find_slot_place(at), connection_info,
-                             std::move(proxy_slot));
+        slots_.insert_after(
+            find_slot_place(at),
+            *new signal::slot(connection_info, std::move(proxy_slot)));
         return connection;
     }
 
@@ -394,8 +396,9 @@ public:
             return {};
         auto connection_info =
             std::make_shared<detail::connection_info>(this, ++id_);
-        slots_.emplace_after(find_slot_place(at), connection_info,
-                             std::move(slot));
+        slots_.insert_after(
+            find_slot_place(at),
+            *new signal::slot(connection_info, std::move(slot)));
         return make_connection(std::move(connection_info));
     }
 
@@ -423,7 +426,7 @@ public:
     {
         for (auto& slot : slots_)
             slot.invalidate();
-        slots_.clear();
+        slots_.clear_and_dispose(slot_disposer{});
     }
 
     // Retrieves number of slots connected to this signal
@@ -464,9 +467,8 @@ private:
 
     void rebind()
     {
-        slots_.remove_if([&](const slot& slot) {
-            return !slot.valid();
-        });
+        slots_.remove_and_dispose_if(
+            [&](const slot& slot) { return !slot.valid(); }, slot_disposer{});
 
         // Rebind back-pointer to new signal
         for (auto& slot : slots_)
@@ -486,7 +488,7 @@ private:
         {
             if (!it->prepare())
             {
-                it = slots_.erase_after(it_before);
+                it = slots_.erase_after_and_dispose(it_before, slot_disposer{});
                 continue;
             }
 
@@ -515,6 +517,9 @@ private:
     {
     public:
         using return_type = typename signal::return_type;
+        using hook_type = boost::intrusive::slist_member_hook<
+            boost::intrusive::link_mode<boost::intrusive::normal_link>>;
+        hook_type hook_;
 
     public:
         slot(std::shared_ptr<detail::connection_info> connection_info,
@@ -560,12 +565,22 @@ private:
         bool prepared_{false};
     };
 
-    std::forward_list<slot> slots_;
+    struct slot_disposer
+    {
+        void operator()(slot* s) { delete s; }
+    };
+
+    using slot_hook_type =
+        boost::intrusive::member_hook<slot, typename slot::hook_type,
+                                      &slot::hook_>;
+    using slot_list_type =
+        boost::intrusive::slist<slot, slot_hook_type,
+                                boost::intrusive::constant_time_size<false>>;
+    slot_list_type slots_;
     int id_{0};
 
 private:
-    typename std::forward_list<slot>::iterator
-        find_slot_place(connect_position at)
+    typename slot_list_type::iterator find_slot_place(connect_position at)
     {
         // We want to insert/emplace at the end of the list
         auto iter = slots_.before_begin();
