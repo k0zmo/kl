@@ -94,6 +94,8 @@ elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
         #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
         #set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi")
     endif()
+
+    include(SetupSanitizers)
 endif()
 
 set(KL_3RDPARTY_JSON11_FILES

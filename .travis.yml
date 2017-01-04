@@ -1,5 +1,7 @@
 language: c++
 sudo: false
+git:
+  depth: 1
 
 matrix:
   include:
@@ -13,6 +15,26 @@ matrix:
         - COMPILER=gcc-6
         - COMPILERXX=g++-6
         - VARIANT=Coverage
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-6']
+      env: 
+        - COMPILER=gcc-6
+        - COMPILERXX=g++-6
+        - VARIANT=ASan
+    - os: linux
+      compiler: gcc
+      addons:
+        apt:
+          sources: ['ubuntu-toolchain-r-test']
+          packages: ['g++-6']
+      env: 
+        - COMPILER=gcc-6
+        - COMPILERXX=g++-6
+        - VARIANT=UBSan
     - os: linux
       compiler: clang
       addons:
