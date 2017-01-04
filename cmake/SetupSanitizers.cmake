@@ -49,7 +49,7 @@ endfunction()
 
 setup_sanitize_target("ASan"  
                       "-O1 -g -fsanitize=address -fno-omit-frame-pointer -DNDEBUG"
-                      "-fsanitize=address")
+                      "-fsanitize=address -fuse-ld=gold")
 setup_sanitize_target("TSan"  
                       "-O1 -g -fsanitize=thread -DNDEBUG" 
                       "-fsanitize=thread")
