@@ -33,28 +33,41 @@ if (NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND
     return()
 endif()
 
-# Add 'Coverage' build type
-set(CMAKE_CONFIGURATION_TYPES ${CMAKE_CONFIGURATION_TYPES} Coverage)
-set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-             "Debug" "Release" "MinSizeRel" "RelWithDebInfo" "Coverage")
-
-# Set compiler/linker flags for coverage build type based on debug one
-if (CMAKE_CXX_FLAGS_DEBUG)
+if(CMAKE_CXX_FLAGS_DEBUG)
+    # No point to set it if it's C-only project
     set(CMAKE_CXX_FLAGS_COVERAGE "${CMAKE_CXX_FLAGS_DEBUG} --coverage"
-        CACHE STRING "" FORCE)
-    mark_as_advanced(CMAKE_CXX_FLAGS_COVERAGE)
+        CACHE STRING "Flags used by the C++ compiler during coverage builds." FORCE)
 endif()
-if (CMAKE_C_FLAGS_DEBUG)
+if(CMAKE_C_FLAGS_DEBUG)
+    # No point to set it if it's C++-only project
     set(CMAKE_C_FLAGS_COVERAGE "${CMAKE_C_FLAGS_DEBUG} --coverage"
-        CACHE STRING "" FORCE) 
-    mark_as_advanced(CMAKE_C_FLAGS_COVERAGE)
+        CACHE STRING "Flags used by the C compiler during coverage builds." FORCE)
 endif()
 set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} --coverage"
-    CACHE STRING "" FORCE)
+    CACHE STRING "Flags used by the shared libraries linker during coverage builds." FORCE)
 set(CMAKE_EXE_LINKER_FLAGS_COVERAGE "${CMAKE_EXE_LINKER_FLAGS_DEBUG} --coverage"
-    CACHE STRING "" FORCE)
-mark_as_advanced(CMAKE_SHARED_LINKER_FLAGS_COVERAGE
+    CACHE STRING "Flags used for linking binaries during coverage builds." FORCE)
+mark_as_advanced(CMAKE_CXX_FLAGS_COVERAGE
+                 CMAKE_C_FLAGS_COVERAGE,
+                 CMAKE_SHARED_LINKER_FLAGS_COVERAGE,
                  CMAKE_EXE_LINKER_FLAGS_COVERAGE)
+
+if(CMAKE_CONFIGURATION_TYPES)
+    # Add 'Coverage' build type for multi-config generators
+    list(APPEND CMAKE_CONFIGURATION_TYPES Coverage)
+    list(REMOVE_DUPLICATES CMAKE_CONFIGURATION_TYPES)
+    set(CONFIGURATION_TYPES "${CMAKE_CONFIGURATION_TYPES}" 
+        CACHE STRING "List of supported configuration types" FORCE)
+else()
+    # Modify CMAKE_BUILD_TYPE enum values for cmake-gui
+    get_property(_build_type_strings CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS)
+    list(LENGTH _build_type_strings _build_type_strings_length)
+    if(NOT _build_type_strings_length EQUAL 0)
+        list(APPEND _build_type_strings Coverage)
+        list(REMOVE_DUPLICATES _build_type_strings)
+        set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${_build_type_strings})
+    endif()
+endif()
 
 include(FindPackageHandleStandardArgs)
 

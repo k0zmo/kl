@@ -24,7 +24,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     message(STATUS "Setting build type to 'Release' as none was specified.")
     set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
     set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-                 "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+                 "Debug;Release;MinSizeRel;RelWithDebInfo")
 endif()
 
 # Configure Boost library
@@ -81,6 +81,10 @@ elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
     else()
         message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++14 support.\
                         Please use a different C++ compiler.")
+    endif()
+
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        add_definitions("-D_GLIBCXX_DEBUG")
     endif()
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -180,7 +184,7 @@ if(KL_TEST)
     target_include_directories(kl-tests PRIVATE 3rdparty)
 
     include(SetupCoverage)
-    if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
         setup_coverage_lcov(kl-coverage kl-tests coverage
                             FILTERS '${KL_SOURCE_DIR}/src/*')
     endif()
