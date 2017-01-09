@@ -489,7 +489,7 @@ private:
 
     void rebind()
     {
-        remove_slots_if([this](slot& s) { return !s.valid(); });
+        remove_slots_if([](slot& s) { return !s.valid(); });
 
         // Rebind back-pointer to new signal
         for (auto iter = slots_; iter; iter = iter->next)
@@ -502,7 +502,7 @@ private:
     template <typename Func>
     void call_each_slot(Func&& func)
     {
-        remove_slots_if([this](slot& s) { return !s.prepare(); });
+        remove_slots_if([](slot& s) { return !s.prepare(); });
 
         for (auto iter = slots_; iter; iter = iter->next)
         {
