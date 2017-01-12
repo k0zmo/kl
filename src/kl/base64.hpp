@@ -2,8 +2,8 @@
 
 #include "kl/byte.hpp"
 
-#include <gsl/span.h>
-#include <gsl/string_span.h>
+#include <gsl/span>
+#include <gsl/string_span>
 #include <boost/optional.hpp>
 
 #include <string>

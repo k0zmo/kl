@@ -50,7 +50,7 @@ KL_DEFINE_ENUM_REFLECTOR(ns::detail, enum_,
 #include <boost/preprocessor/tuple/size.hpp>
 #include <boost/preprocessor/tuple/push_back.hpp>
 
-#include <gsl/string_span.h>
+#include <gsl/string_span>
 
 #if defined(_MSC_VER) && BOOST_VERSION == 105700
 #undef BOOST_PP_EXPAND_I

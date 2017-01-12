@@ -103,11 +103,14 @@ set(KL_3RDPARTY_JSON11_FILES
     3rdparty/json11/json11.cpp
 )
 set(KL_3RDPARTY_GSL_FILES
-    3rdparty/gsl/gsl.h
-    3rdparty/gsl/gsl_assert.h
-    3rdparty/gsl/gsl_util.h
-    3rdparty/gsl/span.h
-    3rdparty/gsl/string_span.h
+    3rdparty/gsl/gsl
+    3rdparty/gsl/gsl_algorithm
+    3rdparty/gsl/gsl_assert
+    3rdparty/gsl/gsl_byte
+    3rdparty/gsl/gsl_util
+    3rdparty/gsl/multi_span
+    3rdparty/gsl/span
+    3rdparty/gsl/string_span
 )
 set(KL_3RDPARTY_FILES
     ${KL_3RDPARTY_JSON11_FILES}
