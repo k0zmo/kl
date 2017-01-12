@@ -1,9 +1,7 @@
 #pragma once
 
-#include <cstdint>
-
 namespace kl {
 
-using byte = std::uint8_t;
-// enum class byte : std::uint8_t {};
+using byte = unsigned char;
+// enum class byte : unsigned char {};
 } // namespace kl
