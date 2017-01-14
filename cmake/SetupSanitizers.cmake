@@ -1,3 +1,11 @@
+# SetupSanitizers
+#  Included, adds new build or configuration types:
+#    - ASan - AddressSanitizer
+#    - UBSan - UndefinedBehaviorSanitizer
+#    - TSan - ThreadSanitizer
+#    - MSan - MemorySanitizer
+#
+
 # This only works for GCC or Clang
 if (NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND
     NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))

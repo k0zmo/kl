@@ -2,23 +2,24 @@
 #
 #   setup_coverage_lcov(<target_name>
 #                       <runner>
-#                       <output_name> 
+#                       <output_name>
 #                       [BRANCHES]
 #                       [FILTERS <filter>...]
-#                       [ARGS <arg>...] 
+#                       [ARGS <arg>...]
 #                       )
 #
 #
 #   setup_coverage_gcovr(<target_name>
 #                        <runner>
-#                        <output_name> 
+#                        <output_name>
 #                        [XML]
 #                        [FILTERS <filter>...]
-#                        [ARGS <arg>...] 
+#                        [EXCLUDE <filter>...]
+#                        [ARGS <arg>...]
 #                        )
 # Example:
 #   include(SetupCoverage)
-#   if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+#   if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
 #       setup_coverage_lcov(${CMAKE_PROJECT_NAME}-coverage
 #                           ${CMAKE_PROJECT_NAME}-tests
 #                           coverage
@@ -27,8 +28,8 @@
 #   endif()
 
 # This only works for GCC or Clang
-if (NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND
-    NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
+if(NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND
+   NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
     message(STATUS "No coverage target for compiler: ${CMAKE_CXX_COMPILER_ID}")
     return()
 endif()
@@ -76,18 +77,18 @@ function(setup_coverage_lcov _target_name _test_runner _output_name)
     find_program(GENHTML_EXECUTABLE genhtml)
     find_package_handle_standard_args(lcov DEFAULT_MSG LCOV_EXECUTABLE GENHTML_EXECUTABLE)
     mark_as_advanced(LCOV_EXECUTABLE GENHTML_EXECUTABLE)
-    if (NOT LCOV_FOUND)
+    if(NOT LCOV_FOUND)
         message(FATAL_ERROR "lcov not found!")
     endif()
 
     set(_options BRANCHES)
     set(_one_value_args "")
     set(_multi_value_args FILTERS ARGS)
-    cmake_parse_arguments(_options "${_options}" "${_one_value_args}" "${_multi_value_args}" ${ARGN})  
-    if (_options_BRANCHES)
+    cmake_parse_arguments(_options "${_options}" "${_one_value_args}" "${_multi_value_args}" ${ARGN})
+    if(_options_BRANCHES)
         set(_branch_coverage --rc lcov_branch_coverage=1)
     endif()
-    if (NOT _options_FILTERS)
+    if(NOT _options_FILTERS)
         set(_options_FILTERS '*')
     endif()
 
@@ -103,7 +104,7 @@ function(setup_coverage_lcov _target_name _test_runner _output_name)
     list(APPEND _coverage_args COMMAND ${GENHTML_EXECUTABLE}
          -q --output-directory ${_output_name} ${_output_name}.info  ${_branch_coverage})
     list(APPEND _coverage_args COMMAND ${CMAKE_COMMAND}
-         -E remove ${_output_name}.all.info)
+         -E remove ${_output_name}.info ${_output_name}.all.info)
 
     add_custom_target(${_target_name} ${_coverage_args}
                       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -117,22 +118,29 @@ function(setup_coverage_gcovr _target_name _test_runner _output_name)
     find_program(GCOVR_EXECUTABLE gcovr)
     find_package_handle_standard_args(gcovr DEFAULT_MSG GCOVR_EXECUTABLE)
     mark_as_advanced(GCOVR_EXECUTABLE)
-    if (NOT GCOVR_FOUND)
+    if(NOT GCOVR_FOUND)
         message(FATAL_ERROR "gcovr not found!")
     endif()
-    
+
     set(_options XML)
     set(_one_value_args "")
-    set(_multi_value_args FILTERS ARGS)
-    cmake_parse_arguments(_options "${_options}" "${_one_value_args}" "${_multi_value_args}" ${ARGN})  
-    if (_options_FILTERS)
+    set(_multi_value_args FILTERS EXCLUDE ARGS)
+    cmake_parse_arguments(_options "${_options}" "${_one_value_args}" "${_multi_value_args}" ${ARGN})
+    if(_options_FILTERS)
         set(_tmp_list "")
         foreach(_loop ${_options_FILTERS})
             list(APPEND _tmp_list --filter=${_loop})
         endforeach()
         set(_options_FILTERS ${_tmp_list})
     endif()
-    if (_options_XML)
+    if(_options_EXCLUDE)
+        set(_tmp_list "")
+        foreach(_loop ${_options_EXCLUDE})
+            list(APPEND _tmp_list --exclude=${_loop})
+        endforeach()
+        set(_options_EXCLUDE ${_tmp_list})
+    endif()
+    if(_options_XML)
         set(_output_mode --xml)
         set(_output_file ${_output_name}.xml)
     else()
@@ -144,7 +152,8 @@ function(setup_coverage_gcovr _target_name _test_runner _output_name)
     list(APPEND _coverage_args COMMAND ${_test_runner}
          ${_options_ARGS})
     list(APPEND _coverage_args COMMAND ${GCOVR_EXECUTABLE}
-         --delete ${_output_mode} --root=${CMAKE_SOURCE_DIR} ${_options_FILTERS} --output=${_output_file})
+         --delete ${_output_mode} --root=${CMAKE_SOURCE_DIR}
+         ${_options_FILTERS} ${_options_EXCLUDE} --output=${_output_file})
 
     add_custom_target(${_target_name} ${_coverage_args}
                       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
