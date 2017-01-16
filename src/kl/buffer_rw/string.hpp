@@ -16,7 +16,9 @@ kl::buffer_reader& operator>>(kl::buffer_reader& r, std::string& str)
         auto span = r.view(size);
         if (r.err())
             return r;
-        str.assign(span.begin(), span.end());
+        str.resize(size);
+        // Use .data() so we get a pointer and memmove fast path
+        std::copy_n(span.data(), size, str.begin());
     }
 
     return r;
