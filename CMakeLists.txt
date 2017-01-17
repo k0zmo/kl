@@ -121,7 +121,7 @@ set(KL_FILES
     src/kl/base_range.hpp
     src/kl/base64.hpp
     src/kl/base64.cpp
-    src/kl/buffer_rw.hpp
+    src/kl/binary_rw.hpp
     src/kl/byte.hpp
     src/kl/ctti.hpp
     src/kl/defer.hpp
@@ -143,25 +143,25 @@ set(KL_FILES
     src/kl/zip.hpp
 )
 
-set(KL_BUFFER_RW_FILES
-    src/kl/buffer_rw/map.hpp
-    src/kl/buffer_rw/optional.hpp
-    src/kl/buffer_rw/pair.hpp
-    src/kl/buffer_rw/set.hpp
-    src/kl/buffer_rw/string.hpp
-    src/kl/buffer_rw/variant.hpp
-    src/kl/buffer_rw/vector.hpp
+set(KL_BINARY_RW_FILES
+    src/kl/binary_rw/map.hpp
+    src/kl/binary_rw/optional.hpp
+    src/kl/binary_rw/pair.hpp
+    src/kl/binary_rw/set.hpp
+    src/kl/binary_rw/string.hpp
+    src/kl/binary_rw/variant.hpp
+    src/kl/binary_rw/vector.hpp
 )
 
 source_group("external\\gsl" FILES ${KL_3RDPARTY_GSL_FILES})
 source_group("external\\json11" FILES ${KL_3RDPARTY_JSON11_FILES})
 source_group("kl" FILES ${KL_FILES})
-source_group("kl\\buffer_rw" FILES ${KL_BUFFER_RW_FILES})
+source_group("kl\\binary_rw" FILES ${KL_BINARY_RW_FILES})
 
 add_library(kl STATIC
     ${KL_3RDPARTY_FILES}
     ${KL_FILES}
-    ${KL_BUFFER_RW_FILES}
+    ${KL_BINARY_RW_FILES}
 )
 target_include_directories(kl PUBLIC src)
 target_include_directories(kl PUBLIC 3rdparty)
@@ -173,7 +173,7 @@ if(KL_TEST)
     set(KL_TEST_FILES
         tests/base_range_test.cpp
         tests/base64_test.cpp
-        tests/buffer_rw_test.cpp
+        tests/binary_rw_test.cpp
         tests/byte_test.cpp
         tests/ctti_test.cpp
         tests/defer_test.cpp

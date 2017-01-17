@@ -1,12 +1,12 @@
 #pragma once
 
-#include "kl/buffer_rw.hpp"
+#include "kl/binary_rw.hpp"
 
 #include <vector>
 
 namespace kl {
 
-kl::buffer_reader& operator>>(kl::buffer_reader& r, std::string& str)
+kl::binary_reader& operator>>(kl::binary_reader& r, std::string& str)
 {
     const auto size = r.read<std::uint32_t>();
     str.clear();

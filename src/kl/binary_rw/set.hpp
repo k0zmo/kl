@@ -1,25 +1,23 @@
 #pragma once
 
-#include "kl/buffer_rw.hpp"
+#include "kl/binary_rw.hpp"
 
-#include <vector>
+#include <set>
 
 namespace kl {
 
 template <typename T>
-kl::buffer_reader& operator>>(kl::buffer_reader& r, std::vector<T>& vec)
+kl::binary_reader& operator>>(kl::binary_reader& r, std::set<T>& set)
 {
     const auto size = r.read<std::uint32_t>();
-
-    vec.clear();
-    vec.reserve(size);
+    set.clear();
 
     for (std::uint32_t i = 0; i < size; ++i)
     {
-        vec.push_back(r.read<T>());
+        set.insert(r.read<T>());
         if (r.err())
         {
-            vec.clear();
+            set.clear();
             break;
         }
     }

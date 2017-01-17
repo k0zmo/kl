@@ -1,14 +1,14 @@
 #pragma once
 
-#include "kl/buffer_rw.hpp"
-#include "kl/buffer_rw/pair.hpp"
+#include "kl/binary_rw.hpp"
+#include "kl/binary_rw/pair.hpp"
 
 #include <map>
 
 namespace kl {
 
 template <typename K, typename V>
-kl::buffer_reader& operator>>(kl::buffer_reader& r, std::map<K, V>& map)
+kl::binary_reader& operator>>(kl::binary_reader& r, std::map<K, V>& map)
 {
     const auto size = r.read<std::uint32_t>();
     map.clear();

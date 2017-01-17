@@ -1,6 +1,6 @@
 #pragma once
 
-#include "kl/buffer_rw.hpp"
+#include "kl/binary_rw.hpp"
 #include "kl/meta.hpp"
 
 #include <boost/variant.hpp>
@@ -9,14 +9,14 @@ namespace kl {
 namespace detail {
 
 template <typename Variant>
-void visit_by_index(kl::buffer_reader& r, kl::type_pack<>, Variant&,
+void visit_by_index(kl::binary_reader& r, kl::type_pack<>, Variant&,
                     std::uint8_t)
 {
     r.notify_error();
 }
 
 template <typename Head, typename... Tail, typename Variant>
-void visit_by_index(kl::buffer_reader& r, kl::type_pack<Head, Tail...>,
+void visit_by_index(kl::binary_reader& r, kl::type_pack<Head, Tail...>,
                     Variant& variant, std::uint8_t which)
 {
     if (which == 0)
@@ -38,7 +38,7 @@ struct not_boost_variant_void
 };
 
 template <typename... Args>
-void decode_variant(kl::buffer_reader& r, boost::variant<Args...>& var,
+void decode_variant(kl::binary_reader& r, boost::variant<Args...>& var,
                     std::uint8_t which)
 {
     // boost::variant<int, bool> is really
@@ -50,7 +50,7 @@ void decode_variant(kl::buffer_reader& r, boost::variant<Args...>& var,
 } // namespace detail
 
 template <typename... Args>
-kl::buffer_reader& operator>>(kl::buffer_reader& r,
+kl::binary_reader& operator>>(kl::binary_reader& r,
                               boost::variant<Args...>& var)
 {
     const auto which = r.read<std::uint8_t>();

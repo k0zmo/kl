@@ -1,10 +1,10 @@
-#include "kl/buffer_rw.hpp"
-#include "kl/buffer_rw/map.hpp"
-#include "kl/buffer_rw/optional.hpp"
-#include "kl/buffer_rw/set.hpp"
-#include "kl/buffer_rw/string.hpp"
-#include "kl/buffer_rw/variant.hpp"
-#include "kl/buffer_rw/vector.hpp"
+#include "kl/binary_rw.hpp"
+#include "kl/binary_rw/map.hpp"
+#include "kl/binary_rw/optional.hpp"
+#include "kl/binary_rw/set.hpp"
+#include "kl/binary_rw/string.hpp"
+#include "kl/binary_rw/variant.hpp"
+#include "kl/binary_rw/vector.hpp"
 
 #include <boost/endian/arithmetic.hpp>
 #include <catch/catch.hpp>
@@ -12,13 +12,13 @@
 
 #include <cstring>
 
-TEST_CASE("buffer_reader")
+TEST_CASE("binary_reader")
 {
     using namespace kl;
 
     SECTION("empty span")
     {
-        buffer_reader r{gsl::span<const byte>()};
+        binary_reader r{gsl::span<const byte>()};
 
         REQUIRE(r.left() == 0);
         REQUIRE(r.pos() == 0);
@@ -61,7 +61,7 @@ TEST_CASE("buffer_reader")
     SECTION("span with 4 bytes")
     {
         std::array<byte, 4> buf = {1, 2, 3, 4};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         REQUIRE(r.left() == 4);
         REQUIRE(r.peek<byte>() == 1);
@@ -82,7 +82,7 @@ TEST_CASE("buffer_reader")
     SECTION("read cstring as span")
     {
         const char* str = "Hello world!";
-        buffer_reader r(gsl::ensure_z(str));
+        binary_reader r(gsl::ensure_z(str));
 
         REQUIRE(r.left() == 12);
         REQUIRE(gsl::as_bytes(r.view(r.left())) ==
@@ -96,13 +96,13 @@ TEST_CASE("buffer_reader")
     }
 }
 
-TEST_CASE("buffer_reader - map")
+TEST_CASE("binary_reader - map")
 {
     using namespace kl;
 
     SECTION("empty buffer")
     {
-        buffer_reader r{gsl::span<const byte>{}};
+        binary_reader r{gsl::span<const byte>{}};
         auto ret = r.read<std::map<int, std::string>>();
         REQUIRE(r.err());
         REQUIRE(ret.empty());
@@ -112,7 +112,7 @@ TEST_CASE("buffer_reader - map")
     {
         std::array<byte, 4 + 4 + 4 + 1 + 1> buf = {3, 0, 0, 0, 0, 0,   0,
                                                    0, 1, 0, 0, 0, '@', 0};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<std::map<int, std::string>>();
         REQUIRE(r.err());
@@ -123,7 +123,7 @@ TEST_CASE("buffer_reader - map")
     {
         std::array<byte, 4 + 1 + 4 + 1 + 4> buf = {2, 0, 0, 0,  2, 100, 0,
                                                    0, 0, 1, 10, 0, 0,   0};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<std::map<byte, int>>();
         REQUIRE(ret.size() == 2);
@@ -134,13 +134,13 @@ TEST_CASE("buffer_reader - map")
     }
 }
 
-TEST_CASE("buffer_reader - set")
+TEST_CASE("binary_reader - set")
 {
     using namespace kl;
 
     SECTION("empty buffer")
     {
-        buffer_reader r{gsl::span<const byte>{}};
+        binary_reader r{gsl::span<const byte>{}};
         auto ret = r.read<std::set<int>>();
         REQUIRE(r.err());
         REQUIRE(ret.empty());
@@ -149,7 +149,7 @@ TEST_CASE("buffer_reader - set")
     SECTION("buffer too short")
     {
         std::array<byte, 4 + 2> buf = {3, 0, 0, 0, 1, 2};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<std::set<std::string>>();
         REQUIRE(r.err());
@@ -159,7 +159,7 @@ TEST_CASE("buffer_reader - set")
     SECTION("3 elems")
     {
         std::array<byte, 4 + 3> buf = {3, 0, 0, 0, 1, 2, 3};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<std::set<byte>>();
         REQUIRE(ret.size() == 3);
@@ -171,13 +171,13 @@ TEST_CASE("buffer_reader - set")
     }
 }
 
-TEST_CASE("buffer_reader - optional")
+TEST_CASE("binary_reader - optional")
 {
     using namespace kl;
 
     SECTION("empty buffer")
     {
-        buffer_reader r{gsl::span<const byte>{}};
+        binary_reader r{gsl::span<const byte>{}};
         auto ret = r.read<boost::optional<int>>();
         REQUIRE(r.err());
     }
@@ -185,7 +185,7 @@ TEST_CASE("buffer_reader - optional")
     SECTION("nullopt")
     {
         std::array<byte, 1> buf = {0};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<boost::optional<int>>();
         REQUIRE(!ret);
@@ -195,7 +195,7 @@ TEST_CASE("buffer_reader - optional")
     SECTION("buffer too short")
     {
         std::array<byte, 2> buf = {1, 0};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<boost::optional<int>>();
         REQUIRE(r.err());
@@ -204,7 +204,7 @@ TEST_CASE("buffer_reader - optional")
     SECTION("ok")
     {
         std::array<byte, 1 + 4 + 1> buf = {1, 1, 0, 0, 0, '!'};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<boost::optional<std::string>>();
         REQUIRE(!r.err());
@@ -213,13 +213,13 @@ TEST_CASE("buffer_reader - optional")
     }
 }
 
-TEST_CASE("buffer_reader - string")
+TEST_CASE("binary_reader - string")
 {
     using namespace kl;
 
     SECTION("empty buffer")
     {
-        buffer_reader r{gsl::span<const byte>{}};
+        binary_reader r{gsl::span<const byte>{}};
         auto ret = r.read<std::string>();
         REQUIRE(r.err());
         REQUIRE(ret.empty());
@@ -229,7 +229,7 @@ TEST_CASE("buffer_reader - string")
     {
         std::array<byte, 4 + 12> buf = {13,  0,   0,   0,   'H', 'e', 'l', 'l',
                                         'o', ',', ' ', 'w', 'o', 'r', 'l'};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         std::string ret;
         REQUIRE(!r.read(ret));
@@ -242,7 +242,7 @@ TEST_CASE("buffer_reader - string")
         std::array<byte, 4 + 13> buf = {13,  0,   0,   0,   'H', 'e',
                                         'l', 'l', 'o', ',', ' ', 'w',
                                         'o', 'r', 'l', 'd', '!'};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<std::string>();
         REQUIRE(ret == "Hello, world!");
@@ -251,14 +251,14 @@ TEST_CASE("buffer_reader - string")
     }
 }
 
-TEST_CASE("buffer_reader - variant")
+TEST_CASE("binary_reader - variant")
 {
     using namespace kl;
     using variant = boost::variant<boost::endian::little_int32_t, std::string>;
 
     SECTION("empty buffer")
     {
-        buffer_reader r{gsl::span<const byte>{}};
+        binary_reader r{gsl::span<const byte>{}};
         auto ret = r.read<variant>();
         REQUIRE(r.err());
     }
@@ -266,7 +266,7 @@ TEST_CASE("buffer_reader - variant")
     SECTION("invalid 'which'")
     {
         std::array<byte, 1> buf = {3};
-        buffer_reader r{buf};
+        binary_reader r{buf};
         auto ret = r.read<variant>();
         REQUIRE(r.err());
     }
@@ -274,7 +274,7 @@ TEST_CASE("buffer_reader - variant")
     SECTION("read as int")
     {
         std::array<byte, 1 + 4> buf = {0, 19, 0, 0, 0};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         variant var;
         r.read(var);
@@ -286,7 +286,7 @@ TEST_CASE("buffer_reader - variant")
     SECTION("read as int, buffer too short")
     {
         std::array<byte, 1 + 2> buf = {0, 19, 0};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         variant var;
         REQUIRE(!r.read(var));
@@ -297,7 +297,7 @@ TEST_CASE("buffer_reader - variant")
         std::array<byte, 1 + 4 + 19> buf = {
             1,   19,  0,   0,   0,   'H', 'e', 'l', 'l', 'o', ',', ' ',
             'w', 'o', 'r', 'l', 'd', '!', ' ', ' ', ' ', ' ', ' ', ' '};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<variant>();
         REQUIRE(ret.which() == 1);
@@ -306,13 +306,13 @@ TEST_CASE("buffer_reader - variant")
     }
 }
 
-TEST_CASE("buffer_reader - vector")
+TEST_CASE("binary_reader - vector")
 {
     using namespace kl;
 
     SECTION("empty buffer")
     {
-        buffer_reader r{gsl::span<const byte>{}};
+        binary_reader r{gsl::span<const byte>{}};
         auto ret = r.read<std::vector<int>>();
         REQUIRE(r.err());
         REQUIRE(ret.empty());
@@ -321,7 +321,7 @@ TEST_CASE("buffer_reader - vector")
     SECTION("buffer too short")
     {
         std::array<byte, 4 + 2> buf = {3, 0, 0, 0, 1, 2};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<std::vector<std::string>>();
         REQUIRE(r.err());
@@ -331,7 +331,7 @@ TEST_CASE("buffer_reader - vector")
     SECTION("3 elems")
     {
         std::array<byte, 4 + 3 + 1> buf = {3, 0, 0, 0, 1, 2, 3, 4};
-        buffer_reader r{buf};
+        binary_reader r{buf};
 
         auto ret = r.read<std::vector<byte>>();
         REQUIRE(ret.size() == 3);
@@ -350,7 +350,7 @@ struct user_defined_type
     float f = 0.0f;
 };
 
-kl::buffer_reader& operator>>(kl::buffer_reader& r, user_defined_type& value)
+kl::binary_reader& operator>>(kl::binary_reader& r, user_defined_type& value)
 {
     r >> gsl::make_span(value.vec);
     r >> value.i;
@@ -359,7 +359,7 @@ kl::buffer_reader& operator>>(kl::buffer_reader& r, user_defined_type& value)
     return r;
 }
 
-TEST_CASE("buffer_reader - user defined type")
+TEST_CASE("binary_reader - user defined type")
 {
     std::vector<user_defined_type> v;
     std::vector<kl::byte> buf = {1, 0, 0, 0,
@@ -369,7 +369,7 @@ TEST_CASE("buffer_reader - user defined type")
                                  0x00, 0xa0, 0x0c, 0x46, 
                                  2, 0, 0, 0,
                                  0, 0, 0, 0};
-    kl::buffer_reader r{buf};
+    kl::binary_reader r{buf};
 
     r >> v;
     REQUIRE(r.empty());

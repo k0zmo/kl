@@ -10,18 +10,18 @@
 
 namespace kl {
 
-class buffer_reader
+class binary_reader
 {
 public:
-    explicit buffer_reader(gsl::span<const byte> buffer) noexcept
+    explicit binary_reader(gsl::span<const byte> buffer) noexcept
         : buffer_(std::move(buffer))
     {
     }
 
     template <typename T, std::ptrdiff_t Extent,
               typename = enable_if<std::is_trivial<T>>>
-    explicit buffer_reader(gsl::span<T, Extent> buffer) noexcept
-        : buffer_reader({reinterpret_cast<const byte*>(buffer.data()),
+    explicit binary_reader(gsl::span<T, Extent> buffer) noexcept
+        : binary_reader({reinterpret_cast<const byte*>(buffer.data()),
                          buffer.size_bytes()})
     {
     }
@@ -100,10 +100,10 @@ public:
 
     // Default Stream Op implementation for all trivially copyable types
     template <typename T>
-    friend buffer_reader& operator>>(buffer_reader& r, T& value)
+    friend binary_reader& operator>>(binary_reader& r, T& value)
     {
         // If you get compilation error here it means your type T does not
-        // provide operator>>(kl::buffer_reader&, T&) function and does not
+        // provide operator>>(kl::binary_reader&, T&) function and does not
         // satisfy TriviallyCopyable concept
 
         static_assert(std::is_trivially_copyable<T>::value,
@@ -122,7 +122,7 @@ public:
     }
 
     template <typename T, std::ptrdiff_t Extent>
-    friend buffer_reader& operator>>(buffer_reader& r,
+    friend binary_reader& operator>>(binary_reader& r,
                                      gsl::span<T, Extent> span)
     {
         if (!r.err_ && r.peek_span(span))
