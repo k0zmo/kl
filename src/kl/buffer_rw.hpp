@@ -165,11 +165,10 @@ private:
         static_assert(std::is_trivially_copyable<T>::value,
                       "T must be a trivially copyable type");
 
-        auto repr = gsl::make_span(reinterpret_cast<const byte*>(span.data()),
+        auto repr = gsl::make_span(reinterpret_cast<byte*>(span.data()),
                                    span.size_bytes());
 
-        // If left() is negative we already have err_ set to true
-        if (err_ || static_cast<std::size_t>(left()) < repr.size_bytes())
+        if (err_ || left() < repr.size_bytes())
             return false;
 
         std::memcpy(repr.data(), cursor(), repr.size_bytes());

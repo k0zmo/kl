@@ -342,3 +342,44 @@ TEST_CASE("buffer_reader - vector")
         REQUIRE(r.left() == 1);
     }
 }
+
+struct user_defined_type
+{
+    float vec[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    int i = 0;
+    float f = 0.0f;
+};
+
+kl::buffer_reader& operator>>(kl::buffer_reader& r, user_defined_type& value)
+{
+    r >> gsl::make_span(value.vec);
+    r >> value.i;
+    r >> value.f;
+
+    return r;
+}
+
+TEST_CASE("buffer_reader - user defined type")
+{
+    std::vector<user_defined_type> v;
+    std::vector<kl::byte> buf = {1, 0, 0, 0,
+                                 0xc3, 0xf5, 0x48, 0x40,
+                                 0x00, 0x00, 0x80, 0x3f,
+                                 0x7b, 0x14, 0x2e, 0x40,
+                                 0x00, 0xa0, 0x0c, 0x46, 
+                                 2, 0, 0, 0,
+                                 0, 0, 0, 0};
+    kl::buffer_reader r{buf};
+
+    r >> v;
+    REQUIRE(r.empty());
+    REQUIRE(!r.err());
+
+    REQUIRE(v.size() == 1);
+    REQUIRE(v[0].vec[0] == 3.14f);
+    REQUIRE(v[0].vec[1] == 1.0f);
+    REQUIRE(v[0].vec[2] == 2.72f);
+    REQUIRE(v[0].vec[3] == 9000.0f);
+    REQUIRE(v[0].i == 2);
+    REQUIRE(v[0].f == 0.0f);
+}
