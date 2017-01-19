@@ -128,6 +128,8 @@ set(KL_FILES
     src/kl/enum_range.hpp
     src/kl/enum_reflector.hpp
     src/kl/enum_traits.hpp
+    src/kl/file_view.hpp
+    src/kl/file_view.cpp
     src/kl/index_sequence.hpp
     src/kl/json_convert.hpp
     src/kl/json_print.hpp
@@ -178,6 +180,7 @@ if(KL_TEST)
         tests/ctti_test.cpp
         tests/defer_test.cpp
         tests/enum_test.cpp
+        tests/file_view_test.cpp
         tests/index_sequence_test.cpp
         tests/json_convert_test.cpp
         tests/json_print_test.cpp
