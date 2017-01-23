@@ -6,20 +6,29 @@
 
 TEST_CASE("file_view")
 {
+    SECTION("file not found")
     {
-        std::ofstream strm{"test.tmp",
-                           std::ios::trunc | std::ios::out | std::ios::binary};
-        strm << "Test\nHello.";
+        REQUIRE_THROWS_AS(kl::file_view{"test22_does_not_exist.tmp"},
+                          std::runtime_error);
     }
 
-    kl::file_view view{"test.tmp"};
-    auto s = view.get_bytes();
+    SECTION("read file")
+    {
+        {
+            std::ofstream strm{
+                "test.tmp", std::ios::trunc | std::ios::out | std::ios::binary};
+            strm << "Test\nHello.";
+        }
 
-    REQUIRE(s.size_bytes() == 11);
+        kl::file_view view{"test.tmp"};
+        auto s = view.get_bytes();
 
-    std::string str;
-    str.resize(s.size_bytes());
-    std::copy_n(s.data(), s.size_bytes(), str.begin());
+        REQUIRE(s.size_bytes() == 11);
 
-    REQUIRE(str == "Test\nHello.");
+        std::string str;
+        str.resize(s.size_bytes());
+        std::copy_n(s.data(), s.size_bytes(), str.begin());
+
+        REQUIRE(str == "Test\nHello.");
+    }
 }
