@@ -56,18 +56,6 @@ public:
 private:
     HANDLE h_{null};
 };
-
-struct map_deleter
-{
-    using pointer = LPVOID;
-    void operator()(pointer base_addr)
-    { 
-        ::UnmapViewOfFile(base_addr); 
-    }
-};
-
-using file_view = std::unique_ptr<LPVOID, map_deleter>;
-
 } // namespace detail
 
 struct file_view::impl
@@ -96,22 +84,27 @@ struct file_view::impl
                                     std::system_category()};
         }
 
-        file_view_.reset(
-            ::MapViewOfFile(mapping_handle_, FILE_MAP_READ, 0, 0, 0));
-        if (!file_view_)
+        void* file_view =
+            ::MapViewOfFile(mapping_handle_, FILE_MAP_READ, 0, 0, 0);
+        if (!file_view)
         {
             throw std::system_error{static_cast<int>(::GetLastError()),
                                     std::system_category()};
         }
 
         contents_ =
-            gsl::make_span(static_cast<byte*>(file_view_.get()),
+            gsl::make_span(static_cast<const byte*>(file_view),
                            static_cast<std::ptrdiff_t>(file_size.QuadPart));
+    }
+
+    ~impl()
+    {
+        if (!contents_.empty())
+            ::UnmapViewOfFile(contents_.data());
     }
 
     detail::handle<(LONG_PTR)-1> file_handle_;
     detail::handle<(LONG_PTR)0> mapping_handle_;
-    detail::file_view file_view_{HANDLE(nullptr)};
 
     gsl::span<const byte> contents_;
 };
@@ -194,25 +187,27 @@ struct file_view::impl
             return;
         }
 
-        file_view_ =
+        void* file_view =
             ::mmap(nullptr, file_info.st_size, PROT_READ, MAP_PRIVATE, fd_, 0);
-        if (!file_view_)
+        if (!file_view)
             throw std::system_error{static_cast<int>(errno),
                                     std::system_category()};
 
-        contents =
-            gsl::make_span(static_cast<const byte*>(file_view_),
+        contents_ =
+            gsl::make_span(static_cast<const byte*>(file_view),
                            static_cast<std::ptrdiff_t>(file_info.st_size));
     }
 
     ~impl()
     {
-        if (!contents.empty())
-            ::munmap(file_view, contents.size_bytes());
+        if (!contents_.empty())
+        {
+            ::munmap(const_cast<byte*>(contents_.data()),
+                     contents_.size_bytes());
+        }
     }
 
     detail::file_descriptor fd_;
-    void* file_view_{nullptr};
     gsl::span<const byte> contents_;
 };
 } // namespace kl
