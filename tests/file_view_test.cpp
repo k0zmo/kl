@@ -12,6 +12,18 @@ TEST_CASE("file_view")
                           std::runtime_error);
     }
 
+    SECTION("read empty file")
+    {
+        {
+            std::ofstream{"test_empty_file.tmp", std::ios::trunc | std::ios::out};
+        }  
+
+        kl::file_view view{"test_empty_file.tmp"};
+        auto s = view.get_bytes();
+
+        REQUIRE(s.empty());
+    }
+
     SECTION("read file")
     {
         {

@@ -80,6 +80,14 @@ struct file_view::impl
             throw std::system_error{static_cast<int>(::GetLastError()),
                                     std::system_category()};
 
+        LARGE_INTEGER file_size = {};
+        ::GetFileSizeEx(file_handle_, &file_size);
+        if (!file_size.QuadPart)
+        {
+            file_handle_.reset();
+            return;
+        }
+
         mapping_handle_.reset(::CreateFileMappingA(
             file_handle_, nullptr, PAGE_READONLY, 0, 0, nullptr));
         if (!mapping_handle_)
@@ -96,10 +104,7 @@ struct file_view::impl
                                     std::system_category()};
         }
 
-        LARGE_INTEGER file_size = {};
-        ::GetFileSizeEx(file_handle_, &file_size);
-
-        contents =
+        contents_ =
             gsl::make_span(static_cast<byte*>(file_view_.get()),
                            static_cast<std::ptrdiff_t>(file_size.QuadPart));
     }
@@ -108,7 +113,7 @@ struct file_view::impl
     detail::handle<(LONG_PTR)0> mapping_handle_;
     detail::file_view file_view_{HANDLE(nullptr)};
 
-    gsl::span<const byte> contents;
+    gsl::span<const byte> contents_;
 };
 } // namespace kl
 
@@ -172,28 +177,31 @@ private:
 struct file_view::impl
 {
     impl(gsl::cstring_span<> file_path)
-        : fd{::open(file_path.data(), O_RDONLY)}
+        : fd_{::open(file_path.data(), O_RDONLY)}
     {
-        if (!fd)
+        if (!fd_)
             throw std::system_error{static_cast<int>(errno),
                                     std::system_category()};
 
         struct stat file_info;
-        if (fstat(fd, &file_info) == -1)
+        if (fstat(fd_, &file_info) == -1)
             throw std::system_error{static_cast<int>(errno),
                                     std::system_category()};
 
         if (!file_info.st_size)
+        {
+            fd_.reset();
             return;
+        }
 
-        file_view =
-            ::mmap(nullptr, file_info.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-        if (!file_view)
+        file_view_ =
+            ::mmap(nullptr, file_info.st_size, PROT_READ, MAP_PRIVATE, fd_, 0);
+        if (!file_view_)
             throw std::system_error{static_cast<int>(errno),
                                     std::system_category()};
 
         contents =
-            gsl::make_span(static_cast<const byte*>(file_view),
+            gsl::make_span(static_cast<const byte*>(file_view_),
                            static_cast<std::ptrdiff_t>(file_info.st_size));
     }
 
@@ -203,9 +211,9 @@ struct file_view::impl
             ::munmap(file_view, contents.size_bytes());
     }
 
-    detail::file_descriptor fd;
-    void* file_view{nullptr};
-    gsl::span<const byte> contents;
+    detail::file_descriptor fd_;
+    void* file_view_{nullptr};
+    gsl::span<const byte> contents_;
 };
 } // namespace kl
 
@@ -222,6 +230,6 @@ file_view::~file_view() = default;
 
 gsl::span<const byte> file_view::get_bytes() const
 {
-    return impl_->contents;
+    return impl_->contents_;
 }
 } // namespace kl
