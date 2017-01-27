@@ -383,3 +383,107 @@ TEST_CASE("binary_reader - user defined type")
     REQUIRE(v[0].i == 2);
     REQUIRE(v[0].f == 0.0f);
 }
+
+TEST_CASE("binary_writer")
+{
+    using namespace kl;
+
+    SECTION("empty span")
+    {
+        binary_writer w{gsl::span<byte>()};
+
+        REQUIRE(w.left() == 0);
+        REQUIRE(w.pos() == 0);
+        REQUIRE(w.empty());
+        REQUIRE(!w.err());
+    
+        SECTION("try to write 1 byte")
+        {
+            unsigned char c = 1;
+            w << c;
+            REQUIRE(w.err());
+        }
+
+        SECTION("notify error")
+        {
+            w.notify_error();
+            REQUIRE(w.err());
+        }
+
+        SECTION("skip by negative")
+        {
+            w.skip(-1);
+            REQUIRE(w.err());
+        }
+
+        SECTION("skip by positive")
+        {
+            w.skip(1);
+            REQUIRE(w.err());
+        }
+    }
+
+    SECTION("span with 4 bytes")
+    {
+        std::array<byte, 4> buf{};
+        binary_writer w{buf};
+
+        REQUIRE(w.left() == 4);
+        REQUIRE(!w.empty());
+        REQUIRE(!w.err());
+
+        SECTION("write single byte(s)")
+        {
+            w << static_cast<kl::byte>(2);
+            REQUIRE(w.left() == 3);
+            REQUIRE(!w.empty());
+            REQUIRE(!w.err());
+            REQUIRE(buf[0] == 2);
+            REQUIRE(buf[1] == 0);
+            REQUIRE(buf[2] == 0);
+            REQUIRE(buf[3] == 0);
+
+            w << static_cast<kl::byte>(5) << static_cast<kl::byte>(66);
+            REQUIRE(w.left() == 1);
+            REQUIRE(!w.empty());
+            REQUIRE(!w.err());
+            REQUIRE(buf[0] == 2);
+            REQUIRE(buf[1] == 5);
+            REQUIRE(buf[2] == 66);
+            REQUIRE(buf[3] == 0);
+
+            w << static_cast<kl::byte>(255);
+            REQUIRE(buf[3] == 255);
+            REQUIRE(w.left() == 0);
+            REQUIRE(w.empty());
+            REQUIRE(!w.err());
+
+            w << static_cast<kl::byte>(255);
+            REQUIRE(w.empty());
+            REQUIRE(w.err());
+        }
+
+        SECTION("write int")
+        {
+            w << boost::endian::little_uint32_t{0x01020304};
+            REQUIRE(w.empty());
+            REQUIRE(buf[0] == 0x04);
+            REQUIRE(buf[1] == 0x03);
+            REQUIRE(buf[2] == 0x02);
+            REQUIRE(buf[3] == 0x01);
+        }
+    }
+
+    SECTION("write cstring as span")
+    {
+        const char* str = "Hello, world!";
+        std::array<byte, 13> buf{};
+        binary_writer w{buf};
+
+        w << gsl::ensure_z(str);
+        REQUIRE(!w.err());
+        REQUIRE(w.empty());
+        REQUIRE(gsl::as_bytes(gsl::ensure_z(str)) ==
+                gsl::as_bytes(gsl::make_span(buf)));
+    }
+}

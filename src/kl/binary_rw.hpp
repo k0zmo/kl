@@ -59,8 +59,7 @@ public:
         return value;
     }
 
-    gsl::span<const byte> view(std::size_t count,
-                               bool move_cursor = true) noexcept
+    gsl::span<const byte> view(std::size_t count, bool move_cursor = true)
     {
         // If left() is negative we already have err_ set to true
         if (count > static_cast<std::size_t>(left()))
@@ -95,12 +94,12 @@ public:
 
     bool err() const noexcept { return err_; }
 
-    // Useful in user-provided operator<< for composite types to fail fast
+    // Useful in user-provided operator>> for composite types to fail fast
     void notify_error() noexcept { err_ = true; }
 
     // Default Stream Op implementation for all trivially copyable types
     template <typename T>
-    friend binary_reader& operator>>(binary_reader& r, T& value)
+    friend binary_reader& operator>>(binary_reader& r, T& value) noexcept
     {
         // If you get compilation error here it means your type T does not
         // provide operator>>(kl::binary_reader&, T&) function and does not
@@ -177,6 +176,128 @@ private:
 
 private:
     gsl::span<const byte> buffer_;
+    std::ptrdiff_t pos_{0};
+    bool err_{false};
+};
+
+class binary_writer
+{
+public:
+    explicit binary_writer(gsl::span<byte> buffer) noexcept
+        : buffer_(std::move(buffer))
+    {
+    }
+
+    template <typename T, std::ptrdiff_t Extent,
+              typename = enable_if<std::is_trivial<T>>>
+    explicit binary_writer(gsl::span<T, Extent> buffer) noexcept
+        : binary_writer{
+              {reinterpret_cast<byte*>(buffer.data()), buffer.size_bytes()}}
+    {
+    }
+
+    void skip(std::ptrdiff_t off) noexcept
+    {
+        // Make sure pos_ does not escape of buffer range
+        if (off > 0 && off > left())
+            err_ = true;
+        if (off < 0 && (-off) > pos_)
+            err_ = true;
+
+        if (!err_)
+            pos_ += off;
+    }
+
+    bool empty() const noexcept { return left() <= 0; }
+    // Returns how many bytes are left in the internal buffer
+    std::ptrdiff_t left() const noexcept { return buffer_.size_bytes() - pos(); }
+    // Returns how many bytes we've already read
+    std::ptrdiff_t pos() const noexcept { return pos_; }
+
+    bool err() const noexcept { return err_; }
+
+    // Useful in user-provided operator<< for composite types to fail fast
+    void notify_error() noexcept { err_ = true; }
+
+    // Default Stream Op implementation for all trivially copyable types
+    template <typename T>
+    friend binary_writer& operator<<(binary_writer& w, const T& value) noexcept
+    {
+        // If you get compilation error here it means your type T does not
+        // provide operator<<(kl::binary_writer&, const T&) function and does
+        // not satisfy TriviallyCopyable concept
+
+        static_assert(std::is_trivially_copyable<T>::value,
+                      "T must be a trivially copyable type");
+
+        if (!w.err_ && w.write_basic(value))
+        {
+            w.pos_ += sizeof(value);
+        }
+        else
+        {
+            w.err_ = true;
+        }
+
+        return w;
+    }
+
+    template <typename T, std::ptrdiff_t Extent>
+    friend binary_writer& operator<<(binary_writer& w,
+                                     gsl::span<const T, Extent> span)
+    {
+        if (!w.err_ && w.write_span(span))
+        {
+            w.pos_ += span.size_bytes();
+        }
+        else
+        {
+            w.err_ = true;
+        }
+
+        return w;
+    }
+
+private:
+    byte* cursor() noexcept
+    {
+        return buffer_.data() + pos_;
+    }
+
+    template <typename T>
+    bool write_basic(const T& value) noexcept
+    {
+        // If the objects are not TriviallyCopyable, the behavior of memcpy is
+        // not specified and may be undefined
+        static_assert(std::is_trivially_copyable<T>::value,
+                      "T must be a trivially copyable type");
+
+        // If left() is negative we already have err_ set to true
+        if (err_ || static_cast<std::size_t>(left()) < sizeof(T))
+            return false;
+
+        std::memcpy(cursor(), &value, sizeof(T));
+        return true;
+    }
+
+    template <typename T, std::ptrdiff_t Extent>
+    bool write_span(gsl::span<const T, Extent> span)
+    {
+        static_assert(std::is_trivially_copyable<T>::value,
+                      "T must be a trivially copyable type");
+
+        auto repr = gsl::make_span(reinterpret_cast<const byte*>(span.data()),
+                                   span.size_bytes());
+
+        if (err_ || left() < repr.size_bytes())
+            return false;
+
+        std::memcpy(cursor(), repr.data(), repr.size_bytes());
+        return true;
+    }
+
+private:
+    gsl::span<byte> buffer_;
     std::ptrdiff_t pos_{0};
     bool err_{false};
 };
