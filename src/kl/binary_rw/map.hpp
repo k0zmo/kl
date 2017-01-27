@@ -1,11 +1,24 @@
 #pragma once
 
 #include "kl/binary_rw.hpp"
-#include "kl/binary_rw/pair.hpp"
 
 #include <map>
 
 namespace kl {
+
+template <typename K, typename V>
+kl::binary_writer& operator<<(kl::binary_writer& w, const std::map<K ,V>& map)
+{
+    w << static_cast<std::uint32_t>(map.size());
+
+    for (const auto& kv : map)
+    {
+        w << kv.first;
+        w << kv.second;
+    }
+
+    return w;
+}
 
 template <typename K, typename V>
 kl::binary_reader& operator>>(kl::binary_reader& r, std::map<K, V>& map)
@@ -15,8 +28,7 @@ kl::binary_reader& operator>>(kl::binary_reader& r, std::map<K, V>& map)
 
     for (std::uint32_t i = 0; i < size; ++i)
     {
-        // NB: We can't use pair<const K, V> here
-        map.insert(r.read<std::pair<K, V>>());
+        map.insert({r.read<K>(), r.read<V>()});
         if (r.err())
         {
             map.clear();

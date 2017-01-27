@@ -50,6 +50,15 @@ void decode_variant(kl::binary_reader& r, boost::variant<Args...>& var,
 } // namespace detail
 
 template <typename... Args>
+kl::binary_writer& operator<<(kl::binary_writer& w,
+                              const boost::variant<Args...>& var)
+{
+    w << static_cast<std::uint8_t>(var.which());
+    boost::apply_visitor([&w](const auto& value) { w << value; }, var);
+    return w;
+}
+
+template <typename... Args>
 kl::binary_reader& operator>>(kl::binary_reader& r,
                               boost::variant<Args...>& var)
 {
