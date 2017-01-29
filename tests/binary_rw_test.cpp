@@ -1,4 +1,5 @@
 #include "kl/binary_rw.hpp"
+#include "kl/binary_rw/endian.hpp"
 #include "kl/binary_rw/map.hpp"
 #include "kl/binary_rw/optional.hpp"
 #include "kl/binary_rw/set.hpp"
@@ -6,7 +7,6 @@
 #include "kl/binary_rw/variant.hpp"
 #include "kl/binary_rw/vector.hpp"
 
-#include <boost/endian/arithmetic.hpp>
 #include <catch/catch.hpp>
 #include <gsl/string_span>
 
@@ -28,14 +28,14 @@ TEST_CASE("binary_reader")
         SECTION("try peek")
         {
             unsigned char c;
-            REQUIRE(!r.peek<unsigned char>(c));
+            REQUIRE(!r.peek(c));
             REQUIRE(!r.err());
         }
         
         SECTION("try read")
         {
             unsigned char c;
-            REQUIRE(!r.read<unsigned char>(c));
+            REQUIRE(!r.read(c));
             REQUIRE(r.err());
         }
 
@@ -85,7 +85,7 @@ TEST_CASE("binary_reader")
         binary_reader r(gsl::ensure_z(str));
 
         REQUIRE(r.left() == 12);
-        REQUIRE(gsl::as_bytes(r.view(r.left())) ==
+        REQUIRE(gsl::as_bytes(r.span(r.left())) ==
                 gsl::as_bytes(gsl::ensure_z(str)));
         REQUIRE(r.pos() == 12);
         REQUIRE(r.left() == 0);
@@ -770,23 +770,18 @@ struct user_defined_type
     float f;
 };
 
-kl::binary_reader& operator>>(kl::binary_reader& r, user_defined_type& value)
+void read_binary(kl::binary_reader& r, user_defined_type& value)
 {
     r >> gsl::make_span(value.vec);
     r >> value.i;
     r >> value.f;
-
-    return r;
 }
 
-kl::binary_writer& operator<<(kl::binary_writer& w,
-                              const user_defined_type& value)
+void write_binary(kl::binary_writer& w, const user_defined_type& value)
 {
     w << gsl::make_span(value.vec);
     w << value.i;
     w << value.f;
-
-    return w;
 }
 
 TEST_CASE("binary_reader/writer - user defined type")

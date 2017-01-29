@@ -63,6 +63,11 @@ protected:
     std::ptrdiff_t pos_{0};
     bool err_{false};
 };
+
+template <typename T>
+using is_simple =
+    kl::bool_constant<std::is_arithmetic<T>::value || std::is_enum<T>::value>;
+
 } // namespace detail
 
 class binary_reader : public detail::cursor_base<const byte>
@@ -71,11 +76,42 @@ public:
     using detail::cursor_base<const byte>::cursor_base;
 
     template <typename T>
+    bool peek(T& value) noexcept
+    {
+        // If the objects are not TriviallyCopyable, the behavior of memcpy is
+        // not specified and may be undefined.
+        static_assert(std::is_trivially_copyable<T>::value,
+                      "T must be a trivially copyable type");
+
+        return peek_impl(reinterpret_cast<byte*>(&value), sizeof(T));
+    }
+
+    template <typename T>
+    bool read_raw(T& value) noexcept
+    {
+        static_assert(std::is_trivially_copyable<T>::value,
+                      "T must be a trivially copyable type");
+
+        return read_impl(reinterpret_cast<byte*>(&value), sizeof(T));
+    }
+
+    template <typename T, std::ptrdiff_t Extent>
+    bool read_span(gsl::span<T, Extent> span) noexcept
+    {
+        static_assert(std::is_trivially_copyable<T>::value,
+                      "T must be a trivially copyable type");
+
+        return read_impl(reinterpret_cast<byte*>(span.data()),
+                         span.size_bytes());
+    }
+
+public:
+    template <typename T>
     bool read(T& value)
     {
         if (err_)
             return false;
-        (*this) >> value;
+        read_binary(*this, value);
         return !err_;
     }
 
@@ -88,12 +124,6 @@ public:
         return value;
     }
 
-    template <typename T>
-    bool peek(T& value) noexcept
-    {
-        return peek_basic(value);
-    }
-
     template <typename T,
               typename = enable_if<std::is_default_constructible<T>>>
     T peek()
@@ -103,7 +133,8 @@ public:
         return value;
     }
 
-    gsl::span<const byte> view(std::size_t count, bool move_cursor = true)
+    // Does not copy the data
+    gsl::span<const byte> span(std::size_t count, bool move_cursor = true)
     {
         if (count > static_cast<std::size_t>(left()))
             err_ = true;
@@ -117,130 +148,116 @@ public:
         return ret;
     }
 
-    // Default Stream Op implementation for all trivially copyable types
-    template <typename T>
-    friend binary_reader& operator>>(binary_reader& r, T& value) noexcept
-    {
-        if (!r.err_ && r.peek_basic(value))
-            r.pos_ += sizeof(value);
-        else
-            r.err_ = true;
-
-        return r;
-    }
-
-    template <typename T, std::ptrdiff_t Extent>
-    friend binary_reader& operator>>(binary_reader& r,
-                                     gsl::span<T, Extent> span)
-    {
-        if (!r.err_ && r.peek_span(span))
-            r.pos_ += span.size_bytes();
-        else
-            r.err_ = true;
-
-        return r;
-    }
-
 private:
-    template <typename T>
-    bool peek_basic(T& value) noexcept
+    bool peek_impl(byte* data, std::size_t size) noexcept
     {
-        // If you get compilation error here it means your type T does not
-        // provide operator>>(kl::binary_reader&, T&) function and does not
-        // satisfy TriviallyCopyable concept.
-
-        // If the objects are not TriviallyCopyable, the behavior of memcpy is
-        // not specified and may be undefined.
-        static_assert(std::is_trivially_copyable<T>::value,
-                      "T must be a trivially copyable type");
-
-        if (err_ || static_cast<std::size_t>(left()) < sizeof(T))
+        if (err_ || static_cast<std::size_t>(left()) < size)
             return false;
 
-        std::memcpy(&value, cursor(), sizeof(T));
+        std::memcpy(data, cursor(), size);
         return true;
     }
 
-    template <typename T, std::ptrdiff_t Extent>
-    bool peek_span(gsl::span<T, Extent> span)
+    bool read_impl(byte* data, std::size_t size) noexcept
     {
-        static_assert(std::is_trivially_copyable<T>::value,
-                      "T must be a trivially copyable type");
+        if (peek_impl(data, size))
+            pos_ += size;
+        else
+            err_ = true;
 
-        auto repr = gsl::make_span(reinterpret_cast<byte*>(span.data()),
-                                   span.size_bytes());
-
-        if (err_ || left() < repr.size_bytes())
-            return false;
-
-        std::memcpy(repr.data(), cursor(), repr.size_bytes());
-        return true;
+        return !err_;
     }
 };
+
+// read_binary implementation for all basic types + enum types
+template <typename T, typename = enable_if<detail::is_simple<T>>>
+void read_binary(binary_reader& r, T& value) noexcept
+{
+    r.read_raw(value);
+}
+
+// read_binary implementation for all basic types + enum types
+template <typename T, std::ptrdiff_t Extent>
+void read_binary(binary_reader& r, gsl::span<T, Extent> span)
+{
+    r.read_span(span);
+}
+
+template <typename T>
+binary_reader& operator>>(binary_reader& r, T& value)
+{
+    read_binary(r, value);
+    return r;
+}
+
+// This must be present to allow for rvalue spans
+template <typename T, std::ptrdiff_t Extent>
+binary_reader& operator>>(binary_reader& r, gsl::span<T, Extent> span)
+{
+    read_binary(r, span);
+    return r;
+}
 
 class binary_writer : public detail::cursor_base<byte>
 {
 public:
     using detail::cursor_base<byte>::cursor_base;
 
-    // Default Stream Op implementation for all trivially copyable types
     template <typename T>
-    friend binary_writer& operator<<(binary_writer& w, const T& value) noexcept
+    bool write_raw(const T& value) noexcept
     {
-        if (w.write_basic(value))
-            w.pos_ += sizeof(value);
-        else
-            w.err_ = true;
-
-        return w;
-    }
-
-    template <typename T, std::ptrdiff_t Extent>
-    friend binary_writer& operator<<(binary_writer& w,
-                                     gsl::span<const T, Extent> span)
-    {
-        if (!w.err_ && w.write_span(span))
-            w.pos_ += span.size_bytes();
-        else
-            w.err_ = true;
-
-        return w;
-    }
-
-private:
-    template <typename T>
-    bool write_basic(const T& value) noexcept
-    {
-        // If you get compilation error here it means your type T does not
-        // provide operator<<(kl::binary_writer&, const T&) function and does
-        // not satisfy TriviallyCopyable concept.
-
         // If the objects are not TriviallyCopyable, the behavior of memcpy is
         // not specified and may be undefined.
         static_assert(std::is_trivially_copyable<T>::value,
                       "T must be a trivially copyable type");
 
-        if (err_ || static_cast<std::size_t>(left()) < sizeof(T))
-            return false;
-
-        std::memcpy(cursor(), &value, sizeof(T));
-        return true;
+        return write_impl(reinterpret_cast<const byte*>(&value), sizeof(T));
     }
 
     template <typename T, std::ptrdiff_t Extent>
-    bool write_span(gsl::span<const T, Extent> span)
+    bool write_span(gsl::span<const T, Extent> span) noexcept
     {
         static_assert(std::is_trivially_copyable<T>::value,
                       "T must be a trivially copyable type");
 
-        auto repr = gsl::make_span(reinterpret_cast<const byte*>(span.data()),
-                                   span.size_bytes());
+        return write_impl(reinterpret_cast<const byte*>(span.data()),
+                          span.size_bytes());
+    }
 
-        if (err_ || left() < repr.size_bytes())
+private:
+    bool write_impl(const byte* data, std::size_t size) noexcept
+    {
+        if (err_ || static_cast<std::size_t>(left()) < size)
+        {
+            err_ = true;
             return false;
+        }
 
-        std::memcpy(cursor(), repr.data(), repr.size_bytes());
+        std::memcpy(cursor(), data, size);
+        pos_ += size;
+
         return true;
     }
 };
+
+// write_binary implementation for all basic types + enum types
+template <typename T, typename = enable_if<detail::is_simple<T>>>
+void write_binary(binary_writer& w, const T& value) noexcept
+{
+    w.write_raw(value);
+}
+
+// write_binary implementation for spans
+template <typename T, std::ptrdiff_t Extent>
+void write_binary(binary_writer& w, gsl::span<const T, Extent> span) noexcept
+{
+    w.write_span(span);
+}
+
+template <typename T>
+binary_writer& operator<<(binary_writer& w, const T& value)
+{
+    write_binary(w, value);
+    return w;
+}
 } // namespace kl

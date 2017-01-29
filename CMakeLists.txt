@@ -146,6 +146,7 @@ set(KL_FILES
 )
 
 set(KL_BINARY_RW_FILES
+    src/kl/binary_rw/endian.hpp
     src/kl/binary_rw/map.hpp
     src/kl/binary_rw/optional.hpp
     src/kl/binary_rw/pair.hpp

@@ -12,7 +12,7 @@ namespace detail {
 // Specialized operator<< for vector<T> of trivially copyable type T
 template <typename T>
 void encode_vector(kl::binary_writer& w, const std::vector<T>& vec,
-                   std::true_type /*is_trivially_copyable*/)
+                   std::true_type /*is_trivially_serializable*/)
 {
     w << static_cast<std::uint32_t>(vec.size());
     w << gsl::make_span(vec);
@@ -20,7 +20,7 @@ void encode_vector(kl::binary_writer& w, const std::vector<T>& vec,
 
 template <typename T>
 void encode_vector(kl::binary_writer& w, const std::vector<T>& vec,
-                   std::false_type /*is_trivially_copyable*/)
+                   std::false_type /*is_trivially_serializable*/)
 {
     w << static_cast<std::uint32_t>(vec.size());
 
@@ -31,7 +31,7 @@ void encode_vector(kl::binary_writer& w, const std::vector<T>& vec,
 // Specialized operator>> for vector<T> of trivial type T
 template <typename T>
 void decode_vector(kl::binary_reader& r, std::vector<T>& vec,
-                   std::true_type /*is_trivial*/)
+                   std::true_type /*is_trivially_deserializable*/)
 {
     const auto size = r.read<std::uint32_t>();
 
@@ -52,7 +52,7 @@ void decode_vector(kl::binary_reader& r, std::vector<T>& vec,
 
 template <typename T>
 void decode_vector(kl::binary_reader& r, std::vector<T>& vec,
-                   std::false_type /*is_trivial*/)
+                   std::false_type /*is_trivially_deserializable*/)
 {
     const auto size = r.read<std::uint32_t>();
 
@@ -69,22 +69,23 @@ void decode_vector(kl::binary_reader& r, std::vector<T>& vec,
         }
     }
 }
+
+template <typename T>
+using is_trivially_serializable = kl::bool_constant<is_simple<T>::value>;
+
+template <typename T>
+using is_trivially_deserializable = kl::bool_constant<is_simple<T>::value>;
 } // namespace detail
 
 template <typename T>
-kl::binary_writer& operator<<(kl::binary_writer& w, const std::vector<T>& vec)
+void write_binary(kl::binary_writer& w, const std::vector<T>& vec)
 {
-    detail::encode_vector(
-        w, vec, kl::bool_constant<std::is_trivially_copyable<T>::value>{});
-    return w;
+    detail::encode_vector(w, vec, detail::is_trivially_serializable<T>{});
 }
 
 template <typename T>
-kl::binary_reader& operator>>(kl::binary_reader& r, std::vector<T>& vec)
+void read_binary(kl::binary_reader& r, std::vector<T>& vec)
 {
-
-    detail::decode_vector(r, vec,
-                          kl::bool_constant<std::is_trivial<T>::value>{});
-    return r;
+    detail::decode_vector(r, vec, detail::is_trivially_deserializable<T>{});
 }
 } // namespace kl

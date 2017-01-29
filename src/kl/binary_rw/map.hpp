@@ -7,7 +7,7 @@
 namespace kl {
 
 template <typename K, typename V>
-kl::binary_writer& operator<<(kl::binary_writer& w, const std::map<K ,V>& map)
+void write_binary(kl::binary_writer& w, const std::map<K, V>& map)
 {
     w << static_cast<std::uint32_t>(map.size());
 
@@ -16,12 +16,10 @@ kl::binary_writer& operator<<(kl::binary_writer& w, const std::map<K ,V>& map)
         w << kv.first;
         w << kv.second;
     }
-
-    return w;
 }
 
 template <typename K, typename V>
-kl::binary_reader& operator>>(kl::binary_reader& r, std::map<K, V>& map)
+void read_binary(kl::binary_reader& r, std::map<K, V>& map)
 {
     const auto size = r.read<std::uint32_t>();
     map.clear();
@@ -35,7 +33,5 @@ kl::binary_reader& operator>>(kl::binary_reader& r, std::map<K, V>& map)
             break;
         }
     }
-
-    return r;
 }
 } // namespace kl
