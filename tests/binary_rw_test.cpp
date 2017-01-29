@@ -791,8 +791,8 @@ kl::binary_writer& operator<<(kl::binary_writer& w,
 
 TEST_CASE("binary_reader/writer - user defined type")
 {
-    std::array<kl::byte, 52> buf{};
-    kl::binary_writer w{buf};
+    std::array<char, 52> buf{};
+    kl::binary_writer w{gsl::make_span(buf)};
 
     w << std::vector<user_defined_type>{
         {{3.14f, 1.0f, 2.72f, 9000.0f}, 2, 0.0f},
@@ -801,7 +801,7 @@ TEST_CASE("binary_reader/writer - user defined type")
     REQUIRE(w.empty());
     REQUIRE(!w.err());
 
-    kl::binary_reader r{buf};
+    kl::binary_reader r{gsl::make_span(buf)};
     std::vector<user_defined_type> v;
     r >> v;
     REQUIRE(r.empty());
