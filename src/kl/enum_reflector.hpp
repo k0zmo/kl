@@ -34,8 +34,8 @@ KL_DEFINE_ENUM_REFLECTOR(ns::detail, enum_,
     - from_string(): converts string to enum value
 */
 
-#include <type_traits>
-#include <cstring>
+#include "kl/base_range.hpp"
+
 #include <boost/optional.hpp>
 
 #include <boost/preprocessor/arithmetic/dec.hpp>
@@ -51,6 +51,9 @@ KL_DEFINE_ENUM_REFLECTOR(ns::detail, enum_,
 #include <boost/preprocessor/tuple/push_back.hpp>
 
 #include <gsl/string_span>
+
+#include <type_traits>
+#include <cstring>
 
 #if defined(_MSC_VER) && BOOST_VERSION == 105700
 #undef BOOST_PP_EXPAND_I
@@ -70,11 +73,14 @@ struct enum_reflector
     static constexpr const char* full_name() { return ""; }
     static constexpr const bool is_defined = false;
 
-    static boost::optional<enum_type> from_string(gsl::cstring_span<> str)
+    static boost::optional<enum_type> from_string(gsl::cstring_span<>)
     {
         return boost::none;
     }
-    static const char* to_string(enum_type value) { return nullptr; }
+    static const char* to_string(enum_type) { return nullptr; }
+
+    // TODO: This could be constexpr from VS2017
+    static kl::base_range<const enum_type*> values() { return {}; }
 };
 
 template <typename Enum, typename = void>
@@ -141,8 +147,9 @@ using is_enum_nonreflectable =
         static constexpr const char* full_name() { return full_name_string_; } \
         static constexpr const bool is_defined = true;                         \
                                                                                \
-        KL_ENUM_REFLECTOR_DEFINITION_FROM_STRING(full_name_, values_)          \
-        KL_ENUM_REFLECTOR_DEFINITION_TO_STRING(full_name_, values_)            \
+        KL_ENUM_REFLECTOR_DEFINITION_FROM_STRING(enum_type, values_)           \
+        KL_ENUM_REFLECTOR_DEFINITION_TO_STRING(enum_type, values_)             \
+        KL_ENUM_REFLECTOR_DEFINITION_VALUES(enum_type, values_)                \
     };                                                                         \
     }
 
@@ -184,6 +191,19 @@ using is_enum_nonreflectable =
                 (full_name_, values_, KL_ENUM_REFLECTOR_VALUE_TO_STRING))      \
         }                                                                      \
         return "(unknown)";                                                    \
+    }
+
+#define KL_ENUM_REFLECTOR_VALUE(full_name_, value_) \
+    full_name_::KL_ENUM_REFLECTOR_GET_ENUM_VALUE(value_),
+
+#define KL_ENUM_REFLECTOR_DEFINITION_VALUES(full_name_, values_)               \
+    static kl::base_range<const full_name_*> values()                          \
+    {                                                                          \
+        static const full_name_ value_list[] = {                               \
+            BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(values_),                      \
+                            KL_ENUM_REFLECTOR_FOR_EACH_IN_TUPLE2,              \
+                            (full_name_, values_, KL_ENUM_REFLECTOR_VALUE))};  \
+        return kl::make_range(std::begin(value_list), std::end(value_list));   \
     }
 
 // makes sure arg is a tuple (works for tuples and single arg)

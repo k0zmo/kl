@@ -79,13 +79,13 @@ struct type_info
     static const std::size_t num_fields = 0;
 
     template <typename Type, typename Visitor>
-    static void reflect(Type&& obj, Visitor&& visitor)
+    static void reflect(Type&&, Visitor&&)
     {
         static_assert(sizeof(Type) < 0, "Can't reflect this type");
     }
 
     template <typename Type, typename Visitor>
-    static void reflect(Visitor&& visitor)
+    static void reflect(Visitor&&)
     {
         static_assert(sizeof(Type) < 0, "Can't reflect this type");
     }

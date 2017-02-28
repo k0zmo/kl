@@ -171,6 +171,15 @@ TEST_CASE("enum_reflector")
             REQUIRE(reflector::from_string("max"));
             REQUIRE(reflector::from_string("max").get() == access_mode::max);
         }
+
+        auto values = reflector::values();
+        auto it = values.begin();
+        REQUIRE(it != values.end());
+        REQUIRE(*it++ == access_mode::read_write);
+        REQUIRE(*it++ == access_mode::write_only);
+        REQUIRE(*it++ == access_mode::read_only);
+        REQUIRE(*it++ == access_mode::max);
+        REQUIRE(it == values.end());
     }
 
     SECTION("reflector for enum type in namespace")
@@ -201,6 +210,18 @@ TEST_CASE("enum_reflector")
             REQUIRE(reflector::from_string("ycrcb").get() ==
                     ns::inner::colour_space::ycrcb);
         }
+
+        auto values = reflector::values();
+        auto it = values.begin();
+        REQUIRE(it != values.end());
+        REQUIRE(*it++ == ns::inner::colour_space::rgb);
+        REQUIRE(*it++ == ns::inner::colour_space::xyz);
+        REQUIRE(*it++ == ns::inner::colour_space::ycrcb);
+        REQUIRE(*it++ == ns::inner::colour_space::hsv);
+        REQUIRE(*it++ == ns::inner::colour_space::lab);
+        REQUIRE(*it++ == ns::inner::colour_space::hls);
+        REQUIRE(*it++ == ns::inner::colour_space::luv);
+        REQUIRE(it == values.end());
     }
 
     SECTION("reflector for old enum type (unscoped)")
@@ -226,6 +247,13 @@ TEST_CASE("enum_reflector")
             REQUIRE(reflector::from_string("prefix_two"));
             REQUIRE(reflector::from_string("prefix_two").get() == prefix_two);
         }
+
+        auto values = reflector::values();
+        auto it = values.begin();
+        REQUIRE(it != values.end());
+        REQUIRE(*it++ == prefix_one);
+        REQUIRE(*it++ == prefix_two);
+        REQUIRE(it == values.end());
     }
 }
 
