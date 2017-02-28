@@ -17,24 +17,24 @@ public:
     using reference = typename std::iterator_traits<Iterator>::reference;
 
 public:
-    explicit base_range() = default;
-    base_range(Iterator first, Iterator last)
+    constexpr base_range() = default;
+    constexpr base_range(Iterator first, Iterator last)
         : first_{std::move(first)}, last_{std::move(last)}
     {
     }
 
-    Iterator begin() const { return first_; }
-    Iterator end() const { return last_; }
+    constexpr Iterator begin() const { return first_; }
+    constexpr Iterator end() const { return last_; }
 
     // default implementation (iterator_category is used for dispatching)
-    size_t size() const { return std::distance(first_, last_); }
+    constexpr size_t size() const { return std::distance(first_, last_); }
 
 private:
     Iterator first_, last_;
 };
 
 template <class Iterator>
-inline base_range<Iterator> make_range(Iterator a, Iterator b)
+inline constexpr base_range<Iterator> make_range(Iterator a, Iterator b)
 {
     return base_range<Iterator>{a, b};
 }
@@ -54,22 +54,18 @@ inline base_range<typename Container::const_iterator>
 }
 
 template <class ArrayType, size_t N>
-inline base_range<std::add_pointer_t<ArrayType>>
+inline constexpr base_range<std::add_pointer_t<ArrayType>>
     make_range(ArrayType (&arr)[N])
 {
     using value_type = std::add_pointer_t<ArrayType>;
-    auto b = std::begin(arr);
-    auto e = std::end(arr);
-    return base_range<value_type>{b, e};
+    return base_range<value_type>{std::begin(arr), std::end(arr)};
 }
 
 template <class ArrayType, size_t N>
-inline base_range<std::add_pointer_t<const ArrayType>>
+inline constexpr base_range<std::add_pointer_t<const ArrayType>>
     make_range(const ArrayType (&arr)[N])
 {
     using value_type = std::add_pointer_t<const ArrayType>;
-    auto b = std::begin(arr);
-    auto e = std::end(arr);
-    return base_range<value_type>{b, e};
+    return base_range<value_type>{std::begin(arr), std::end(arr)};
 }
 } // namespace kl
