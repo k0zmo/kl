@@ -145,7 +145,7 @@ TEST_CASE("enum_reflector")
     {
         static_assert(kl::is_enum_reflectable<access_mode>::value, "???");
 
-        using reflector = typename kl::enum_reflector<access_mode>;
+        using reflector = kl::enum_reflector<access_mode>;
         using namespace std::string_literals;
 
         REQUIRE(reflector::name() == "access_mode"s);
@@ -186,32 +186,32 @@ TEST_CASE("enum_reflector")
     {
         static_assert(kl::is_enum_reflectable<ns::inner::colour_space>::value, "???");
 
-        using reflector = typename kl::enum_reflector<ns::inner::colour_space>;
         using namespace std::string_literals;
+        auto refl = kl::reflect<ns::inner::colour_space>();
 
-        REQUIRE(reflector::name() == "colour_space"s);
-        REQUIRE(reflector::full_name() == "ns::inner::colour_space"s);
-        REQUIRE(reflector::count() == 7);
+        REQUIRE(refl.name() == "colour_space"s);
+        REQUIRE(refl.full_name() == "ns::inner::colour_space"s);
+        REQUIRE(refl.count() == 7);
 
         SECTION("to_string")
         {
-            REQUIRE(reflector::to_string(ns::inner::colour_space::rgb) == "rgb"s);
-            REQUIRE(reflector::to_string(ns::inner::colour_space::xyz) == "xyz"s);
-            REQUIRE(reflector::to_string(ns::inner::colour_space::ycrcb) == "ycrcb"s);
-            REQUIRE(reflector::to_string(ns::inner::colour_space::hsv) == "hsv"s);
-            REQUIRE(reflector::to_string(ns::inner::colour_space::lab) == "lab"s);
-            REQUIRE(reflector::to_string(ns::inner::colour_space::hls) == "hls"s);
-            REQUIRE(reflector::to_string(ns::inner::colour_space::luv) == "luv"s);
+            REQUIRE(refl.to_string(ns::inner::colour_space::rgb) == "rgb"s);
+            REQUIRE(refl.to_string(ns::inner::colour_space::xyz) == "xyz"s);
+            REQUIRE(refl.to_string(ns::inner::colour_space::ycrcb) == "ycrcb"s);
+            REQUIRE(refl.to_string(ns::inner::colour_space::hsv) == "hsv"s);
+            REQUIRE(refl.to_string(ns::inner::colour_space::lab) == "lab"s);
+            REQUIRE(refl.to_string(ns::inner::colour_space::hls) == "hls"s);
+            REQUIRE(refl.to_string(ns::inner::colour_space::luv) == "luv"s);
         }
 
         SECTION("from_string")
         {
-            REQUIRE(reflector::from_string("ycrcb"));
-            REQUIRE(reflector::from_string("ycrcb").get() ==
+            REQUIRE(refl.from_string("ycrcb"));
+            REQUIRE(refl.from_string("ycrcb").get() ==
                     ns::inner::colour_space::ycrcb);
         }
 
-        auto values = reflector::values();
+        auto values = refl.values();
         auto it = values.begin();
         REQUIRE(it != values.end());
         REQUIRE(*it++ == ns::inner::colour_space::rgb);
@@ -228,7 +228,7 @@ TEST_CASE("enum_reflector")
     {
         static_assert(kl::is_enum_reflectable<unscoped_enum_type>::value, "???");
 
-        using reflector = typename kl::enum_reflector<unscoped_enum_type>;
+        using reflector = kl::enum_reflector<unscoped_enum_type>;
         using namespace std::string_literals;
 
         REQUIRE(reflector::name() == "unscoped_enum_type"s);
@@ -261,7 +261,7 @@ TEST_CASE("enum_range")
 {
     SECTION("access_mode with ::max")
     {
-        using reflector = typename kl::enum_reflector<access_mode>;
+        using reflector = kl::enum_reflector<access_mode>;
 
         std::vector<access_mode> vec;
 
@@ -280,7 +280,7 @@ TEST_CASE("enum_range")
     SECTION("colour_space without ::max")
     {
         using ns::inner::colour_space;
-        using reflector = typename kl::enum_reflector<colour_space>;
+        using reflector = kl::enum_reflector<colour_space>;
 
         std::vector<colour_space> vec;
 

@@ -99,6 +99,12 @@ template <typename T>
 using is_enum_nonreflectable =
     std::integral_constant<bool, std::is_enum<T>::value &&
                                      !is_enum_reflectable<T>::value>;
+
+template <typename E, std::enable_if_t<is_enum_reflectable<E>::value, int> = 0>
+constexpr enum_reflector<E> reflect()
+{
+    return {};
+}
 } // namespace kl
 
 #define KL_DEFINE_ENUM_REFLECTOR(...) KL_ENUM_REFLECTOR_IMPL(__VA_ARGS__)
