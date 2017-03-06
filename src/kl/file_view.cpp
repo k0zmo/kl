@@ -62,39 +62,32 @@ struct file_view::impl
 {
     impl(gsl::cstring_span<> file_path)
     {
-        file_handle_.reset(::CreateFileA(file_path.data(), GENERIC_READ, 0x0,
-                                         nullptr, OPEN_EXISTING, 0x0, nullptr));
-        if (!file_handle_)
+        detail::handle<(LONG_PTR)-1> file_handle{
+            ::CreateFileA(file_path.data(), GENERIC_READ, 0x0, nullptr,
+                          OPEN_EXISTING, 0x0, nullptr)};
+        if (!file_handle)
             throw std::system_error{static_cast<int>(::GetLastError()),
                                     std::system_category()};
 
         LARGE_INTEGER file_size = {};
-        ::GetFileSizeEx(file_handle_, &file_size);
+        ::GetFileSizeEx(file_handle, &file_size);
         if (!file_size.QuadPart)
-        {
-            file_handle_.reset();
-            return;
-        }
+            return; // Empty file
 
-        mapping_handle_.reset(::CreateFileMappingA(
-            file_handle_, nullptr, PAGE_READONLY, 0, 0, nullptr));
-        if (!mapping_handle_)
-        {
+        detail::handle<(LONG_PTR)0> mapping_handle{::CreateFileMappingA(
+            file_handle, nullptr, PAGE_READONLY, 0, 0, nullptr)};
+        if (!mapping_handle)
             throw std::system_error{static_cast<int>(::GetLastError()),
                                     std::system_category()};
-        }
 
         void* file_view =
-            ::MapViewOfFile(mapping_handle_, FILE_MAP_READ, 0, 0, 0);
+            ::MapViewOfFile(mapping_handle, FILE_MAP_READ, 0, 0, 0);
         if (!file_view)
-        {
             throw std::system_error{static_cast<int>(::GetLastError()),
                                     std::system_category()};
-        }
 
-        contents_ =
-            gsl::make_span(static_cast<const byte*>(file_view),
-                           static_cast<std::ptrdiff_t>(file_size.QuadPart));
+        contents_ = gsl::make_span(static_cast<const byte*>(file_view),
+                                   file_size.QuadPart);
     }
 
     ~impl()
@@ -102,9 +95,6 @@ struct file_view::impl
         if (!contents_.empty())
             ::UnmapViewOfFile(contents_.data());
     }
-
-    detail::handle<(LONG_PTR)-1> file_handle_;
-    detail::handle<(LONG_PTR)0> mapping_handle_;
 
     gsl::span<const byte> contents_;
 };
@@ -170,25 +160,22 @@ private:
 struct file_view::impl
 {
     impl(gsl::cstring_span<> file_path)
-        : fd_{::open(file_path.data(), O_RDONLY)}
     {
-        if (!fd_)
+        detail::file_descriptor fd{::open(file_path.data(), O_RDONLY)};
+        if (!fd)
             throw std::system_error{static_cast<int>(errno),
                                     std::system_category()};
 
         struct stat file_info;
-        if (fstat(fd_, &file_info) == -1)
+        if (fstat(fd, &file_info) == -1)
             throw std::system_error{static_cast<int>(errno),
                                     std::system_category()};
 
         if (!file_info.st_size)
-        {
-            fd_.reset();
-            return;
-        }
+            return; // Empty file
 
         void* file_view =
-            ::mmap(nullptr, file_info.st_size, PROT_READ, MAP_PRIVATE, fd_, 0);
+            ::mmap(nullptr, file_info.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
         if (!file_view)
             throw std::system_error{static_cast<int>(errno),
                                     std::system_category()};
@@ -207,7 +194,6 @@ struct file_view::impl
         }
     }
 
-    detail::file_descriptor fd_;
     gsl::span<const byte> contents_;
 };
 } // namespace kl
