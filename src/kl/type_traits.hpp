@@ -3,6 +3,7 @@
 #include <type_traits>
 #include <utility>
 #include <array>
+#include <cstring>
 
 namespace kl {
 
@@ -40,6 +41,21 @@ constexpr auto countof(const std::array<T, N>& arr)
     return N;
 }
 #endif
+
+template <typename To, typename From>
+To bitwise_cast(From from)
+{
+    static_assert(sizeof(To) == sizeof(From), 
+                  "Size of destination and source objects must be equal.");
+    static_assert(std::is_trivially_copyable<To>::value, 
+                  "To type must be trivially copyable.");
+    static_assert(std::is_trivially_copyable<From>::value, 
+                  "From type must be trivially copyable");
+
+    To to;
+    std::memcpy(&to, &from, sizeof(to));
+    return to;
+}
 
 /*
  * Get N-th type from the list of types (0-based)

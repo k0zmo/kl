@@ -14,6 +14,13 @@ TEST_CASE("type_traits")
         (void)stdarr;
     }
 
+    SECTION("bitwise_cast")
+    {
+        float f = 3.14f;
+        REQUIRE(kl::bitwise_cast<uint32_t>(f) == 0x4048f5c3);
+        REQUIRE(kl::bitwise_cast<float>(0x4048f5c3U) == 3.14f);
+    }
+
     SECTION("at_type")
     {
         static_assert(
