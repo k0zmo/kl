@@ -81,13 +81,13 @@ struct type_info
     template <typename Type, typename Visitor>
     static void reflect(Type&&, Visitor&&)
     {
-        static_assert(sizeof(Type) < 0, "Can't reflect this type");
+        static_assert(always_false<Type>::value, "Can't reflect this type");
     }
 
     template <typename Type, typename Visitor>
     static void reflect(Visitor&&)
     {
-        static_assert(sizeof(Type) < 0, "Can't reflect this type");
+        static_assert(always_false<Type>::value, "Can't reflect this type");
     }
 };
 

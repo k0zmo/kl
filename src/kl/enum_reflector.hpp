@@ -27,11 +27,12 @@ KL_DEFINE_ENUM_REFLECTOR(ns::detail, enum_,
 
  * KL_DEFINE_ENUM_REFLECTOR(...) defines enum_reflector<Enum> class with
    following members:
-    - count(): return number of defined enum values
+    - count(): returns number of defined enum values
     - name(): returns string with unqualified name of enum type
     - full_name(): returns string with a name with full namespace scope
     - to_string(): converts given enum value to its string representation
     - from_string(): converts string to enum value
+    - values(): returns range over all reflected enum values
 */
 
 #include "kl/base_range.hpp"
@@ -67,20 +68,50 @@ struct enum_reflector
 {
     using enum_type = Enum;
     using underlying_type = std::underlying_type_t<enum_type>;
-
-    static constexpr std::size_t count() { return 0; }
-    static constexpr const char* name() { return ""; }
-    static constexpr const char* full_name() { return ""; }
     static constexpr const bool is_defined = false;
+
+    static constexpr std::size_t count()
+    {
+        static_assert(always_false<Enum>::value,
+                      "enum_reflector<Enum> is not defined.");
+        return 0;
+    }
+
+    static constexpr const char* name()
+    {
+        static_assert(always_false<Enum>::value,
+                      "enum_reflector<Enum> is not defined.");
+        return "";
+    }
+
+    static constexpr const char* full_name()
+    {
+        static_assert(always_false<Enum>::value,
+                      "enum_reflector<Enum> is not defined.");
+        return "";
+    }
 
     static boost::optional<enum_type> from_string(gsl::cstring_span<>)
     {
+        static_assert(always_false<Enum>::value,
+                      "enum_reflector<Enum> is not defined.");
         return boost::none;
     }
-    static const char* to_string(enum_type) { return nullptr; }
+
+    static const char* to_string(enum_type)
+    {
+        static_assert(always_false<Enum>::value,
+                      "enum_reflector<Enum> is not defined.");
+        return nullptr;
+    }
 
     // TODO: This could be constexpr from VS2017
-    static kl::base_range<const enum_type*> values() { return {}; }
+    static kl::base_range<const enum_type*> values()
+    {
+        static_assert(always_false<Enum>::value,
+                      "enum_reflector<Enum> is not defined.");
+        return {};
+    }
 };
 
 template <typename Enum, typename = void>
