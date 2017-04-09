@@ -37,12 +37,6 @@ if(MSVC)
         /wd4996  # Deprecated stuff
         /wd4217) # conditional expression in constant)
 
-    if(CMAKE_CL_64)
-        # Visual Studio bails out on debug builds in 64bit mode unless this flag is set...
-        set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /bigobj")
-        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} /bigobj")
-    endif()
-
 elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
        (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
 
