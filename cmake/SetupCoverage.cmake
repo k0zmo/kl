@@ -28,8 +28,8 @@
 #   endif()
 
 # This only works for GCC or Clang
-if(NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND
-   NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
+if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
+   NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
     message(STATUS "No coverage target for compiler: ${CMAKE_CXX_COMPILER_ID}")
     return()
 endif()

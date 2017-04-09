@@ -7,8 +7,8 @@
 #
 
 # This only works for GCC or Clang
-if (NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang") AND
-    NOT ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU"))
+if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
+   NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
     message(STATUS "No sanitize targets for compiler: ${CMAKE_CXX_COMPILER_ID}")
     return()
 endif()
@@ -65,7 +65,7 @@ setup_sanitize_target("UBSan"
                       "-O1 -g -fsanitize=undefined -fno-omit-frame-pointer -DNDEBUG" 
                       "-fsanitize=undefined")
 
-if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     setup_sanitize_target("MSan"  
                           "-O2 -g -fsanitize=memory -fno-omit-frame-pointer -DNDEBUG"
                           "-fsanitize=memory")
