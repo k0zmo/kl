@@ -1,14 +1,6 @@
 cmake_minimum_required(VERSION 3.1.2)
 project(KL CXX)
 
-# Require C++14 standard without GNU extensions
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-# Generate JSON Compilation Database
-set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
-
 # Set CMake modules path
 set(KL_CMAKE_DIR ${KL_SOURCE_DIR}/cmake)
 set(CMAKE_MODULE_PATH ${KL_CMAKE_DIR} ${CMAKE_MODULE_PATH})
@@ -18,33 +10,32 @@ set(CMAKE_MODULE_PATH ${KL_CMAKE_DIR} ${CMAKE_MODULE_PATH})
 set(MASTER_PROJECT OFF)
 if(KL_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
     set(MASTER_PROJECT ON)
+
+    # Set a default build type if none was specified
+    if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+        message(STATUS "Setting build type to 'Release' as none was specified.")
+        set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
+        set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
+                     "Debug;Release;MinSizeRel;RelWithDebInfo")
+    endif()
+
+    # Generate JSON Compilation Database
+    set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
 endif()
 
 # Build tests in the master project by default
 option(KL_TEST "Generate the test target." ${MASTER_PROJECT})
 
-# Set a default build type if none was specified
-if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-    message(STATUS "Setting build type to 'Release' as none was specified.")
-    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build." FORCE)
-    set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
-                 "Debug;Release;MinSizeRel;RelWithDebInfo")
-endif()
-
 include(SetupSanitizers)
 
-find_package(Boost 1.58.0 REQUIRED)
+find_package(Boost 1.58.0 REQUIRED COMPONENTS)
 
 if(MSVC)
-    # Turn on standard set of warnings
-    if(CMAKE_CXX_FLAGS MATCHES "/W[0-4]")
-        string(REGEX REPLACE "/W[0-4]" "/W4" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    else()
-        add_compile_options(/W4)
-    endif()
-    add_compile_options(/wd4100) # unreferenced formal parameter
-    add_compile_options(/wd4996) # Deprecated stuff
-    add_compile_options(/wd4127) # conditional expression in constant
+    set(KL_COMPILE_FLAGS 
+        /W4
+        /wd4100  # unreferenced formal parameter
+        /wd4996  # Deprecated stuff
+        /wd4217) # conditional expression in constant)
 
     if(CMAKE_CL_64)
         # Visual Studio bails out on debug builds in 64bit mode unless this flag is set...
@@ -54,20 +45,19 @@ if(MSVC)
 
 elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
        (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
-    # Turn on standard set of warnings
-    add_compile_options(-Wall -pedantic -Wextra)
-    add_compile_options(-Wno-unused-parameter)
 
-    if(CMAKE_BUILD_TYPE STREQUAL "Debug" AND MASTER_PROJECT)
-        add_definitions(-D_GLIBCXX_DEBUG)
-    endif()
+    set(KL_COMPILE_FLAGS -Wall -pedantic -Wextra -Wno-unused-parameter)
 
     if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        add_compile_options(-Wno-missing-braces)
+        set(KL_COMPILE_FLAGS ${KL_COMPILE_FLAGS} -Wno-missing-braces)
 
         #add_compile_options(-stdlib=libc++)
         #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
         #set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi")
+    endif()
+
+    if(MASTER_PROJECT AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
+        set(KL_COMPILE_FLAGS ${KL_COMPILE_FLAGS} -D_GLIBCXX_DEBUG)
     endif()
 endif()
 
@@ -129,13 +119,20 @@ source_group(external\\json11 FILES ${KL_3RDPARTY_JSON11_FILES})
 source_group(kl FILES ${KL_FILES})
 source_group(kl\\binary_rw FILES ${KL_BINARY_RW_FILES})
 
-add_library(kl STATIC
+add_library(kl
     ${KL_3RDPARTY_FILES}
     ${KL_FILES}
     ${KL_BINARY_RW_FILES})
-target_include_directories(kl PUBLIC src)
-target_include_directories(kl PUBLIC 3rdparty)
-target_include_directories(kl SYSTEM PUBLIC ${Boost_INCLUDE_DIRS})
+target_include_directories(kl PUBLIC src 3rdparty)
+target_link_libraries(kl
+    PUBLIC Boost::boost
+    PRIVATE Boost::disable_autolinking)
+
+target_compile_options(kl PRIVATE ${KL_COMPILE_FLAGS})
+set_target_properties(kl PROPERTIES
+    CXX_STANDARD 14
+    CXX_STANDARD_REQUIRED ON
+    CXX_EXTENSIONS OFF)
 
 if(KL_TEST)
     set(KL_3RDPARTY_CATCH_FILES
@@ -170,6 +167,12 @@ if(KL_TEST)
         ${KL_3RDPARTY_CATCH_FILES}
         ${KL_TEST_FILES})
     target_link_libraries(kl-tests kl)
+
+    target_compile_options(kl-tests PRIVATE ${KL_COMPILE_FLAGS})
+    set_target_properties(kl-tests PROPERTIES
+        CXX_STANDARD 14
+        CXX_STANDARD_REQUIRED ON
+        CXX_EXTENSIONS OFF)
 
     include(SetupCoverage)
     if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
