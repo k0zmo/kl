@@ -21,39 +21,46 @@ if(KL_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 
     # Generate JSON Compilation Database
     set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
+
+    include(SetupSanitizers)
 endif()
 
 # Build tests in the master project by default
 option(KL_TEST "Generate the test target." ${MASTER_PROJECT})
 
-include(SetupSanitizers)
-
 find_package(Boost 1.58.0 REQUIRED COMPONENTS)
 
-if(MSVC)
-    set(KL_COMPILE_FLAGS 
-        /W4
-        /wd4100  # unreferenced formal parameter
-        /wd4996  # Deprecated stuff
-        /wd4127) # conditional expression in constant)
+function(target_kl_compile_options _target)
+    if(MSVC)
+        target_compile_options(${_target} PRIVATE /W4
+                                                  /wd4100  # unreferenced formal parameter
+                                                  /wd4996  # Deprecated stuff
+                                                  /wd4127) # conditional expression in constant)
 
-elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
-       (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
+    elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
+           (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
+        target_compile_options(${_target} PRIVATE -Wall
+                                                  -pedantic
+                                                  -Wextra
+                                                  -Wno-unused-parameter)
 
-    set(KL_COMPILE_FLAGS -Wall -pedantic -Wextra -Wno-unused-parameter)
+        if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            target_compile_options(${_target} PRIVATE -Wno-missing-braces)
 
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        set(KL_COMPILE_FLAGS ${KL_COMPILE_FLAGS} -Wno-missing-braces)
+            #add_compile_options(-stdlib=libc++)
+            #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
+            #set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi")
+        endif()
 
-        #add_compile_options(-stdlib=libc++)
-        #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
-        #set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi")
+        if(MASTER_PROJECT AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
+            target_compile_definitions(${_target} PUBLIC -D_GLIBCXX_DEBUG)
+        endif()
     endif()
 
-    if(MASTER_PROJECT AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
-        set(KL_COMPILE_FLAGS ${KL_COMPILE_FLAGS} -D_GLIBCXX_DEBUG)
-    endif()
-endif()
+    set_target_properties(${_target} PROPERTIES CXX_STANDARD 14
+                                                CXX_STANDARD_REQUIRED ON
+                                                CXX_EXTENSIONS OFF)
+endfunction()
 
 set(KL_3RDPARTY_JSON11_FILES
     3rdparty/json11/json11.hpp
@@ -121,12 +128,7 @@ target_include_directories(kl PUBLIC src 3rdparty)
 target_link_libraries(kl
     PUBLIC Boost::boost
     PRIVATE Boost::disable_autolinking)
-
-target_compile_options(kl PRIVATE ${KL_COMPILE_FLAGS})
-set_target_properties(kl PROPERTIES
-    CXX_STANDARD 14
-    CXX_STANDARD_REQUIRED ON
-    CXX_EXTENSIONS OFF)
+target_kl_compile_options(kl)
 
 if(KL_TEST)
     set(KL_3RDPARTY_CATCH_FILES
@@ -161,12 +163,7 @@ if(KL_TEST)
         ${KL_3RDPARTY_CATCH_FILES}
         ${KL_TEST_FILES})
     target_link_libraries(kl-tests kl)
-
-    target_compile_options(kl-tests PRIVATE ${KL_COMPILE_FLAGS})
-    set_target_properties(kl-tests PROPERTIES
-        CXX_STANDARD 14
-        CXX_STANDARD_REQUIRED ON
-        CXX_EXTENSIONS OFF)
+    target_kl_compile_options(kl-tests)
 
     include(SetupCoverage)
     if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
