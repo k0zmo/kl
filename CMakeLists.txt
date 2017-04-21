@@ -53,7 +53,7 @@ function(target_kl_compile_options _target)
         endif()
 
         if(MASTER_PROJECT AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
-            target_compile_definitions(${_target} PUBLIC -D_GLIBCXX_DEBUG)
+            target_compile_definitions(${_target} PUBLIC _GLIBCXX_DEBUG)
         endif()
     endif()
 
