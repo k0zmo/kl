@@ -28,7 +28,7 @@ constexpr std::uint32_t fnv1a(const char* data, std::size_t length)
     return fnv1a(2166136261U, data, length);
 }
 
-#elif __cplusplus >= 201402
+#elif __cplusplus >= 201402 || (defined(_MSC_VER) && _MSC_VER >= 1910)
 
 constexpr uint32_t fnv1a(const char* data, std::size_t length)
 {
