@@ -83,7 +83,7 @@ struct json_factory
 {
     // T is integral type with no more bytes than 4. Effectively, it's u32 as
     // all other cases are covered with is_json_constructible<T> 'true branch'
-    template <typename T, enable_if<is_representable_as_double<T>> = 0>
+    template <typename T, enable_if<is_representable_as_double<T>> = true>
     static json11::Json create(const T& t)
     {
         if (static_cast<int>(t) >= 0)
@@ -92,7 +92,7 @@ struct json_factory
     }
 
     // T is an enum type (with enum_reflector defined)
-    template <typename T, enable_if<is_enum_reflectable<T>> = 0>
+    template <typename T, enable_if<is_enum_reflectable<T>> = true>
     static json11::Json create(const T& t)
     {
         auto str = enum_reflector<T>::to_string(t);
@@ -100,14 +100,14 @@ struct json_factory
     }
 
     // T is an enum type
-    template <typename T, enable_if<is_enum_nonreflectable<T>> = 0>
+    template <typename T, enable_if<is_enum_nonreflectable<T>> = true>
     static json11::Json create(const T& t)
     {
         return to_json(static_cast<std::underlying_type_t<T>>(t));
     }
 
     // T is optional<U>
-    template <typename T, enable_if<is_optional<T>> = 0>
+    template <typename T, enable_if<is_optional<T>> = true>
     static json11::Json create(const T& t)
     {
         if (t)
@@ -116,7 +116,7 @@ struct json_factory
     }
 
     // T is a class type that is reflectable
-    template <typename T, enable_if<is_reflectable<T>> = 0>
+    template <typename T, enable_if<is_reflectable<T>> = true>
     static json11::Json create(const T& t)
     {
         json11::Json::object obj;
@@ -125,7 +125,7 @@ struct json_factory
     }
 
     // T is vector-like container of simple json types or types that are reflectable
-    template <typename T, enable_if<is_vector<T>> = 0>
+    template <typename T, enable_if<is_vector<T>> = true>
     static json11::Json create(const T& vec)
     {
         json11::Json::array array_;
@@ -136,7 +136,7 @@ struct json_factory
     }
 
     // T is map-like container of simple json types or types that are reflectable
-    template <typename T, enable_if<is_string_associative<T>> = 0>
+    template <typename T, enable_if<is_string_associative<T>> = true>
     static json11::Json create(const T& map)
     {
         json11::Json::object object_;
@@ -146,7 +146,7 @@ struct json_factory
     }
 
     // T is a tuple<Ts...>
-    template <typename T, enable_if<is_tuple<T>> = 0>
+    template <typename T, enable_if<is_tuple<T>> = true>
     static json11::Json create(const T& t)
     {
         return create_from_tuple(t, make_tuple_indices<T>{});
@@ -218,7 +218,7 @@ using is_json_simple = std::integral_constant<
         std::is_enum<T>::value ||
         (std::is_convertible<std::string, T>::value && !is_optional<T>::value)>;
 
-template <typename T, enable_if<std::is_integral<T>> = 0>
+template <typename T, enable_if<std::is_integral<T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_number())
@@ -239,7 +239,7 @@ inline bool from_json_simple<bool>(const json11::Json& json)
     return json.bool_value();
 }
 
-template <typename T, enable_if<std::is_floating_point<T>> = 0>
+template <typename T, enable_if<std::is_floating_point<T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_number())
@@ -248,7 +248,7 @@ T from_json_simple(const json11::Json& json)
     return static_cast<T>(json.number_value());
 }
 
-template <typename T, enable_if<is_enum_reflectable<T>> = 0>
+template <typename T, enable_if<is_enum_reflectable<T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_string())
@@ -260,7 +260,7 @@ T from_json_simple(const json11::Json& json)
                                      json.string_value()};
 }
 
-template <typename T, enable_if<is_enum_nonreflectable<T>> = 0>
+template <typename T, enable_if<is_enum_nonreflectable<T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_number())
@@ -269,7 +269,7 @@ T from_json_simple(const json11::Json& json)
     return static_cast<T>(json.int_value());
 }
 
-template <typename T, enable_if<std::is_convertible<std::string, T>> = 0>
+template <typename T, enable_if<std::is_convertible<std::string, T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_string())
@@ -304,7 +304,7 @@ struct is_constructible_from_json<
 struct value_factory
 {
     // T is optional<U>
-    template <typename T, enable_if<is_optional<T>> = 0>
+    template <typename T, enable_if<is_optional<T>> = true>
     static T create(const json11::Json& json)
     {
         if (json.is_null())
@@ -314,7 +314,7 @@ struct value_factory
 
     // T is a class type that is reflectable and default constructible
     template <typename T, enable_if<is_reflectable<T>,
-                                    std::is_default_constructible<T>> = 0>
+                                    std::is_default_constructible<T>> = true>
     static T create(const json11::Json& json)
     {
         T obj{};
@@ -346,14 +346,14 @@ struct value_factory
     }
 
     // T is a class type with a static member function: T from_json(const json11::Json&)
-    template <typename T, enable_if<is_constructible_from_json<T>> = 0>
+    template <typename T, enable_if<is_constructible_from_json<T>> = true>
     static T create(const json11::Json& json)
     {
         return T::from_json(json);
     }
 
     // T is vector-like container of simple json types or types that are reflectable
-    template <typename T, enable_if<is_vector<T>> = 0>
+    template <typename T, enable_if<is_vector<T>> = true>
     static T create(const json11::Json& json)
     {
         if (!json.is_array())
@@ -382,7 +382,7 @@ struct value_factory
     }
 
     // T is map-like container of simple json types or types that are reflectable
-    template <typename T, enable_if<is_associative_string<T>> = 0>
+    template <typename T, enable_if<is_associative_string<T>> = true>
     static T create(const json11::Json& json)
     {
         if (!json.is_object())
@@ -410,7 +410,7 @@ struct value_factory
     }
 
     // T is a tuple<Ts...>
-    template <typename T, enable_if<is_tuple<T>> = 0>
+    template <typename T, enable_if<is_tuple<T>> = true>
     static T create(const json11::Json& json)
     {
         if (!json.is_array())

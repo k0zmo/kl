@@ -228,9 +228,9 @@ struct disjunction<B1, Bn...>
 template <typename B>
 struct negation : bool_constant<!B::value> {};
 
-// Used as template parameter like so: enable_if<std::is_integral<T>> = 0
+// Use it as template parameter like so: enable_if<std::is_integral<T>> = true
 template <typename... Ts>
-using enable_if = std::enable_if_t<conjunction<Ts...>::value, int>;
+using enable_if = std::enable_if_t<conjunction<Ts...>::value, bool>;
 
 // C++14 stuff for MSVC2013
 template <typename...>

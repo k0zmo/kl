@@ -131,7 +131,8 @@ using is_enum_nonreflectable =
     std::integral_constant<bool, std::is_enum<T>::value &&
                                      !is_enum_reflectable<T>::value>;
 
-template <typename E, std::enable_if_t<is_enum_reflectable<E>::value, int> = 0>
+template <typename E,
+          std::enable_if_t<is_enum_reflectable<E>::value, bool> = true>
 constexpr enum_reflector<E> reflect()
 {
     return {};

@@ -78,9 +78,8 @@ struct enum_trait_support_range
                underlying_cast(e) < max_value();
     }
 
-    template <typename Integral,
-              typename = std::enable_if_t<std::is_integral<Integral>::value>>
-        constexpr static bool in_range(Integral v)
+    template <typename Integral, enable_if<std::is_integral<Integral>> = true>
+    constexpr static bool in_range(Integral v)
     {
         return v >= min_value() && v < max_value();
     }

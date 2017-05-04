@@ -102,7 +102,7 @@ template <>
 struct json_printer<type_class::enumeration>
 {
     template <typename OutStream, typename T,
-              enable_if<negation<is_enum_reflectable<T>>> = 0>
+              enable_if<negation<is_enum_reflectable<T>>> = true>
     static OutStream& print(OutStream& os, const T& value, pretty_state&)
     {
         os << underlying_cast(value);
@@ -110,7 +110,7 @@ struct json_printer<type_class::enumeration>
     }
 
     template <typename OutStream, typename T,
-              enable_if<is_enum_reflectable<T>> = 0>
+              enable_if<is_enum_reflectable<T>> = true>
     static OutStream& print(OutStream& os, const T& value, pretty_state&)
     {
         os << '"' << enum_reflector<T>::to_string(value) << '"';

@@ -116,7 +116,7 @@ public:
     }
 
     template <typename T,
-              typename = enable_if<std::is_default_constructible<T>>>
+              enable_if<std::is_default_constructible<T>> = true>
     T read()
     {
         T value{};
@@ -125,7 +125,7 @@ public:
     }
 
     template <typename T,
-              typename = enable_if<std::is_default_constructible<T>>>
+              enable_if<std::is_default_constructible<T>> = true>
     T peek()
     {
         T value{};
@@ -170,7 +170,7 @@ private:
 };
 
 // read_binary implementation for all basic types + enum types
-template <typename T, typename = enable_if<detail::is_simple<T>>>
+template <typename T, enable_if<detail::is_simple<T>> = true>
 void read_binary(binary_reader& r, T& value) noexcept
 {
     r.read_raw(value);
@@ -241,7 +241,7 @@ private:
 };
 
 // write_binary implementation for all basic types + enum types
-template <typename T, typename = enable_if<detail::is_simple<T>>>
+template <typename T, enable_if<detail::is_simple<T>> = true>
 void write_binary(binary_writer& w, const T& value) noexcept
 {
     w.write_raw(value);
