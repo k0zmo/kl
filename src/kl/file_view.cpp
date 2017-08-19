@@ -1,9 +1,11 @@
 #include "kl/file_view.hpp"
 
-#ifdef _WIN32
-
 #include <system_error>
 #include <cassert>
+
+#if defined(_WIN32)
+
+struct IUnknown; // Required for /permissive- and WinSDK 8.1
 #include <Windows.h>
 
 namespace kl {
@@ -101,9 +103,6 @@ struct file_view::impl
 } // namespace kl
 
 #else
-
-#include <system_error>
-#include <cassert>
 
 #include <sys/types.h>
 #include <sys/stat.h>
