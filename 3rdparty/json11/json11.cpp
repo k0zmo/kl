@@ -32,8 +32,8 @@
 #  if _MSC_VER <= 1800
 #    pragma push_macro("noexcept")
 #    define noexcept throw()
-#  endif // _MSC_VER <= 1800
-#endif // _MSC_VER
+#  endif
+#endif
 
 namespace json11 {
 
@@ -46,11 +46,20 @@ using std::make_shared;
 using std::initializer_list;
 using std::move;
 
+/* Helper for representing null - just a do-nothing struct, plus comparison
+ * operators so the helpers in JsonValue work. We can't use nullptr_t because
+ * it may not be orderable.
+ */
+struct NullStruct {
+    bool operator==(NullStruct) const { return true; }
+    bool operator<(NullStruct) const { return false; }
+};
+
 /* * * * * * * * * * * * * * * * * * * *
  * Serialization
  */
 
-static void dump(std::nullptr_t, string &out) {
+static void dump(NullStruct, string &out) {
     out += "null";
 }
 
@@ -141,23 +150,23 @@ void Json::dump(string &out) const {
     m_ptr->dump(out);
 }
 
-static void pretty_print(std::nullptr_t value, string &out, PrettyPrintOptions &options) {
+static void pretty_print(NullStruct value, string &out, PrettyPrintOptions&) {
     dump(value, out);
 }
 
-static void pretty_print(double value, string &out, PrettyPrintOptions &options) {
+static void pretty_print(double value, string &out, PrettyPrintOptions&) {
     dump(value, out);
 }
 
-static void pretty_print(int value, string &out, PrettyPrintOptions &options) {
+static void pretty_print(int value, string &out, PrettyPrintOptions&) {
     dump(value, out);
 }
 
-static void pretty_print(bool value, string &out, PrettyPrintOptions &options) {
+static void pretty_print(bool value, string &out, PrettyPrintOptions&) {
     dump(value, out);
 }
 
-static void pretty_print(const string &value, string &out, PrettyPrintOptions &options) {
+static void pretty_print(const string &value, string &out, PrettyPrintOptions&) {
     dump(value, out);
 }
 
@@ -282,9 +291,9 @@ public:
     explicit JsonObject(Json::object &&value)      : Value(move(value)) {}
 };
 
-class JsonNull final : public Value<Json::NUL, std::nullptr_t> {
+class JsonNull final : public Value<Json::NUL, NullStruct> {
 public:
-    JsonNull() : Value(nullptr) {}
+    JsonNull() : Value({}) {}
 };
 
 /* * * * * * * * * * * * * * * * * * * *
@@ -365,6 +374,8 @@ const Json & JsonArray::operator[] (size_t i) const {
  */
 
 bool Json::operator== (const Json &other) const {
+    if (m_ptr == other.m_ptr)
+        return true;
     if (m_ptr->type() != other.m_ptr->type())
         return false;
 
@@ -372,6 +383,8 @@ bool Json::operator== (const Json &other) const {
 }
 
 bool Json::operator< (const Json &other) const {
+    if (m_ptr == other.m_ptr)
+        return false;
     if (m_ptr->type() != other.m_ptr->type())
         return m_ptr->type() < other.m_ptr->type();
 
@@ -449,16 +462,12 @@ struct JsonParser final {
       if (str[i] == '/') {
         i++;
         if (i == str.size())
-          return fail("unexpected end of input inside comment", false);
+          return fail("unexpected end of input after start of comment", false);
         if (str[i] == '/') { // inline comment
           i++;
-          if (i == str.size())
-            return fail("unexpected end of input inside inline comment", false);
-          // advance until next line
-          while (str[i] != '\n') {
+          // advance until next line, or end of input
+          while (i < str.size() && str[i] != '\n') {
             i++;
-            if (i == str.size())
-              return fail("unexpected end of input inside inline comment", false);
           }
           comment_found = true;
         }
@@ -474,9 +483,6 @@ struct JsonParser final {
                 "unexpected end of input inside multi-line comment", false);
           }
           i += 2;
-          if (i == str.size())
-            return fail(
-              "unexpected end of input inside multi-line comment", false);
           comment_found = true;
         }
         else
@@ -495,6 +501,7 @@ struct JsonParser final {
         bool comment_found = false;
         do {
           comment_found = consume_comment();
+          if (failed) return;
           consume_whitespace();
         }
         while(comment_found);
@@ -508,6 +515,7 @@ struct JsonParser final {
      */
     char get_next_token() {
         consume_garbage();
+        if (failed) return (char)0;
         if (i == str.size())
             return fail("unexpected end of input", (char)0);
 
@@ -583,7 +591,7 @@ struct JsonParser final {
                 if (esc.length() < 4) {
                     return fail("bad \\u escape: " + esc, "");
                 }
-                for (int j = 0; j < 4; j++) {
+                for (size_t j = 0; j < 4; j++) {
                     if (!in_range(esc[j], 'a', 'f') && !in_range(esc[j], 'A', 'F')
                             && !in_range(esc[j], '0', '9'))
                         return fail("bad \\u escape: " + esc, "");
@@ -801,6 +809,8 @@ Json Json::parse(const string &in, string &err, JsonParse strategy) {
 
     // Check for any trailing garbage
     parser.consume_garbage();
+    if (parser.failed)
+        return Json();
     if (parser.i != in.size())
         return parser.fail("unexpected trailing " + esc(in[parser.i]));
 
@@ -817,10 +827,14 @@ vector<Json> Json::parse_multi(const string &in,
     vector<Json> json_vec;
     while (parser.i != in.size() && !parser.failed) {
         json_vec.push_back(parser.parse_json(0));
+        if (parser.failed)
+            break;
+
         // Check for another object
         parser.consume_garbage();
-        if (!parser.failed)
-            parser_stop_pos = parser.i;
+        if (parser.failed)
+            break;
+        parser_stop_pos = parser.i;
     }
     return json_vec;
 }
@@ -848,8 +862,9 @@ bool Json::has_shape(const shape & types, string & err) const {
 } // namespace json11
 
 #if defined(_MSC_VER)
+#  undef snprintf
 #  if _MSC_VER <= 1800
 #    undef noexcept
 #    pragma pop_macro("noexcept")
-#  endif // _MSC_VER <= 1800
-#endif // _MSC_VER
+#  endif
+#endif

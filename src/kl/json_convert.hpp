@@ -53,10 +53,9 @@ using ::kl::type_class::is_tuple;
 template <typename T>
 using is_json_constructible =
     std::integral_constant<bool,
-                           // Sadly, Json is constructible from boost::optional
-                           // but causes compilation error
                            std::is_constructible<json11::Json, T>::value &&
-                               !is_optional<T>::value && !std::is_enum<T>::value
+                               // We want reflectable enum to handle ourselves
+                               !std::is_enum<T>::value
 #if defined(_MSC_VER) && (_MSC_VER < 1900)
                                // MSVC2013 has some issues with deleted ctor
                                // and is_constructible<T> trait

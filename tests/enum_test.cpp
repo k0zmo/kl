@@ -3,6 +3,8 @@
 #include "kl/enum_reflector.hpp"
 
 #include <catch/catch.hpp>
+#include <boost/optional/optional_io.hpp>
+
 #include <string>
 
 namespace ns {
@@ -163,12 +165,12 @@ TEST_CASE("enum_reflector")
 
         SECTION("from_string")
         {
-            REQUIRE(reflector::from_string("read_write"));
+            REQUIRE(!!reflector::from_string("read_write"));
             REQUIRE(reflector::from_string("read_write").get() ==
                     access_mode::read_write);
 
             REQUIRE(!reflector::from_string("read_writ"));
-            REQUIRE(reflector::from_string("max"));
+            REQUIRE(!!reflector::from_string("max"));
             REQUIRE(reflector::from_string("max").get() == access_mode::max);
         }
 
@@ -206,7 +208,7 @@ TEST_CASE("enum_reflector")
 
         SECTION("from_string")
         {
-            REQUIRE(refl.from_string("ycrcb"));
+            REQUIRE(!!refl.from_string("ycrcb"));
             REQUIRE(refl.from_string("ycrcb").get() ==
                     ns::inner::colour_space::ycrcb);
         }

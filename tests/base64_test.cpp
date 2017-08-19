@@ -2,6 +2,7 @@
 
 #include <catch/catch.hpp>
 #include <boost/optional.hpp>
+#include <boost/optional/optional_io.hpp>
 
 namespace {
 template <std::size_t N>
@@ -38,28 +39,28 @@ TEST_CASE("base64")
 
     SECTION("decode")
     {
-        REQUIRE(base64_decode("SGVsbG8="));
+        REQUIRE(!!base64_decode("SGVsbG8="));
         REQUIRE(base64_decode("SGVsbG8=").get() == as_vector("Hello"));
 
-        REQUIRE(base64_decode("SGVsbG8g"));
+        REQUIRE(!!base64_decode("SGVsbG8g"));
         REQUIRE(base64_decode("SGVsbG8g").get() == as_vector("Hello "));
 
-        REQUIRE(base64_decode("SGVsbG8gVw=="));
+        REQUIRE(!!base64_decode("SGVsbG8gVw=="));
         REQUIRE(base64_decode("SGVsbG8gVw==").get() == as_vector("Hello W"));
 
-        REQUIRE(base64_decode("SGVsbG8gV28="));
+        REQUIRE(!!base64_decode("SGVsbG8gV28="));
         REQUIRE(base64_decode("SGVsbG8gV28=").get() == as_vector("Hello Wo"));
 
-        REQUIRE(base64_decode("SGVsbG8gV29y"));
+        REQUIRE(!!base64_decode("SGVsbG8gV29y"));
         REQUIRE(base64_decode("SGVsbG8gV29y").get() == as_vector("Hello Wor"));
 
-        REQUIRE(base64_decode("SGVsbG8gV29ybA=="));
+        REQUIRE(!!base64_decode("SGVsbG8gV29ybA=="));
         REQUIRE(base64_decode("SGVsbG8gV29ybA==").get() == as_vector("Hello Worl"));
 
-        REQUIRE(base64_decode("SGVsbG8gV29ybGQ="));
+        REQUIRE(!!base64_decode("SGVsbG8gV29ybGQ="));
         REQUIRE(base64_decode("SGVsbG8gV29ybGQ=").get() == as_vector("Hello World"));
 
-        REQUIRE(base64_decode("SGVsbG8gV29ybGQh"));
+        REQUIRE(!!base64_decode("SGVsbG8gV29ybGQh"));
         REQUIRE(base64_decode("SGVsbG8gV29ybGQh").get() == as_vector("Hello World!"));
     }
 
@@ -79,7 +80,7 @@ TEST_CASE("base64")
     SECTION("malformed")
     {
         REQUIRE(!base64_decode("a"));
-        REQUIRE(base64_decode("aaaa"));
+        REQUIRE(!!base64_decode("aaaa"));
         REQUIRE(!base64_decode("aa=a"));
         REQUIRE(!base64_decode("a==="));
         REQUIRE(!base64_decode("a!=="));

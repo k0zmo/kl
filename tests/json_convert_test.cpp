@@ -2,6 +2,7 @@
 #include "kl/ctti.hpp"
 
 #include <catch/catch.hpp>
+#include <boost/optional/optional_io.hpp>
 
 #include <string>
 #include <vector>
