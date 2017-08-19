@@ -1,9 +1,8 @@
-cmake_minimum_required(VERSION 3.1.2)
+cmake_minimum_required(VERSION 3.6)
 project(KL CXX)
 
 # Set CMake modules path
-set(KL_CMAKE_DIR ${KL_SOURCE_DIR}/cmake)
-set(CMAKE_MODULE_PATH ${KL_CMAKE_DIR} ${CMAKE_MODULE_PATH})
+list(APPEND CMAKE_MODULE_PATH "${KL_SOURCE_DIR}/cmake")
 
 # Determine if kl is build as a subproject (using add_subdirectory)
 # or if it is the master project.
@@ -21,6 +20,9 @@ if(KL_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 
     # Generate JSON Compilation Database
     set(CMAKE_EXPORT_COMPILE_COMMANDS TRUE)
+    # Don't use any GNU
+    # TODO: along with target_compile_features
+    # set(CMAKE_CXX_EXTENSIONS OFF)
 
     include(SetupSanitizers)
 endif()
@@ -28,17 +30,53 @@ endif()
 # Build tests in the master project by default
 option(KL_TEST "Generate the test target." ${MASTER_PROJECT})
 
-find_package(Boost 1.58.0 REQUIRED COMPONENTS)
+find_package(Boost 1.60.0 REQUIRED COMPONENTS)
 
 function(target_kl_compile_options _target)
     if(MSVC)
-        target_compile_options(${_target} PRIVATE /W4
-                                                  /wd4100  # unreferenced formal parameter
-                                                  /wd4996  # Deprecated stuff
-                                                  /wd4127) # conditional expression in constant)
+        target_compile_options(${_target}
+                               PRIVATE # Tweak optimizations for Non-debug builds
+                                       $<$<NOT:$<CONFIG:DEBUG>>:
+                                           /Gw   # Optimize global data.
+                                           /Oi   # Enable intrinsic functions.
+                                           /Ob2  # Allows expansion of functions marked as inline, __inline, or __forceinline, and any other function that the compiler chooses
+                                       >
+                               PUBLIC # Have the compiler eliminate unreferenced COMDAT functions and data before emitting the object file.
+                                      /Zc:inline
+                                      # Don't allow conversion from a string literal to mutable characters.
+                                      /Zc:strictStrings
+                                      # Disallow temporaries from binding to non-const lvalue references.
+                                      /Zc:referenceBinding
+                                      # Assume operator new throws on failure.
+                                      /Zc:throwingNew
+                                      # Build in C++ Latest mode.
+                                      /std:c++latest)
 
-    elseif((CMAKE_CXX_COMPILER_ID STREQUAL "Clang") OR
-           (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
+        if(MSVC_VERSION GREATER_EQUAL 1910)
+            target_compile_options(${_target}
+                                   PUBLIC /permissive-)
+        endif()
+
+        target_compile_definitions(${_target}
+                                   # Boost still have dependencies on unary_function and binary_function, so we have to make sure not to remove them.
+                                   # Also, Catch uses auto_ptr if __cplusplus is 199711L which is the MSVC case
+                                   PUBLIC _HAS_AUTO_PTR_ETC=1
+                                          WIN32_LEAN_AND_MEAN)
+
+        target_compile_options(${_target} PRIVATE /W4
+                                                  /wd4996  # Deprecated stuff
+                                                  /wd4127  # conditional expression in constant)
+                                                  /wd4100) # unreferenced formal parameter
+
+    elseif(CMAKE_COMPILER_IS_GNUCXX OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+        set_target_properties(${_target}
+                              PROPERTIES CXX_STANDARD 14
+                                         CXX_STANDARD_REQUIRED ON
+                                         CXX_EXTENSIONS OFF)
+        # TODO: CMake 3.8+
+        # TODO: CMake 3.9+ MSVC also
+        # target_compile_features(${_target} PUBLIC cxx_std_14)
+
         target_compile_options(${_target} PRIVATE -Wall
                                                   -pedantic
                                                   -Wextra
@@ -46,20 +84,13 @@ function(target_kl_compile_options _target)
 
         if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
             target_compile_options(${_target} PRIVATE -Wno-missing-braces)
-
-            #add_compile_options(-stdlib=libc++)
-            #set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++ -lc++abi")
-            #set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lc++ -lc++abi")
         endif()
 
+        # Warning: only if we're building all dependencies by ourselves
         if(MASTER_PROJECT AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
             target_compile_definitions(${_target} PUBLIC _GLIBCXX_DEBUG)
         endif()
     endif()
-
-    set_target_properties(${_target} PROPERTIES CXX_STANDARD 14
-                                                CXX_STANDARD_REQUIRED ON
-                                                CXX_EXTENSIONS OFF)
 endfunction()
 
 set(KL_3RDPARTY_JSON11_FILES
@@ -115,19 +146,21 @@ set(KL_BINARY_RW_FILES
     src/kl/binary_rw/variant.hpp
     src/kl/binary_rw/vector.hpp)
 
-source_group(external\\gsl FILES ${KL_3RDPARTY_GSL_FILES})
-source_group(external\\json11 FILES ${KL_3RDPARTY_JSON11_FILES})
+source_group(3rdparty\\gsl FILES ${KL_3RDPARTY_GSL_FILES})
+source_group(3rdparty\\json11 FILES ${KL_3RDPARTY_JSON11_FILES})
 source_group(kl FILES ${KL_FILES})
 source_group(kl\\binary_rw FILES ${KL_BINARY_RW_FILES})
 
 add_library(kl
-    ${KL_3RDPARTY_FILES}
-    ${KL_FILES}
-    ${KL_BINARY_RW_FILES})
-target_include_directories(kl PUBLIC src 3rdparty)
+            ${KL_3RDPARTY_FILES}
+            ${KL_FILES}
+            ${KL_BINARY_RW_FILES})
+target_include_directories(kl
+                           PUBLIC src
+                           PUBLIC 3rdparty)
 target_link_libraries(kl
-    PUBLIC Boost::boost
-    PRIVATE Boost::disable_autolinking)
+                      PUBLIC Boost::boost
+                      PRIVATE Boost::disable_autolinking)
 target_kl_compile_options(kl)
 
 if(KL_TEST)
@@ -160,11 +193,12 @@ if(KL_TEST)
     source_group(kl FILES ${KL_TEST_FILES})
 
     add_executable(kl-tests
-        ${KL_3RDPARTY_CATCH_FILES}
-        ${KL_TEST_FILES})
+                   ${KL_3RDPARTY_CATCH_FILES}
+                   ${KL_TEST_FILES})
     target_link_libraries(kl-tests kl)
     target_kl_compile_options(kl-tests)
 
+    # Add kl-coverage target for calculating test coverage
     include(SetupCoverage)
     if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
         setup_coverage_lcov(kl-coverage kl-tests coverage

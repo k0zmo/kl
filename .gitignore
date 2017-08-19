@@ -1,2 +1,2 @@
-[Bb]uild
-/build-gcc/
+/[Bb]uild*
+CMakeLists.txt.user
