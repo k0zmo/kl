@@ -2,7 +2,6 @@
 
 #include "kl/type_class.hpp"
 #include "kl/enum_reflector.hpp"
-#include "kl/index_sequence.hpp"
 #include "kl/tuple.hpp"
 
 namespace kl {

@@ -6,11 +6,6 @@
 
 TEST_CASE("tuple")
 {
-    static_assert(
-        std::is_same<kl::make_tuple_indices<std::tuple<int, int, bool>>,
-                     std::index_sequence<0, 1, 2>>::value,
-        "???");
-
     SECTION("apply_fn")
     {
         std::tuple<int, double> t{1, 2.0};

@@ -32,7 +32,7 @@ TEST_CASE("binary_reader")
             REQUIRE(!r.peek(c));
             REQUIRE(!r.err());
         }
-        
+
         SECTION("try read")
         {
             unsigned char c;
@@ -378,7 +378,7 @@ TEST_CASE("binary_writer")
         REQUIRE(w.pos() == 0);
         REQUIRE(w.empty());
         REQUIRE(!w.err());
-    
+
         SECTION("try to write 1 byte")
         {
             unsigned char c = 1;

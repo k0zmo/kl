@@ -14,21 +14,6 @@ constexpr auto underlying_cast(Enum e)
     return static_cast<std::underlying_type_t<Enum>>(e);
 }
 
-#if defined(_MSC_VER) && _MSC_VER < 1900
-template <typename T>
-struct array_size;
-
-template <typename T, std::size_t N>
-struct array_size<T[N]> : std::integral_constant<std::size_t, N>
-{
-};
-
-template <typename T, std::size_t N>
-struct array_size<std::array<T, N>> : std::integral_constant<std::size_t, N>
-{
-};
-#define countof(x) (kl::array_size<decltype(x)>::value)
-#else
 template <typename T, std::size_t N>
 constexpr auto countof(const T (&arr)[N])
 {
@@ -40,16 +25,15 @@ constexpr auto countof(const std::array<T, N>& arr)
 {
     return N;
 }
-#endif
 
 template <typename To, typename From>
 To bitwise_cast(From from)
 {
-    static_assert(sizeof(To) == sizeof(From), 
+    static_assert(sizeof(To) == sizeof(From),
                   "Size of destination and source objects must be equal.");
-    static_assert(std::is_trivially_copyable<To>::value, 
+    static_assert(std::is_trivially_copyable<To>::value,
                   "To type must be trivially copyable.");
-    static_assert(std::is_trivially_copyable<From>::value, 
+    static_assert(std::is_trivially_copyable<From>::value,
                   "From type must be trivially copyable");
 
     To to;

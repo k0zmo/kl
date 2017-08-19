@@ -680,10 +680,8 @@ struct hash<kl::scoped_connection>
 };
 } // namespace std
 
-// Handy macro for slot connecting inside a class (requires C++14 generic lambdas)
-#if (defined(_MSC_VER) && _MSC_VER >= 1900) || __cplusplus >= 201402
+// Handy macro for slot connecting inside a class
 #define KL_SLOT(mem_fn)                                                        \
     [this](auto&&... args) {                                                   \
         return this->mem_fn(std::forward<decltype(args)>(args)...);            \
     }
-#endif

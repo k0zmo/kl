@@ -2,14 +2,13 @@
 
 #include "kl/type_class.hpp"
 #include "kl/enum_reflector.hpp"
-#include "kl/index_sequence.hpp"
 #include "kl/tuple.hpp"
 
 #include <boost/optional.hpp>
 #include <json11/json11.hpp>
 #include <exception>
 
-KL_DEFINE_ENUM_REFLECTOR(json11::Json::Type,
+KL_DEFINE_ENUM_REFLECTOR(json11, Json::Type,
                          (NUL, NUMBER, BOOL, STRING, ARRAY, OBJECT))
 
 namespace kl {
@@ -55,14 +54,7 @@ using is_json_constructible =
     std::integral_constant<bool,
                            std::is_constructible<json11::Json, T>::value &&
                                // We want reflectable enum to handle ourselves
-                               !std::is_enum<T>::value
-#if defined(_MSC_VER) && (_MSC_VER < 1900)
-                               // MSVC2013 has some issues with deleted ctor
-                               // and is_constructible<T> trait
-                               && (!std::is_convertible<T, void*>::value ||
-                                   std::is_same<T, std::nullptr_t>::value)
-#endif
-                           >;
+                               !std::is_enum<T>::value>;
 
 template <typename T, typename = void_t<>>
 struct is_string_associative : std::false_type {};
@@ -211,11 +203,13 @@ inline std::string json_type_name(const json11::Json& json)
 }
 
 template <typename T>
-using is_json_simple = std::integral_constant<
-    bool,
-    std::is_integral<T>::value || std::is_floating_point<T>::value ||
-        std::is_enum<T>::value ||
-        (std::is_convertible<std::string, T>::value && !is_optional<T>::value)>;
+using is_json_simple =
+    std::integral_constant<bool, std::is_integral<T>::value ||
+                                     std::is_floating_point<T>::value ||
+                                     std::is_enum<T>::value ||
+                                     (std::is_convertible<std::string, T>::value
+                                      // optional<string> shoul not be json_simple
+                                      && !is_optional<T>::value)>;
 
 template <typename T, enable_if<std::is_integral<T>> = true>
 T from_json_simple(const json11::Json& json)

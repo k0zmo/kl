@@ -56,11 +56,6 @@ KL_DEFINE_ENUM_REFLECTOR(ns::detail, enum_,
 #include <type_traits>
 #include <cstring>
 
-#if defined(_MSC_VER) && BOOST_VERSION == 105700
-#undef BOOST_PP_EXPAND_I
-#define BOOST_PP_EXPAND_I(...) __VA_ARGS__
-#endif
-
 namespace kl {
 
 template <typename Enum>

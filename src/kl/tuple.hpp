@@ -1,7 +1,5 @@
 #pragma once
 
-#include "kl/index_sequence.hpp"
-
 #include <tuple>
 #include <type_traits>
 #include <limits>
@@ -10,9 +8,12 @@
 
 namespace kl {
 
+using std::index_sequence;
+using std::make_index_sequence;
+
 template <typename T>
-using make_tuple_indices = make_index_sequence<
-    std::tuple_size<std::remove_reference_t<T>>::value>;
+using make_tuple_indices =
+    make_index_sequence<std::tuple_size<std::remove_reference_t<T>>::value>;
 
 namespace tuple {
 

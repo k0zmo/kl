@@ -5,6 +5,7 @@
 #include <boost/optional/optional_io.hpp>
 
 namespace {
+
 template <std::size_t N>
 gsl::span<const kl::byte> as_span(const char (&str)[N])
 {

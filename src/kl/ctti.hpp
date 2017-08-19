@@ -166,11 +166,6 @@ constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
 } // namespace detail
 } // namespace kl
 
-#if defined(_MSC_VER) && BOOST_VERSION == 105700
-#undef BOOST_PP_EXPAND_I
-#define BOOST_PP_EXPAND_I(...) __VA_ARGS__
-#endif
-
 #define KL_DEFINE_REFLECTABLE(...) KL_TYPE_INFO_IMPL(__VA_ARGS__)
 #define KL_DEFINE_REFLECTABLE_DERIVED(...)                                     \
     KL_TYPE_INFO_DERIVED_IMPL(__VA_ARGS__)
