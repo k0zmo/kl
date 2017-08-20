@@ -102,7 +102,7 @@ TEST_CASE("json_convert")
     SECTION("deserialize inner_t - empty json")
     {
         REQUIRE_THROWS_AS(kl::from_json<inner_t>({}),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
     }
 
     SECTION("deserialize inner_t - missing one field")
@@ -110,7 +110,7 @@ TEST_CASE("json_convert")
         const char* in = R"({"d": 1.0})";
         auto j = json11::Json::parse(in, err);
         REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
     }
 
     SECTION("deserialize inner_t - one additional field")
@@ -148,27 +148,27 @@ TEST_CASE("json_convert")
     {
         json11::Json null;
         REQUIRE_THROWS_AS(kl::from_json<int>(null),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
         REQUIRE_THROWS_AS(kl::from_json<bool>(null),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
         REQUIRE_THROWS_AS(kl::from_json<float>(null),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
         REQUIRE_THROWS_AS(kl::from_json<std::string>(null),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
         REQUIRE_THROWS_AS(kl::from_json<std::tuple<int>>(null),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
         REQUIRE_THROWS_AS(kl::from_json<std::vector<int>>(null),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
         REQUIRE_THROWS_AS((kl::from_json<std::map<std::string, int>>(null)),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
 
         json11::Json arr{json11::Json::array{3, true}};
         REQUIRE_THROWS_AS(kl::from_json<std::vector<int>>(arr),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
 
         json11::Json obj{json11::Json::object{{"key0", 3}, {"key2", true}}};
         REQUIRE_THROWS_AS((kl::from_json<std::map<std::string, int>>(obj)),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
     }
 
     SECTION("deserialize tuple")
@@ -193,12 +193,12 @@ TEST_CASE("json_convert")
         j = json11::Json::parse(R"([7, 13, true])", err);
         REQUIRE(err.empty());
         REQUIRE_THROWS_AS(kl::from_json<decltype(t)>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
 
         j = json11::Json::parse(R"([7, 13, "rgb", 1, true])", err);
         REQUIRE(err.empty());
         REQUIRE_THROWS_AS(kl::from_json<decltype(t)>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
     }
 
     SECTION("serialize different types and 'modes' for enums")
@@ -232,13 +232,13 @@ TEST_CASE("json_convert")
         REQUIRE(err.empty());
 
         REQUIRE_THROWS_AS(kl::from_json<enums>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
 
         in = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref2", "e3": 0})";
         j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
         REQUIRE_THROWS_AS(kl::from_json<enums>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
 
         in =
             R"({"e0": 0, "e1": true, "e2": "oe_one_ref", "e3": "one"})";
@@ -246,7 +246,7 @@ TEST_CASE("json_convert")
         REQUIRE(err.empty());
 
         REQUIRE_THROWS_AS(kl::from_json<enums>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
     }
 
 #if defined(KL_JSON_DONT_SKIP_NULL_VALUES)
@@ -315,7 +315,6 @@ TEST_CASE("json_convert")
         auto j = json11::Json::parse(in, err);
         REQUIRE(err.empty());
 
-
         try
         {
             kl::from_json<optional_test>(j);
@@ -328,7 +327,7 @@ TEST_CASE("json_convert")
         }
 
         REQUIRE_THROWS_AS(kl::from_json<optional_test>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
     }
 
     SECTION("serialize complex structure with std/boost containers")
@@ -476,12 +475,12 @@ TEST_CASE("json_convert")
         auto j = json11::Json::parse(R"([3,4.0,"QWE"])", err);
         REQUIRE(err.empty());
         REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
 
         j = json11::Json::parse(R"([3])", err);
         REQUIRE(err.empty());
         REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
     }
 
     SECTION("deserialize to struct from an array - type mismatch")
@@ -489,12 +488,12 @@ TEST_CASE("json_convert")
         auto j = json11::Json::parse(R"([3,"QWE"])", err);
         REQUIRE(err.empty());
         REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
 
         j = json11::Json::parse(R"([false,4])", err);
         REQUIRE(err.empty());
         REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
-                          kl::json_deserialize_exception);
+                          kl::json_deserialize_error);
     }
 }
 
@@ -558,7 +557,7 @@ std::chrono::seconds from_json(const json11::Json& json)
 {
     return std::chrono::seconds{from_json<unsigned>(json)};
 }
-}
+} // namespace kl
 
 TEST_CASE("json_convert - extended")
 {

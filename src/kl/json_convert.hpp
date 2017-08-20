@@ -13,13 +13,13 @@ KL_DEFINE_ENUM_REFLECTOR(json11, Json::Type,
 
 namespace kl {
 
-struct json_deserialize_exception : std::exception
+struct json_deserialize_error : std::exception
 {
-    explicit json_deserialize_exception(const char* message)
-        : json_deserialize_exception(std::string(message))
+    explicit json_deserialize_error(const char* message)
+        : json_deserialize_error(std::string(message))
     {
     }
-    explicit json_deserialize_exception(std::string message)
+    explicit json_deserialize_error(std::string message)
         : messages_(std::move(message))
     {
     }
@@ -215,8 +215,8 @@ template <typename T, enable_if<std::is_integral<T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_number())
-        throw json_deserialize_exception{"type must be an integral but is " +
-                                         json_type_name(json)};
+        throw json_deserialize_error{"type must be an integral but is " +
+                                     json_type_name(json)};
     // This check will be ellided by the compiler since it's a constant expr
     if (std::is_unsigned<T>::value && sizeof(T) == 4)
         return static_cast<T>(json.number_value());
@@ -227,8 +227,8 @@ template <>
 inline bool from_json_simple<bool>(const json11::Json& json)
 {
     if (!json.is_bool())
-        throw json_deserialize_exception{"type must be a bool but is " +
-                                         json_type_name(json)};
+        throw json_deserialize_error{"type must be a bool but is " +
+                                     json_type_name(json)};
     return json.bool_value();
 }
 
@@ -236,8 +236,8 @@ template <typename T, enable_if<std::is_floating_point<T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_number())
-        throw json_deserialize_exception{"type must be a float but is " +
-                                         json_type_name(json)};
+        throw json_deserialize_error{"type must be a float but is " +
+                                     json_type_name(json)};
     return static_cast<T>(json.number_value());
 }
 
@@ -245,20 +245,19 @@ template <typename T, enable_if<is_enum_reflectable<T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_string())
-        throw json_deserialize_exception{"type must be a string-enum but is " +
-                                         json_type_name(json)};
+        throw json_deserialize_error{"type must be a string-enum but is " +
+                                     json_type_name(json)};
     if (auto enum_value = enum_reflector<T>::from_string(json.string_value()))
         return enum_value.get();
-    throw json_deserialize_exception{"invalid enum value: " +
-                                     json.string_value()};
+    throw json_deserialize_error{"invalid enum value: " + json.string_value()};
 }
 
 template <typename T, enable_if<is_enum_nonreflectable<T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_number())
-        throw json_deserialize_exception{"type must be a number-enum but is " +
-                                         json_type_name(json)};
+        throw json_deserialize_error{"type must be a number-enum but is " +
+                                     json_type_name(json)};
     return static_cast<T>(json.int_value());
 }
 
@@ -266,8 +265,8 @@ template <typename T, enable_if<std::is_convertible<std::string, T>> = true>
 T from_json_simple(const json11::Json& json)
 {
     if (!json.is_string())
-        throw json_deserialize_exception{"type must be a string but is " +
-                                         json_type_name(json)};
+        throw json_deserialize_error{"type must be a string but is " +
+                                     json_type_name(json)};
     return json.string_value();
 }
 
@@ -321,16 +320,16 @@ struct value_factory
         {
             if (json.array_items().size() != ctti::total_num_fields<T>())
             {
-                throw json_deserialize_exception{"array size is different than "
-                                                 "declared struct's field "
-                                                 "count"};
+                throw json_deserialize_error{"array size is different than "
+                                             "declared struct's field "
+                                             "count"};
             }
             json_obj_array_deserializer visitor{json.array_items()};
             ctti::reflect(obj, visitor);
         }
         else
         {
-            throw json_deserialize_exception{
+            throw json_deserialize_error{
                 "type must be an array or object but is " +
                 json_type_name(json)};
         }
@@ -350,8 +349,8 @@ struct value_factory
     static T create(const json11::Json& json)
     {
         if (!json.is_array())
-            throw json_deserialize_exception{"type must be an array but is " +
-                                             json_type_name(json)};
+            throw json_deserialize_error{"type must be an array but is " +
+                                         json_type_name(json)};
 
         T ret{};
         ret.reserve(json.array_items().size());
@@ -362,7 +361,7 @@ struct value_factory
             {
                 ret.push_back(from_json<typename T::value_type>(item));
             }
-            catch (json_deserialize_exception& ex)
+            catch (json_deserialize_error& ex)
             {
                 std::string msg = "error when deserializing element " +
                                   std::to_string(ret.size());
@@ -379,8 +378,8 @@ struct value_factory
     static T create(const json11::Json& json)
     {
         if (!json.is_object())
-            throw json_deserialize_exception{"type must be an object but is " +
-                                             json_type_name(json)};
+            throw json_deserialize_error{"type must be an object but is " +
+                                         json_type_name(json)};
 
         T ret{};
 
@@ -391,7 +390,7 @@ struct value_factory
                 ret.emplace(obj.first,
                             from_json<typename T::mapped_type>(obj.second));
             }
-            catch (json_deserialize_exception& ex)
+            catch (json_deserialize_error& ex)
             {
                 std::string msg = "error when deserializing field " + obj.first;
                 ex.add(msg.c_str());
@@ -407,10 +406,10 @@ struct value_factory
     static T create(const json11::Json& json)
     {
         if (!json.is_array())
-            throw json_deserialize_exception{"type must be an array but is " +
-                                             json_type_name(json)};
+            throw json_deserialize_error{"type must be an array but is " +
+                                         json_type_name(json)};
         if (json.array_items().size() != std::tuple_size<T>::value)
-            throw json_deserialize_exception{
+            throw json_deserialize_error{
                 "array size is different than tuple size"};
 
         return from_json_tuple<T>(json, make_tuple_indices<T>{});
@@ -435,7 +434,7 @@ private:
                 {
                     f.get() = from_json<typename FieldInfo::type>(it->second);
                 }
-                catch (json_deserialize_exception& ex)
+                catch (json_deserialize_error& ex)
                 {
                     std::string msg = "error when deserializing field " +
                                       std::string(f.name());
@@ -451,8 +450,8 @@ private:
                 return;
             }
 
-            throw json_deserialize_exception{"missing field " +
-                                             std::string(f.name())};
+            throw json_deserialize_error{"missing field " +
+                                         std::string(f.name())};
         }
 
     private:
