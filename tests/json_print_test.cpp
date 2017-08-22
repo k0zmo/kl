@@ -91,6 +91,11 @@ TEST_CASE("json_print")
         REQUIRE(os.str() == "null");
 
         os.str("");
+        opt = false;
+        kl::json_print(os, opt);
+        REQUIRE(os.str() == "false");
+
+        os.str("");
         kl::json_print(os, std::string("QWE"));
         REQUIRE(os.str() == "\"QWE\"");
     }
@@ -243,5 +248,22 @@ R"({
   "5": 5,
   "7": 7
 })");
+    }
+
+    SECTION("escape control characters")
+    {
+        os.str("");
+        kl::json_print(os, "te\nst");
+        CHECK(os.str() == R"("te\nst")");
+
+        os.str("");
+        kl::json_print(os, "test=\"qqqq\"");
+        const char* seq = R"("test=\"qqqq\"")";
+        CHECK(os.str() == seq);
+
+        os.str("");
+        kl::json_print(os, "\f\b\n\r\t\\\"");
+        seq = R"("\f\b\n\r\t\\\"")";
+        CHECK(os.str() == seq);
     }
 }

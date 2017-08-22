@@ -4,6 +4,8 @@
 #include "kl/enum_reflector.hpp"
 #include "kl/tuple.hpp"
 
+#include <boost/utility/string_view.hpp>
+
 namespace kl {
 
 template <typename T, typename OutStream>
@@ -71,6 +73,64 @@ struct pretty_state
 template <typename T, typename OutStream>
 OutStream& json_print(OutStream& os, const T& value, pretty_state& state);
 
+template <typename OutStream, typename String>
+OutStream& print_escaped(OutStream& os, const String& str)
+{
+    using std::begin;
+    using std::end;
+
+    static const char controls[] = {'"', '\\', '\b', '\f', '\n', '\r', '\t'};
+
+    // Check if there's anything to escape
+    const auto it = std::find_first_of(begin(str), end(str), begin(controls),
+                                       end(controls));
+    if (it == end(str))
+    {
+        os << str;
+        return os;
+    }
+
+    for (const auto ch : str)
+    {
+        switch (ch)
+        {
+        case '"':
+            os << "\\\"";
+            break;
+        case '\\':
+            os << "\\\\";
+            break;
+        case '\b':
+            os << "\\b";
+            break;
+        case '\f':
+            os << "\\f";
+            break;
+        case '\n':
+            os << "\\n";
+            break;
+        case '\r':
+            os << "\\r";
+            break;
+        case '\t':
+            os << "\\t";
+            break;
+        default:
+            os << ch;
+            break;
+        }
+    }
+
+    // TODO: Escape Unicodes
+    return os;
+}
+
+template <typename OutStream>
+OutStream& print_escaped(OutStream& os, const char* str)
+{
+    return print_escaped(os, boost::string_view{str});
+}
+
 // Default implementation (integral, floating)
 template <typename TypeClass>
 struct json_printer
@@ -104,7 +164,7 @@ struct json_printer<type_class::enumeration>
               enable_if<negation<is_enum_reflectable<T>>> = true>
     static OutStream& print(OutStream& os, const T& value, pretty_state&)
     {
-        os << underlying_cast(value);
+        os << +underlying_cast(value);
         return os;
     }
 
@@ -112,7 +172,9 @@ struct json_printer<type_class::enumeration>
               enable_if<is_enum_reflectable<T>> = true>
     static OutStream& print(OutStream& os, const T& value, pretty_state&)
     {
-        os << '"' << enum_reflector<T>::to_string(value) << '"';
+        os << '"';
+        print_escaped(os, enum_reflector<T>::to_string(value));
+        os << '"';
         return os;
     }
 };
@@ -123,7 +185,9 @@ struct json_printer<type_class::string>
     template <typename OutStream, typename T>
     static OutStream& print(OutStream& os, const T& value, pretty_state&)
     {
-        os << '"' << value << '"';
+        os << '"';
+        print_escaped(os, value);
+        os << '"';
         return os;
     }
 };
@@ -185,7 +249,9 @@ private:
                 first_ = false;
 
             state_.mark_indent(os_);
-            os_ << '"' << f.name() << (state_.indent > 0 ? "\": " : "\":");
+            os_ << '"';
+            print_escaped(os_, f.name());
+            os_ << (state_.indent > 0 ? "\": " : "\":");
             json_print(os_, f.get(), state_);
         }
 
@@ -286,7 +352,9 @@ struct json_printer<type_class::map>
                 first = false;
 
             state.mark_indent(os);
-            os << '"' << kv.first << (state.indent > 0 ? "\": " : "\":");
+            os << '"';
+            print_escaped(os, kv.first);
+            os << (state.indent > 0 ? "\": " : "\":");
             json_print(os, kv.second, state);
         }
         state.mark_end(os, '}');

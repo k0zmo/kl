@@ -30,7 +30,7 @@ endif()
 # Build tests in the master project by default
 option(KL_TEST "Generate the test target." ${MASTER_PROJECT})
 
-find_package(Boost 1.60.0 REQUIRED COMPONENTS)
+find_package(Boost 1.61.0 REQUIRED COMPONENTS)
 
 function(target_kl_compile_options _target)
     if(MSVC)
