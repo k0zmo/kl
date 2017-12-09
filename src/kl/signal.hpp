@@ -622,8 +622,8 @@ private:
 template <typename T, typename Ret, typename... Args>
 std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T* instance)
 {
-    return {[=](Args&&... args) {
-        return (instance->*mem_func)(std::forward<Args>(args)...);
+    return {[mem_func, instance](Args&&... args) {
+        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
     }};
 }
 
@@ -631,8 +631,8 @@ template <typename T, typename Ret, typename... Args>
 std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
                                       const T* instance)
 {
-    return {[=](Args&&... args) {
-        return (instance->*mem_func)(std::forward<Args>(args)...);
+    return {[mem_func, instance](Args&&... args) {
+        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
     }};
 }
 
@@ -640,7 +640,7 @@ template <typename T, typename Ret, typename... Args>
 std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T& instance)
 {
     return {[mem_func, &instance](Args&&... args) {
-        return (const_cast<T&>(instance).*mem_func)(std::forward<Args>(args)...);
+        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
     }};
 }
 
@@ -649,7 +649,7 @@ std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
                                       const T& instance)
 {
     return {[mem_func, &instance](Args&&... args) {
-        return (instance.*mem_func)(std::forward<Args>(args)...);
+        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
     }};
 }
 

@@ -12,6 +12,9 @@ void foo(bool& z) { z = !z; }
 
 struct Baz
 {
+    Baz() = default;
+    Baz(const Baz&) = delete;
+
     void bar(int& z) { ++z; }
     void bar(int& z) const { ++z; }
     static void foo(bool& z) { z = !z; }
