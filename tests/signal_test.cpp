@@ -5,6 +5,7 @@
 #include <boost/optional/optional_io.hpp>
 
 #include <vector>
+#include <memory>
 
 namespace test {
 
@@ -131,6 +132,19 @@ TEST_CASE("signal")
         int z = 0;
         s(z);
         REQUIRE(z == 6);
+    }
+
+    SECTION("make slot shared_ptr to signal")
+    {
+        auto obj = std::make_shared<test::Baz>();
+        kl::signal<void(int&)> s;
+        s.connect(kl::make_slot(&test::Baz::bar, obj));
+        s.connect(
+            kl::make_slot(&test::Baz::bar, std::weak_ptr<test::Baz>(obj)));
+        CHECK(obj.use_count() == 2);
+        int z = 0;
+        s(z);
+        CHECK(z == 2);
     }
 
     SECTION("connect static member function")

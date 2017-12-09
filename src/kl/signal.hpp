@@ -653,6 +653,25 @@ std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
     }};
 }
 
+template <typename T, typename Ret, typename... Args>
+std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
+                                      std::shared_ptr<T> instance)
+{
+    return {[mem_func, instance](Args&&... args) {
+        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
+    }};
+}
+
+template <typename T, typename Ret, typename... Args>
+std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
+                                      std::weak_ptr<T> instance)
+{
+    return {[mem_func, instance](Args&&... args) {
+        if (auto ptr = instance.lock())
+            return std::mem_fn(mem_func)(ptr, std::forward<Args>(args)...);
+    }};
+}
+
 // Converts signal to slot type allowing to create signal-to-signal connections
 template <typename Ret, typename... Args>
 std::function<Ret(Args...)> make_slot(signal<Ret(Args...)>& sig)
