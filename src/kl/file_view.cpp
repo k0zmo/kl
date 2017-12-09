@@ -22,8 +22,8 @@ public:
     handle& operator=(const handle&) = delete;
 
     handle(handle&& other) noexcept
+        : h_{std::exchange(other.h_, null)}
     {
-        swap(*this, other);
     }
 
     handle& operator=(handle&& other) noexcept
