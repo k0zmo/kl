@@ -495,6 +495,57 @@ TEST_CASE("json_convert")
         REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
                           kl::json_deserialize_error);
     }
+
+    SECTION("optional<string>")
+    {
+        auto j = json11::Json::parse(R"(null)", err);
+        REQUIRE(err.empty());
+        auto a = kl::from_json<boost::optional<std::string>>(j);
+        REQUIRE(!a);
+
+        j = json11::Json::parse(R"("asd")", err);
+        REQUIRE(err.empty());
+        auto b = kl::from_json<boost::optional<std::string>>(j);
+        REQUIRE(b);
+        REQUIRE(b.get() == "asd");
+    }
+
+
+    SECTION("tuple with tail optionals")
+    {
+        using tuple_t = std::tuple<int, bool, boost::optional<std::string>>;
+
+        auto j = json11::Json::parse(R"([4])", err);
+        REQUIRE(err.empty());
+        REQUIRE_THROWS_AS(kl::from_json<tuple_t>(j),
+                          kl::json_deserialize_error);
+
+        j = json11::Json::parse(R"([4,true])", err);
+        REQUIRE(err.empty());
+
+        auto t = kl::from_json<tuple_t>(j);
+        REQUIRE(std::get<0>(t) == 4);
+        REQUIRE(std::get<1>(t));
+        REQUIRE(!std::get<2>(t).is_initialized());
+    }
+
+    SECTION("unsigned: check 32")
+    {
+        auto j = kl::to_json(unsigned(32));
+        REQUIRE(j.number_value() == 32.0);
+        REQUIRE(j.int_value() == 32);
+        auto str = j.pretty_print();
+        REQUIRE(str == "32");
+    }
+
+    SECTION("unsigned: check value greater than 0x7FFFFFFU")
+    {
+        auto j = kl::to_json(2147483648U);
+        REQUIRE(j.number_value() == 2147483648.0);
+        REQUIRE(j.int_value() == -2147483648LL);
+        auto str = j.pretty_print();
+        REQUIRE(str == "2147483648");
+    }
 }
 
 #include <chrono>
@@ -565,40 +616,4 @@ TEST_CASE("json_convert - extended")
     chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}, our_type{}};
     auto j = kl::to_json(t);
     auto obj = kl::from_json<chrono_test>(j);
-}
-
-TEST_CASE("json_convert - unsigned")
-{
-    SECTION("check 32")
-    {
-        auto j = kl::to_json(unsigned(32));
-        REQUIRE(j.number_value() == 32.0);
-        REQUIRE(j.int_value() == 32);
-        auto str = j.pretty_print();
-        REQUIRE(str == "32");
-    }
-
-    SECTION("check value greater than 0x7FFFFFFU")
-    {
-        auto j = kl::to_json(2147483648U);
-        REQUIRE(j.number_value() == 2147483648.0);
-        REQUIRE(j.int_value() == -2147483648LL);
-        auto str = j.pretty_print();
-        REQUIRE(str == "2147483648");
-    }
-}
-
-TEST_CASE("json_convert - optional<string>")
-{
-    std::string err;
-    auto j = json11::Json::parse(R"(null)", err);
-    REQUIRE(err.empty());
-    auto a = kl::from_json<boost::optional<std::string>>(j);
-    REQUIRE(!a);
-
-    j = json11::Json::parse(R"("asd")", err);
-    REQUIRE(err.empty());
-    auto b = kl::from_json<boost::optional<std::string>>(j);
-    REQUIRE(b);
-    REQUIRE(b.get() == "asd");
 }

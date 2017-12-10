@@ -408,6 +408,24 @@ struct value_factory
         if (!json.is_array())
             throw json_deserialize_error{"type must be an array but is " +
                                          json_type_name(json)};
+
+        using last_tuple_element =
+            typename std::tuple_element<std::tuple_size<T>::value - 1, T>::type;
+
+        if (json.array_items().size() < std::tuple_size<T>::value &&
+            is_optional<last_tuple_element>::value)
+        {
+            // Pretend there are N nulls at the end of the array
+            // If tuple contains enough tail optionals we'll be good.
+            json11::Json::array arr(json.array_items());
+            for (auto i = 0U;
+                 i < std::tuple_size<T>::value - json.array_items().size(); ++i)
+                arr.emplace_back(nullptr);
+
+            return from_json_tuple<T>(json11::Json{arr},
+                                      make_tuple_indices<T>{});
+        }
+
         if (json.array_items().size() != std::tuple_size<T>::value)
             throw json_deserialize_error{
                 "array size is different than tuple size"};
