@@ -44,7 +44,7 @@ void decode_variant(kl::binary_reader& r, boost::variant<Args...>& var,
     // boost::variant<int, bool> is really
     // boost::variant<int, bool, boost::detail::variant::void_, ...>
     // and we'd like to get type list without this noise
-    using args_list = typename filter<not_boost_variant_void, Args...>::type;
+    using args_list = filter_t<not_boost_variant_void, Args...>;
     visit_by_index(r, args_list{}, var, which);
 }
 } // namespace detail

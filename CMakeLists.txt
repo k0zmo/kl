@@ -118,6 +118,7 @@ if(KL_TEST)
         tests/json_print_test.cpp
         tests/main_test.cpp
         tests/match_test.cpp
+        tests/meta_test.cpp
         tests/signal_test.cpp
         tests/split_test.cpp
         tests/stream_join_test.cpp
