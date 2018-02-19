@@ -36,6 +36,7 @@ KL_DEFINE_ENUM_REFLECTOR(ns::detail, enum_,
 */
 
 #include "kl/base_range.hpp"
+#include "kl/type_traits.hpp"
 
 #include <boost/optional.hpp>
 
