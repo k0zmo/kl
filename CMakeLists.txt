@@ -112,7 +112,9 @@ if(KL_TEST)
         tests/byte_test.cpp
         tests/ctti_test.cpp
         tests/defer_test.cpp
-        tests/enum_test.cpp
+        tests/enum_range_test.cpp
+        tests/enum_reflector_test.cpp
+        tests/enum_traits_test.cpp
         tests/file_view_test.cpp
         tests/json_convert_test.cpp
         tests/json_print_test.cpp
