@@ -617,3 +617,69 @@ TEST_CASE("json_convert - extended")
     auto j = kl::to_json(t);
     auto obj = kl::from_json<chrono_test>(j);
 }
+
+#include "kl/enum_flags.hpp"
+
+namespace {
+
+enum class device_type
+{
+    $default = (1 << 0),
+    cpu = (1 << 1),
+    gpu = (1 << 2),
+    accelerator = (1 << 3),
+    custom = (1 << 4)
+};
+using device_flags = kl::enum_flags<device_type>;
+} // namespace
+
+KL_DEFINE_ENUM_REFLECTOR(device_type, (
+    ($default, default),
+    cpu,
+    gpu,
+    accelerator,
+    custom
+))
+
+TEST_CASE("json_convert - enum_flags")
+{
+    SECTION("to json")
+    {
+        auto f = kl::make_flags(device_type::cpu) | device_type::gpu |
+                 device_type::accelerator;
+        auto j = kl::to_json(f);
+        REQUIRE(j.is_array());
+        REQUIRE(j.array_items().size() == 3);
+        REQUIRE(j.array_items()[0] == "cpu");
+        REQUIRE(j.array_items()[1] == "gpu");
+        REQUIRE(j.array_items()[2] == "accelerator");
+
+        f &= ~kl::make_flags(device_type::accelerator);
+
+        j = kl::to_json(f);
+        REQUIRE(j.is_array());
+        REQUIRE(j.array_items().size() == 2);
+        REQUIRE(j.array_items()[0] == "cpu");
+        REQUIRE(j.array_items()[1] == "gpu");
+    }
+
+    SECTION("from json")
+    {
+        std::string err;
+        const char* in = R"([])";
+        auto j = json11::Json::parse(in, err);
+        REQUIRE(err.empty());
+
+        auto f = kl::from_json<device_flags>(j);
+        REQUIRE(f.underlying_value() == 0);
+
+        in = R"(["cpu", "gpu"])";
+        j = json11::Json::parse(in, err);
+        REQUIRE(err.empty());
+        f = kl::from_json<device_flags>(j);
+
+        REQUIRE(f.underlying_value() ==
+                (kl::underlying_cast(device_type::cpu) |
+                 kl::underlying_cast(device_type::gpu)));
+    }
+}

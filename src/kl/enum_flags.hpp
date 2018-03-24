@@ -1,6 +1,6 @@
 #pragma once
 
-#include "kl/type_traits.hpp"
+#include <type_traits>
 
 #if defined(_MSC_VER) && _MSC_VER < 1910
 #define constexpr14
@@ -18,8 +18,6 @@ class enum_flags
 public:
     using underlying_type = std::underlying_type_t<Enum>;
     using enum_type = Enum;
-
-    static constexpr bool is_enum_flags = true;
 
 public:
     constexpr enum_flags() : value_{0} {}
@@ -131,6 +129,12 @@ constexpr enum_flags<Enum> make_flags(Enum value)
 {
     return enum_flags<Enum>{value};
 }
+
+template <typename T>
+struct is_enum_flags : std::false_type {};
+
+template <typename T>
+struct is_enum_flags<enum_flags<T>> : std::true_type {};
 } // namespace kl
 
 #undef constexpr14

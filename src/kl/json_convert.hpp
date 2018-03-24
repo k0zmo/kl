@@ -2,6 +2,7 @@
 
 #include "kl/type_class.hpp"
 #include "kl/enum_reflector.hpp"
+#include "kl/enum_flags.hpp"
 #include "kl/tuple.hpp"
 
 #include <boost/optional.hpp>
@@ -70,6 +71,11 @@ using is_representable_as_double =
     std::integral_constant<bool,
                            std::is_integral<T>::value && (sizeof(T) <= 4)>;
 
+template <typename T>
+using is_enum_flags_reflectable = std::integral_constant<
+    bool, is_enum_flags<T>::value &&
+              is_enum_reflectable<typename T::enum_type>::value>;
+
 struct json_factory
 {
     // T is integral type with no more bytes than 4. Effectively, it's u32 as
@@ -95,6 +101,22 @@ struct json_factory
     static json11::Json create(const T& t)
     {
         return to_json(static_cast<std::underlying_type_t<T>>(t));
+    }
+
+    // T is reflectable enum_flags
+    template <typename T, enable_if<is_enum_flags_reflectable<T>> = true>
+    static json11::Json create(const T& t)
+    {
+        json11::Json::array arr;
+
+        using reflector = enum_reflector<typename T::enum_type>;
+        for (const auto possible_values : reflector::values())
+        {
+            if (t.test(possible_values))
+                arr.push_back(reflector::to_string(possible_values));
+        }
+
+        return {arr};
     }
 
     // T is optional<U>
@@ -342,6 +364,25 @@ struct value_factory
     static T create(const json11::Json& json)
     {
         return T::from_json(json);
+    }
+
+    // T is reflectable enum_flags
+    template <typename T, enable_if<is_enum_flags_reflectable<T>> = true>
+    static T create(const  json11::Json& json)
+    {
+        if (!json.is_array())
+            throw json_deserialize_error{"type must be an array but is " +
+                                         json_type_name(json)};
+
+        T ret{};
+
+        for (const auto& value : json.array_items())
+        {
+            const auto e = from_json<typename T::enum_type>(value);
+            ret |= e;
+        }
+
+        return ret;
     }
 
     // T is vector-like container of simple json types or types that are reflectable
