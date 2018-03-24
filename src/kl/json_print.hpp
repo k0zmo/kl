@@ -2,6 +2,7 @@
 
 #include "kl/type_class.hpp"
 #include "kl/enum_reflector.hpp"
+#include "kl/enum_flags.hpp"
 #include "kl/tuple.hpp"
 
 #include <boost/utility/string_view.hpp>
@@ -175,6 +176,36 @@ struct json_printer<type_class::enumeration>
         os << '"';
         print_escaped(os, enum_reflector<T>::to_string(value));
         os << '"';
+        return os;
+    }
+};
+
+template <>
+struct json_printer<type_class::enumeration_flags>
+{
+    template <typename OutStream, typename T>
+    static OutStream& print(OutStream& os, const T& value, pretty_state& state)
+    {
+        static_assert(is_enum_reflectable<typename T::enum_type>::value,
+                      "Can't print enum flags of non-reflectable enum");
+
+        state.mark_begin(os, '[');
+        bool first = true;
+
+        for (const auto& elem : enum_reflector<typename T::enum_type>::values())
+        {
+            if (!value.test(elem))
+                continue;
+
+            if (!first)
+                state.mark_end_element(os);
+            else
+                first = false;
+
+            state.mark_indent(os);
+            json_print(os, elem, state);
+        }
+        state.mark_end(os, ']');
         return os;
     }
 };

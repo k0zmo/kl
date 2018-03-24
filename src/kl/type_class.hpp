@@ -11,6 +11,7 @@ struct boolean {};
 struct integral {};
 struct floating {};
 struct enumeration {};
+struct enumeration_flags {};
 struct string {};
 struct reflectable {};
 struct tuple {};
@@ -44,6 +45,9 @@ template <typename T>
 struct is_map : std::false_type {};
 
 template <typename T>
+struct is_enum_flags : std::false_type {};
+
+template <typename T>
 using get = std::conditional_t<
     is_bool<T>::value, type_class::boolean,
     std::conditional_t<
@@ -53,18 +57,21 @@ using get = std::conditional_t<
             std::conditional_t<
                 std::is_enum<T>::value, type_class::enumeration,
                 std::conditional_t<
-                    is_string<T>::value, type_class::string,
+                    is_enum_flags<T>::value, type_class::enumeration_flags,
                     std::conditional_t<
-                        is_vector<T>::value, type_class::vector,
+                        is_string<T>::value, type_class::string,
                         std::conditional_t<
-                            is_reflectable<T>::value, type_class::reflectable,
+                            is_vector<T>::value, type_class::vector,
                             std::conditional_t<
-                                is_optional<T>::value, type_class::optional,
+                                is_reflectable<T>::value,
+                                type_class::reflectable,
                                 std::conditional_t<
-                                    is_tuple<T>::value, type_class::tuple,
-                                    std::conditional_t<is_map<T>::value,
-                                                       type_class::map,
-                                                       unknown>>>>>>>>>>;
+                                    is_optional<T>::value, type_class::optional,
+                                    std::conditional_t<
+                                        is_tuple<T>::value, type_class::tuple,
+                                        std::conditional_t<is_map<T>::value,
+                                                           type_class::map,
+                                                           unknown>>>>>>>>>>>;
 
 template <typename T, typename TypeClass>
 struct equals : std::is_same<type_class::get<T>, TypeClass> {};
@@ -78,7 +85,12 @@ struct equals : std::is_same<type_class::get<T>, TypeClass> {};
 #include <unordered_map>
 
 namespace kl {
+
+template <typename T> class enum_flags;
 namespace type_class {
+
+template <typename T>
+struct is_enum_flags<enum_flags<T>> : std::true_type {};
 
 template <typename Char, typename CharTraits, typename Allocator>
 struct is_string<std::basic_string<Char, CharTraits, Allocator>>

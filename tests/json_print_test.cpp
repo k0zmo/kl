@@ -267,3 +267,35 @@ R"({
         CHECK(os.str() == seq);
     }
 }
+
+namespace {
+
+enum class device_type
+{
+    $default = (1 << 0),
+    cpu = (1 << 1),
+    gpu = (1 << 2),
+    accelerator = (1 << 3),
+    custom = (1 << 4)
+};
+using device_flags = kl::enum_flags<device_type>;
+} // namespace
+
+KL_DEFINE_ENUM_REFLECTOR(device_type, (
+    ($default, default),
+    cpu,
+    gpu,
+    accelerator,
+    custom
+))
+
+TEST_CASE("json_print - enum_flags")
+{
+    std::ostringstream os;
+    kl::json_print(os, kl::make_flags(device_type::cpu) | device_type::gpu, 2);
+    REQUIRE(os.str() ==
+R"([
+  "cpu",
+  "gpu"
+])");
+}
