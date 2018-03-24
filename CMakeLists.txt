@@ -94,9 +94,9 @@ add_library(kl
             ${KL_3RDPARTY_FILES}
             ${KL_FILES}
             ${KL_BINARY_RW_FILES})
-target_include_directories(kl
-                           PUBLIC src
-                           PUBLIC 3rdparty)
+target_include_directories(kl PUBLIC
+                           src
+                           3rdparty)
 target_link_libraries(kl
                       PUBLIC Boost::boost
                       PRIVATE Boost::disable_autolinking)
