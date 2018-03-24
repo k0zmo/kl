@@ -57,6 +57,7 @@ set(KL_FILES
     src/kl/byte.hpp
     src/kl/ctti.hpp
     src/kl/defer.hpp
+    src/kl/enum_flags.hpp
     src/kl/enum_range.hpp
     src/kl/enum_reflector.hpp
     src/kl/enum_traits.hpp
@@ -112,6 +113,7 @@ if(KL_TEST)
         tests/byte_test.cpp
         tests/ctti_test.cpp
         tests/defer_test.cpp
+        tests/enum_flags_test.cpp
         tests/enum_range_test.cpp
         tests/enum_reflector_test.cpp
         tests/enum_traits_test.cpp
