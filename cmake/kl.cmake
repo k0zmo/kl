@@ -16,12 +16,9 @@ function(target_kl_compile_options _target)
                                       # Assume operator new throws on failure.
                                       /Zc:throwingNew
                                       # Build in C++ Latest mode.
-                                      /std:c++latest)
-
-        if(MSVC_VERSION GREATER_EQUAL 1910)
-            target_compile_options(${_target}
-                                   PUBLIC /permissive-)
-        endif()
+                                      /std:c++latest
+                                      # Build with /permissive- flag if supported by the compiler
+                                      $<$<VERSION_GREATER_EQUAL:${MSVC_VERSION},1910>:/permissive->)
 
         target_compile_definitions(${_target}
                                    # Boost still have dependencies on unary_function and binary_function, so we have to make sure not to remove them.
@@ -36,29 +33,13 @@ function(target_kl_compile_options _target)
                                /wd4100) # unreferenced formal parameter
 
     elseif(CMAKE_COMPILER_IS_GNUCXX OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
-        set_target_properties(${_target} PROPERTIES
-                              CXX_STANDARD 14
-                              CXX_STANDARD_REQUIRED ON
-                              CXX_EXTENSIONS OFF)
-        # TODO: CMake 3.8+
-        # TODO: CMake 3.9+ MSVC also
-        # target_compile_features(${_target} PUBLIC cxx_std_14)
+        target_compile_features(${_target} PUBLIC cxx_std_14)
 
         target_compile_options(${_target} PRIVATE
                                -Wall
                                -pedantic
                                -Wextra
-                               -Wno-unused-parameter)
-
-        if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-            target_compile_options(${_target}
-                                   PRIVATE -Wno-missing-braces)
-        endif()
-
-        # Warning: only if we're building all dependencies by ourselves
-        if(MASTER_PROJECT AND (CMAKE_BUILD_TYPE STREQUAL "Debug"))
-            target_compile_definitions(${_target}
-                                       PUBLIC _GLIBCXX_DEBUG)
-        endif()
+                               -Wno-unused-parameter
+                               $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-braces>)
     endif()
 endfunction()
