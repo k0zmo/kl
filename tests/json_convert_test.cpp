@@ -624,7 +624,7 @@ namespace {
 
 enum class device_type
 {
-    $default = (1 << 0),
+    default_ = (1 << 0),
     cpu = (1 << 1),
     gpu = (1 << 2),
     accelerator = (1 << 3),
@@ -634,7 +634,7 @@ using device_flags = kl::enum_flags<device_type>;
 } // namespace
 
 KL_DEFINE_ENUM_REFLECTOR(device_type, (
-    ($default, default),
+    (default_, default),
     cpu,
     gpu,
     accelerator,
