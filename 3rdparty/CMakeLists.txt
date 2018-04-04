@@ -3,6 +3,7 @@ add_library(json11
      json11/json11.hpp
      json11/json11.cpp
 )
+target_compile_features(json11 PUBLIC cxx_std_11)
 target_include_directories(json11 PUBLIC
      ${CMAKE_CURRENT_SOURCE_DIR})
 add_library(json11::json11 ALIAS json11)
