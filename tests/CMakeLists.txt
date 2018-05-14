@@ -24,14 +24,14 @@ add_executable(kl-tests
     type_class_test.cpp
     zip_test.cpp
 )
-get_target_property(_sources_list kl-tests SOURCES)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
-             PREFIX kl
-             FILES ${_sources_list})
-
 target_link_libraries(kl-tests PRIVATE
                       kl::kl Catch::catch)
-target_kl_compile_options(kl-tests)
+kl_compile_options(kl-tests)
+
+get_target_property(sources_list kl-tests SOURCES)
+source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
+             PREFIX kl
+             FILES ${sources_list})
 
 # Add kl-coverage target for calculating test coverage
 include(SetupCoverage)

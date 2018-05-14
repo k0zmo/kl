@@ -1,4 +1,4 @@
-function(target_kl_compile_options _target)
+function(kl_compile_options _target)
     if(MSVC)
         target_compile_options(${_target}
                                PRIVATE # Tweak optimizations for Non-debug builds
