@@ -22,7 +22,7 @@ TEST_CASE("tuple")
         std::vector<short> vs = {4, 5, 6};
         std::tuple<int*, boost::optional<double>,
                    std::vector<short>::const_iterator>
-            t = {std::begin(arr), 3.0, vs.cbegin() + 1};
+            t{std::begin(arr), 3.0, vs.cbegin() + 1};
 
         auto tt = kl::tuple::transform_ref_fn::call(t);
 
@@ -48,7 +48,7 @@ TEST_CASE("tuple")
         std::vector<short> vs = {4, 5, 6};
         std::tuple<int*, boost::optional<double>,
                    std::vector<short>::const_iterator>
-            t = {std::begin(arr), 3.0, vs.cbegin() + 1};
+            t{std::begin(arr), 3.0, vs.cbegin() + 1};
 
         auto tt = kl::tuple::transform_deref_fn::call(t);
 
