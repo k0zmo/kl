@@ -18,7 +18,8 @@ if [ "$COMPILER" = "gcc-6" ]; then
 fi
 
 mkdir -p build && cd build
-cmake -DCMAKE_BUILD_TYPE="$VARIANT" ..
+cmake -E env LDFLAGS="-fuse-ld=gold" \
+    cmake -DCMAKE_BUILD_TYPE="$VARIANT" ..
 
 if [ "$VARIANT" = "Coverage" ]; then 
     make kl-coverage
