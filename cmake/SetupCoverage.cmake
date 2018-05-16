@@ -56,12 +56,12 @@ if(CMAKE_CONFIGURATION_TYPES)
         CACHE STRING "List of supported configuration types" FORCE)
 else()
     # Modify CMAKE_BUILD_TYPE enum values for cmake-gui
-    get_property(_build_type_strings CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS)
-    list(LENGTH _build_type_strings _build_type_strings_length)
-    if(NOT _build_type_strings_length EQUAL 0)
-        list(APPEND _build_type_strings Coverage)
-        list(REMOVE_DUPLICATES _build_type_strings)
-        set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${_build_type_strings})
+    get_property(build_type_strings CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS)
+    list(LENGTH build_type_strings build_type_strings_length)
+    if(NOT build_type_strings_length EQUAL 0)
+        list(APPEND build_type_strings Coverage)
+        list(REMOVE_DUPLICATES build_type_strings)
+        set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${build_type_strings})
     endif()
 endif()
 
@@ -76,32 +76,32 @@ function(setup_coverage_lcov _target_name _test_runner _output_name)
         message(FATAL_ERROR "lcov not found!")
     endif()
 
-    set(_options BRANCHES)
-    set(_one_value_args "")
-    set(_multi_value_args FILTERS ARGS)
-    cmake_parse_arguments(_options "${_options}" "${_one_value_args}" "${_multi_value_args}" ${ARGN})
-    if(_options_BRANCHES)
-        set(_branch_coverage --rc lcov_branch_coverage=1)
+    set(options BRANCHES)
+    set(one_value_args "")
+    set(multi_value_args FILTERS ARGS)
+    cmake_parse_arguments(options "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    if(options_BRANCHES)
+        set(branch_coverage --rc lcov_branch_coverage=1)
     endif()
-    if(NOT _options_FILTERS)
-        set(_options_FILTERS '*')
+    if(NOT options_FILTERS)
+        set(options_FILTERS '*')
     endif()
 
-    set(_coverage_args)
-    list(APPEND _coverage_args COMMAND ${LCOV_EXECUTABLE}
+    set(coverage_args)
+    list(APPEND coverage_args COMMAND ${LCOV_EXECUTABLE}
          -q --zerocounters --directory .)
-    list(APPEND _coverage_args COMMAND ${_test_runner}
-         ${_options_ARGS})
-    list(APPEND _coverage_args COMMAND ${LCOV_EXECUTABLE}
-         -q --capture --directory . --output-file ${_output_name}.all.info ${_branch_coverage})
-    list(APPEND _coverage_args COMMAND ${LCOV_EXECUTABLE}
-         -q --extract ${_output_name}.all.info ${_options_FILTERS} --output-file ${_output_name}.info  ${_branch_coverage})
-    list(APPEND _coverage_args COMMAND ${GENHTML_EXECUTABLE}
-         -q --output-directory ${_output_name} ${_output_name}.info  ${_branch_coverage})
-    list(APPEND _coverage_args COMMAND ${CMAKE_COMMAND}
+    list(APPEND coverage_args COMMAND ${_test_runner}
+         ${options_ARGS})
+    list(APPEND coverage_args COMMAND ${LCOV_EXECUTABLE}
+         -q --capture --directory . --output-file ${_output_name}.all.info ${branch_coverage})
+    list(APPEND coverage_args COMMAND ${LCOV_EXECUTABLE}
+         -q --extract ${_output_name}.all.info ${options_FILTERS} --output-file ${_output_name}.info  ${branch_coverage})
+    list(APPEND coverage_args COMMAND ${GENHTML_EXECUTABLE}
+         -q --output-directory ${_output_name} ${_output_name}.info  ${branch_coverage})
+    list(APPEND coverage_args COMMAND ${CMAKE_COMMAND}
          -E remove ${_output_name}.all.info)
 
-    add_custom_target(${_target_name} ${_coverage_args}
+    add_custom_target(${_target_name} ${coverage_args}
                       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
                       COMMENT "Gathering and processing code coverage counters to generate HTML report")
     add_custom_command(TARGET ${_target_name} POST_BUILD
@@ -117,43 +117,43 @@ function(setup_coverage_gcovr _target_name _test_runner _output_name)
         message(FATAL_ERROR "gcovr not found!")
     endif()
 
-    set(_options XML)
-    set(_one_value_args "")
-    set(_multi_value_args FILTERS EXCLUDE ARGS)
-    cmake_parse_arguments(_options "${_options}" "${_one_value_args}" "${_multi_value_args}" ${ARGN})
-    if(_options_FILTERS)
-        set(_tmp_list "")
-        foreach(_loop ${_options_FILTERS})
-            list(APPEND _tmp_list --filter=${_loop})
+    set(options XML)
+    set(one_value_args "")
+    set(multi_value_args FILTERS EXCLUDE ARGS)
+    cmake_parse_arguments(options "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    if(options_FILTERS)
+        set(tmp_list "")
+        foreach(_loop ${options_FILTERS})
+            list(APPEND tmp_list --filter=${_loop})
         endforeach()
-        set(_options_FILTERS ${_tmp_list})
+        set(options_FILTERS ${tmp_list})
     endif()
-    if(_options_EXCLUDE)
-        set(_tmp_list "")
-        foreach(_loop ${_options_EXCLUDE})
-            list(APPEND _tmp_list --exclude=${_loop})
+    if(options_EXCLUDE)
+        set(tmp_list "")
+        foreach(_loop ${options_EXCLUDE})
+            list(APPEND tmp_list --exclude=${_loop})
         endforeach()
-        set(_options_EXCLUDE ${_tmp_list})
+        set(options_EXCLUDE ${tmp_list})
     endif()
-    if(_options_XML)
-        set(_output_mode --xml)
-        set(_output_file ${_output_name}.xml)
+    if(options_XML)
+        set(output_mode --xml)
+        set(output_file ${_output_name}.xml)
     else()
-        set(_output_mode --html --html-details)
-        set(_output_file ${_output_name}.html)
+        set(output_mode --html --html-details)
+        set(output_file ${_output_name}.html)
     endif()
 
-    set(_coverage_args)
-    list(APPEND _coverage_args COMMAND ${_test_runner}
-         ${_options_ARGS})
-    list(APPEND _coverage_args COMMAND ${GCOVR_EXECUTABLE}
-         --delete ${_output_mode} --root=${CMAKE_SOURCE_DIR}
-         ${_options_FILTERS} ${_options_EXCLUDE} --output=${_output_file})
+    set(coverage_args)
+    list(APPEND coverage_args COMMAND ${_test_runner}
+         ${options_ARGS})
+    list(APPEND coverage_args COMMAND ${GCOVR_EXECUTABLE}
+         --delete ${output_mode} --root=${CMAKE_SOURCE_DIR}
+         ${options_FILTERS} ${options_EXCLUDE} --output=${output_file})
 
-    add_custom_target(${_target_name} ${_coverage_args}
+    add_custom_target(${_target_name} ${coverage_args}
                       WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
                       COMMENT "Running gcovr to produce HTML report")
     add_custom_command(TARGET ${_target_name} POST_BUILD
                        COMMAND ;
-                       COMMENT "Open ./${_output_file} to see coverage report")
+                       COMMENT "Open ./${output_file} to see coverage report")
 endfunction()
