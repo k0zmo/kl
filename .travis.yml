@@ -10,40 +10,40 @@ matrix:
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-6']
+          packages: ['g++-7']
       env: 
-        - COMPILER=gcc-6
-        - COMPILERXX=g++-6
+        - COMPILER=gcc-7
+        - COMPILERXX=g++-7
         - VARIANT=Coverage
     - os: linux
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-6']
+          packages: ['g++-7']
       env: 
-        - COMPILER=gcc-6
-        - COMPILERXX=g++-6
+        - COMPILER=gcc-7
+        - COMPILERXX=g++-7
         - VARIANT=ASan
     - os: linux
       compiler: gcc
       addons:
         apt:
           sources: ['ubuntu-toolchain-r-test']
-          packages: ['g++-6']
+          packages: ['g++-7']
       env: 
-        - COMPILER=gcc-6
-        - COMPILERXX=g++-6
+        - COMPILER=gcc-7
+        - COMPILERXX=g++-7
         - VARIANT=UBSan
     - os: linux
       compiler: clang
       addons:
         apt:
-          sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-precise-3.9']
-          packages: ['clang-3.9', 'g++-6']
+          sources: ['ubuntu-toolchain-r-test', 'llvm-toolchain-trusty-5.0']
+          packages: ['clang-5.0', 'g++-7']
       env:
-        - COMPILER=clang-3.9
-        - COMPILERXX=clang++-3.9
+        - COMPILER=clang-5.0
+        - COMPILERXX=clang++-5.0
         - VARIANT=Release
 
 cache:

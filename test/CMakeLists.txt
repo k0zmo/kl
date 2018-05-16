@@ -37,5 +37,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
 include(SetupCoverage)
 if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
     setup_coverage_lcov(kl-coverage kl-test coverage
-                        FILTERS '${KL_SOURCE_DIR}/src/*')
+                        FILTERS 
+                            '${kl_SOURCE_DIR}/src/*'
+                            '${kl_SOURCE_DIR}/include/*')
 endif()
