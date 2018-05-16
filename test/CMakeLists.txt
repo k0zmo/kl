@@ -1,4 +1,4 @@
-add_executable(kl-tests
+add_executable(kl-test
     base_range_test.cpp
     base64_test.cpp
     binary_rw_test.cpp
@@ -24,11 +24,11 @@ add_executable(kl-tests
     type_class_test.cpp
     zip_test.cpp
 )
-target_link_libraries(kl-tests PRIVATE
+target_link_libraries(kl-test PRIVATE
                       kl::kl Catch::catch)
-kl_compile_options(kl-tests)
+kl_compile_options(kl-test)
 
-get_target_property(sources_list kl-tests SOURCES)
+get_target_property(sources_list kl-test SOURCES)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
              PREFIX kl
              FILES ${sources_list})
@@ -36,6 +36,6 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
 # Add kl-coverage target for calculating test coverage
 include(SetupCoverage)
 if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    setup_coverage_lcov(kl-coverage kl-tests coverage
+    setup_coverage_lcov(kl-coverage kl-test coverage
                         FILTERS '${KL_SOURCE_DIR}/src/*')
 endif()

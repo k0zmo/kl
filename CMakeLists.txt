@@ -32,8 +32,8 @@ add_subdirectory(3rdparty)
 add_subdirectory(src)
 if(KL_TEST)
     enable_testing()
-    add_subdirectory(tests)
-    add_test(NAME kl COMMAND kl-tests)
+    add_subdirectory(test)
+    add_test(NAME kl COMMAND kl-test)
 endif()
 
 # Installation stuff
