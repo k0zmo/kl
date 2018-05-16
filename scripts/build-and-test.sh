@@ -24,7 +24,7 @@ if [ "$VARIANT" = "Coverage" ]; then
     make kl-coverage
 else 
     make
-    ./tests/kl-tests
+    ctest
 fi
 
 if [ "$VARIANT" = "Coverage" ]; then 

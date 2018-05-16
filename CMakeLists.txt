@@ -31,7 +31,9 @@ find_package(Boost 1.61.0 REQUIRED COMPONENTS)
 add_subdirectory(3rdparty)
 add_subdirectory(src)
 if(KL_TEST)
-  add_subdirectory(tests)
+    enable_testing()
+    add_subdirectory(tests)
+    add_test(NAME kl COMMAND kl-tests)
 endif()
 
 # Installation stuff
