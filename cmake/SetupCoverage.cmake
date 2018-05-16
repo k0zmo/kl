@@ -34,24 +34,19 @@ if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
     return()
 endif()
 
+# Note: C(XX) flags are also used in linker invocation
 if(CMAKE_CXX_FLAGS_DEBUG)
     # No point to set it if it's C-only project
     set(CMAKE_CXX_FLAGS_COVERAGE "${CMAKE_CXX_FLAGS_DEBUG} --coverage"
         CACHE STRING "Flags used by the C++ compiler during coverage builds." FORCE)
+    mark_as_advanced(CMAKE_CXX_FLAGS_COVERAGE)
 endif()
 if(CMAKE_C_FLAGS_DEBUG)
     # No point to set it if it's C++-only project
     set(CMAKE_C_FLAGS_COVERAGE "${CMAKE_C_FLAGS_DEBUG} --coverage"
         CACHE STRING "Flags used by the C compiler during coverage builds." FORCE)
+    mark_as_advanced(CMAKE_C_FLAGS_COVERAGE)
 endif()
-set(CMAKE_SHARED_LINKER_FLAGS_COVERAGE "${CMAKE_SHARED_LINKER_FLAGS_DEBUG} --coverage"
-    CACHE STRING "Flags used by the shared libraries linker during coverage builds." FORCE)
-set(CMAKE_EXE_LINKER_FLAGS_COVERAGE "${CMAKE_EXE_LINKER_FLAGS_DEBUG} --coverage"
-    CACHE STRING "Flags used for linking binaries during coverage builds." FORCE)
-mark_as_advanced(CMAKE_CXX_FLAGS_COVERAGE
-                 CMAKE_C_FLAGS_COVERAGE,
-                 CMAKE_SHARED_LINKER_FLAGS_COVERAGE,
-                 CMAKE_EXE_LINKER_FLAGS_COVERAGE)
 
 if(CMAKE_CONFIGURATION_TYPES)
     # Add 'Coverage' build type for multi-config generators
