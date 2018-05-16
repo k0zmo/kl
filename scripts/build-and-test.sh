@@ -26,7 +26,7 @@ if [ "$VARIANT" = "Coverage" ]; then
     make kl-coverage
 else 
     make
-    ctest
+    CTEST_OUTPUT_ON_FAILURE=1 ctest
 fi
 
 if [ "$VARIANT" = "Coverage" ]; then 
