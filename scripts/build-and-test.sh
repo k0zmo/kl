@@ -3,14 +3,15 @@ set -e
 
 # Override gcc and his friends version to gcc-7
 # Put an appropriate symlink at the front of the path.
-if [ "$COMPILER" = "gcc-7" ]; then
+if [[ "$COMPILER" =~ gcc-([[:digit:]]+) ]]; then
     pushd .
+    ver=${BASH_REMATCH[1]};
     rm -rf ".travis/bin"
     mkdir -p ".travis/bin"
     for g in gcc g++ gcov gcc-ar gcc-nm gcc-ranlib
     do
-        test -x $(type -p ${g}-7)
-        ln -sv $(type -p ${g}-7) ".travis/bin/${g}"
+        test -x $(type -p ${g}-${ver})
+        ln -sv $(type -p ${g}-${ver}) ".travis/bin/${g}"
     done
     cd ".travis/bin"
     export PATH="$(pwd):$PATH"
