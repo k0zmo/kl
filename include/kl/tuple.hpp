@@ -153,23 +153,23 @@ struct distance_fn
 private:
 #if defined(_MSC_VER)
     template <typename T>
-    static const T& min(const T& arg)
+    static const T& (min)(const T& arg)
     {
         return arg;
     }
 
     template <typename T0, typename T1, typename... Ts>
     static const typename std::common_type<T0, T1, Ts...>::type&
-        min(const T0& arg1, const T1& arg2, const Ts&... args)
+        (min)(const T0& arg1, const T1& arg2, const Ts&... args)
     {
-        return (arg1 < arg2) ? min(arg1, args...) : min(arg2, args...);
+        return (arg1 < arg2) ? (min)(arg1, args...) : (min)(arg2, args...);
     }
 
     // This is faster on MSVC2015 than foldl-like with an accumulator
     template <typename Tup, std::size_t... Is>
     static std::ptrdiff_t impl2(Tup&& tup0, Tup&& tup1, index_sequence<Is...>)
     {
-        return distance_fn::min(
+        return (distance_fn::min)(
             std::distance(std::get<Is>(std::forward<Tup>(tup0)),
                           std::get<Is>(std::forward<Tup>(tup1)))...);
     }
@@ -185,8 +185,9 @@ private:
     {
         return distance_fn::template impl<Is...>(
             std::forward<Tup>(tup0), std::forward<Tup>(tup1),
-            std::min(acc, std::distance(std::get<I>(std::forward<Tup>(tup0)),
-                                        std::get<I>(std::forward<Tup>(tup1)))));
+            (std::min)(acc,
+                       std::distance(std::get<I>(std::forward<Tup>(tup0)),
+                                     std::get<I>(std::forward<Tup>(tup1)))));
     }
 
     template <typename Tup, std::size_t... Is>
