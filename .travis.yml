@@ -45,6 +45,8 @@ matrix:
         - COMPILER=gcc-7
         - COMPILERXX=g++-7
         - VARIANT=ASan
+        # TEMP
+        - ASAN_OPTIONS=detect_leaks=0
     - os: linux
       compiler: gcc
       addons:
