@@ -33,7 +33,6 @@ add_subdirectory(src)
 if(KL_TEST)
     enable_testing()
     add_subdirectory(test)
-    add_test(NAME kl COMMAND kl-test)
 endif()
 
 # Installation stuff
