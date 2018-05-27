@@ -55,9 +55,9 @@ source_group(TREE ${kl_SOURCE_DIR} FILES ${sources_list})
 add_library(kl::kl ALIAS kl)
 
 install(TARGETS kl EXPORT klTarget
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin/$<CONFIG>
+    LIBRARY DESTINATION lib/$<CONFIG>
+    ARCHIVE DESTINATION lib/$<CONFIG>
 )
 install(DIRECTORY ${kl_SOURCE_DIR}/include/kl
     DESTINATION include

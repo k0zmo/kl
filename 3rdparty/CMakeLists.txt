@@ -24,9 +24,9 @@ target_include_directories(gsl
 add_library(GSL::gsl ALIAS gsl)
 
 install(TARGETS json11 gsl EXPORT klTarget
-    RUNTIME DESTINATION bin
-    LIBRARY DESTINATION lib
-    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin/$<CONFIG>
+    LIBRARY DESTINATION lib/$<CONFIG>
+    ARCHIVE DESTINATION lib/$<CONFIG>
 )
 install(FILES json11/json11.hpp
     DESTINATION include/json11
