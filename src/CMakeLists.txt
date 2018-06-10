@@ -17,7 +17,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/signal.hpp
     ${kl_SOURCE_DIR}/include/kl/split.hpp
     ${kl_SOURCE_DIR}/include/kl/stream_join.hpp
-    ${kl_SOURCE_DIR}/include/kl/string_switch.hpp
+    ${kl_SOURCE_DIR}/include/kl/hash.hpp
     ${kl_SOURCE_DIR}/include/kl/tuple.hpp
     ${kl_SOURCE_DIR}/include/kl/type_traits.hpp
     ${kl_SOURCE_DIR}/include/kl/type_class.hpp

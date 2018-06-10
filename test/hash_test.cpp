@@ -1,10 +1,10 @@
-#include "kl/string_switch.hpp"
+#include "kl/hash.hpp"
 
 #include <catch/catch.hpp>
 #include <string>
 #include <cstring>
 
-TEST_CASE("string_switch")
+TEST_CASE("hash")
 {
     SECTION("constexpr hash")
     {

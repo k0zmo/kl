@@ -18,7 +18,7 @@ set(test_files
     signal_test.cpp
     split_test.cpp
     stream_join_test.cpp
-    string_switch_test.cpp
+    hash_test.cpp
     tuple_test.cpp
     type_traits_test.cpp
     type_class_test.cpp
