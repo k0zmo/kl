@@ -44,4 +44,13 @@ TEST_CASE("hash")
             REQUIRE(true);
         }
     }
+
+    SECTION("Hsieh's")
+    {
+#if !defined(_MSC_VER) || _MSC_VER >= 1910
+        constexpr auto res = kl::hash::hsieh("QWEASDZXC", 9);
+        static_assert(res == 2931318796, "");
+#endif
+        REQUIRE(kl::hash::hsieh("QWEASDZXC", 9) == 2931318796);
+    }
 }
