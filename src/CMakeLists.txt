@@ -10,6 +10,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/enum_reflector.hpp
     ${kl_SOURCE_DIR}/include/kl/enum_traits.hpp
     ${kl_SOURCE_DIR}/include/kl/file_view.hpp
+    ${kl_SOURCE_DIR}/include/kl/hash.hpp
     ${kl_SOURCE_DIR}/include/kl/json_convert.hpp
     ${kl_SOURCE_DIR}/include/kl/json_print.hpp
     ${kl_SOURCE_DIR}/include/kl/match.hpp
@@ -17,7 +18,6 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/signal.hpp
     ${kl_SOURCE_DIR}/include/kl/split.hpp
     ${kl_SOURCE_DIR}/include/kl/stream_join.hpp
-    ${kl_SOURCE_DIR}/include/kl/hash.hpp
     ${kl_SOURCE_DIR}/include/kl/tuple.hpp
     ${kl_SOURCE_DIR}/include/kl/type_traits.hpp
     ${kl_SOURCE_DIR}/include/kl/type_class.hpp

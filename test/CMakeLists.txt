@@ -11,6 +11,7 @@ set(test_files
     enum_reflector_test.cpp
     enum_traits_test.cpp
     file_view_test.cpp
+    hash_test.cpp
     json_convert_test.cpp
     json_print_test.cpp
     match_test.cpp
@@ -18,7 +19,6 @@ set(test_files
     signal_test.cpp
     split_test.cpp
     stream_join_test.cpp
-    hash_test.cpp
     tuple_test.cpp
     type_traits_test.cpp
     type_class_test.cpp
