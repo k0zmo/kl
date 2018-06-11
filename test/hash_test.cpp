@@ -48,9 +48,12 @@ TEST_CASE("hash")
     SECTION("Hsieh's")
     {
 #if !defined(_MSC_VER) || _MSC_VER >= 1910
-        constexpr auto res = kl::hash::hsieh("QWEASDZXC", 9);
-        static_assert(res == 2931318796, "");
+        static_assert(kl::hash::hsieh("QWEASDZXC", 9) == 0xAEB8600C, "");
 #endif
-        REQUIRE(kl::hash::hsieh("QWEASDZXC", 9) == 2931318796);
+        REQUIRE(kl::hash::hsieh(nullptr, 0) == 0);
+        REQUIRE(kl::hash::hsieh("QWEASDZXC", 9) == 0xAEB8600C);
+        REQUIRE(kl::hash::hsieh("QWEASDZX", 8) == 0xE0B4386A);
+        REQUIRE(kl::hash::hsieh("QWEASDZ", 7) == 0xD439CF4C);
+        REQUIRE(kl::hash::hsieh("QWEASD", 6) == 0x79EF41CA);
     }
 }
