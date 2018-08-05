@@ -170,7 +170,7 @@ constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
 #define KL_DEFINE_REFLECTABLE_DERIVED(...)                                     \
     KL_TYPE_INFO_DERIVED_IMPL(__VA_ARGS__)
 
-#if defined(_MSC_VER) && !defined(__INTELLISENSE__)
+#if defined(_MSC_VER) && !defined(__INTELLISENSE__) && !defined(__clang__)
 #define KL_TYPE_INFO_IMPL(...)                                                 \
     BOOST_PP_CAT(                                                              \
         BOOST_PP_OVERLOAD(KL_TYPE_INFO_IMPL_, __VA_ARGS__)(__VA_ARGS__),       \

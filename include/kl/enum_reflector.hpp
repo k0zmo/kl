@@ -136,7 +136,7 @@ constexpr enum_reflector<E> reflect()
 } // namespace kl
 
 #define KL_DEFINE_ENUM_REFLECTOR(...) KL_ENUM_REFLECTOR_IMPL(__VA_ARGS__)
-#if defined(_MSC_VER) && !defined(__INTELLISENSE__)
+#if defined(_MSC_VER) && !defined(__INTELLISENSE__) && !defined(__clang__)
 #define KL_ENUM_REFLECTOR_IMPL(...)                                            \
     BOOST_PP_CAT(                                                              \
         BOOST_PP_OVERLOAD(KL_ENUM_REFLECTOR_IMPL_, __VA_ARGS__)(__VA_ARGS__),  \
