@@ -1,6 +1,5 @@
 function(kl_compile_options _target)
     target_compile_features(${_target} PUBLIC cxx_std_14)
-    target_compile_definitions(${_target} PRIVATE $<$<PLATFORM_ID:Windows>:WIN32_LEAN_AND_MEAN>)
 
     if(MSVC)
         target_compile_options(${_target}

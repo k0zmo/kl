@@ -40,7 +40,7 @@ target_include_directories(kl
         $<INSTALL_INTERFACE:include>
 )
 target_link_libraries(kl
-    PUBLIC 
+    PUBLIC
         Boost::boost
         json11::json11
         GSL::gsl
