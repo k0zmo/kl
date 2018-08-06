@@ -1,3 +1,11 @@
+add_library(kl_cxx_flags INTERFACE)
+target_compile_features(kl_cxx_flags INTERFACE cxx_std_14)
+if(KL_DEV_BUILD)
+    target_link_libraries(kl_cxx_flags INTERFACE
+        $<BUILD_INTERFACE:kl_dev_cxx_flags>
+    )
+endif()
+
 add_library(kl
     ${kl_SOURCE_DIR}/include/kl/base_range.hpp
     ${kl_SOURCE_DIR}/include/kl/base64.hpp
@@ -44,17 +52,37 @@ target_link_libraries(kl
         Boost::boost
         json11::json11
         GSL::gsl
+        kl_cxx_flags
     PRIVATE
         Boost::disable_autolinking
 )
-kl_compile_options(kl)
 
 get_target_property(sources_list kl SOURCES)
 source_group(TREE ${kl_SOURCE_DIR} FILES ${sources_list})
 
 add_library(kl::kl ALIAS kl)
 
-install(TARGETS kl EXPORT klTarget
+add_library(kl_dev_cxx_flags INTERFACE)
+if(MSVC)
+    target_compile_options(kl_dev_cxx_flags INTERFACE 
+        /W4
+        /wd4127  # conditional expression in constant)
+        /wd4100  # unreferenced formal parameter
+    )
+    target_compile_definitions(kl_dev_cxx_flags INTERFACE
+        _SCL_SECURE_NO_WARNINGS
+    )
+elseif(CMAKE_COMPILER_IS_GNUCXX OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
+    target_compile_options(kl_dev_cxx_flags INTERFACE
+        -Wall
+        -pedantic
+        -Wextra
+        -Wno-unused-parameter
+        $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-braces>
+    )
+endif()
+
+install(TARGETS kl kl_cxx_flags EXPORT klTarget
     RUNTIME DESTINATION bin/$<CONFIG>
     LIBRARY DESTINATION lib/$<CONFIG>
     ARCHIVE DESTINATION lib/$<CONFIG>

@@ -3,7 +3,6 @@ project(kl LANGUAGES CXX VERSION 0.1)
 
 # Set CMake modules path
 list(APPEND CMAKE_MODULE_PATH "${kl_SOURCE_DIR}/cmake")
-include(kl)
 
 # Determine if kl is build as a subproject (using add_subdirectory)
 # or if it is the master project.
@@ -14,15 +13,18 @@ endif()
 
 # Build tests in the master project by default
 option(KL_TEST "Generate the test target." ${master_project})
+option(KL_DEV_BUILD "Enable compiler flags useful while developing kl." ${master_project})
 
 if(master_project)
-    # Generate JSON Compilation Database
-    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+endif()
+
+if(KL_DEV_BUILD)
     # Don't use any extensions (GNU or MSVC)
     set(CMAKE_CXX_EXTENSIONS OFF)
-
-    set_property(GLOBAL PROPERTY USE_FOLDERS ON)
-
+    # Generate JSON Compilation Database
+    set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+    
     include(SetupSanitizers)
 endif()
 

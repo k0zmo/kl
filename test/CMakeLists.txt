@@ -27,7 +27,6 @@ set(test_files
 target_sources(kl-test PRIVATE ${test_files})
 target_link_libraries(kl-test PRIVATE
                       kl::kl Catch::catch)
-kl_compile_options(kl-test)
 
 get_target_property(sources_list kl-test SOURCES)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
