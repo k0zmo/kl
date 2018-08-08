@@ -29,6 +29,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/tuple.hpp
     ${kl_SOURCE_DIR}/include/kl/type_traits.hpp
     ${kl_SOURCE_DIR}/include/kl/type_class.hpp
+    ${kl_SOURCE_DIR}/include/kl/utility.hpp
     ${kl_SOURCE_DIR}/include/kl/zip.hpp
     # binary_rw (WIP)
     ${kl_SOURCE_DIR}/include/kl/binary_rw/endian.hpp

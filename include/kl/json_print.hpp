@@ -4,6 +4,7 @@
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_flags.hpp"
 #include "kl/tuple.hpp"
+#include "kl/utility.hpp"
 
 #include <boost/utility/string_view.hpp>
 

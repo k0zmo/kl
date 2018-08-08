@@ -4,6 +4,7 @@
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_flags.hpp"
 #include "kl/tuple.hpp"
+#include "kl/utility.hpp"
 
 #include <boost/optional.hpp>
 #include <json11/json11.hpp>
