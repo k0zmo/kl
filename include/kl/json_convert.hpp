@@ -68,21 +68,16 @@ struct is_string_associative<
     : std::true_type {};
 
 template <typename T>
-using is_representable_as_double =
-    std::integral_constant<bool,
-                           std::is_integral<T>::value && (sizeof(T) <= 4)>;
-
-template <typename T>
 using is_enum_flags_reflectable = std::integral_constant<
     bool, is_enum_flags<T>::value &&
               is_enum_reflectable<typename T::enum_type>::value>;
 
 struct json_factory
 {
-    // T is integral type with no more bytes than 4. Effectively, it's u32 as
-    // all other cases are covered with is_json_constructible<T> 'true branch'
-    template <typename T, enable_if<is_representable_as_double<T>> = true>
-    static json11::Json create(const T& t)
+    // Overload for u32, which can safely be represented as json's Number
+    // (double) value. All smaller unsigned types are handled in Json's
+    // constructor as int.
+    static json11::Json create(std::uint32_t t)
     {
         if (static_cast<int>(t) >= 0)
             return to_json(static_cast<int>(t));
