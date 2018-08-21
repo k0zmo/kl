@@ -93,7 +93,7 @@ struct type_info
 
 template <typename T>
 using is_reflectable =
-    std::integral_constant<bool, type_info<std::decay_t<T>>::is_reflectable>;
+    bool_constant<type_info<remove_cvref_t<T>>::is_reflectable>;
 
 namespace detail {
 
@@ -108,7 +108,7 @@ struct ctti
     template <typename Reflectable, typename Visitor>
     static void reflect(Reflectable&& r, Visitor&& visitor)
     {
-        using non_ref = std::decay_t<Reflectable>;
+        using non_ref = remove_cvref_t<Reflectable>;
         type_info<non_ref>::reflect(std::forward<Reflectable>(r),
                                     std::forward<Visitor>(visitor));
     }
@@ -116,7 +116,7 @@ struct ctti
     template <typename Reflectable, typename Visitor>
     static void reflect(Visitor&& visitor)
     {
-        using non_ref = std::decay_t<Reflectable>;
+        using non_ref = remove_cvref_t<Reflectable>;
         type_info<non_ref>::template reflect<Reflectable>(
             std::forward<Visitor>(visitor));
     }

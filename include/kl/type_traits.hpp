@@ -185,4 +185,14 @@ template <typename...>
 struct make_void_t { using type = void; };
 template <typename... Ts>
 using void_t = typename make_void_t<Ts...>::type;
+
+// C++20 stuff
+template <typename T>
+struct remove_cvref
+{
+    using type = std::remove_cv_t<std::remove_reference_t<T>>;
+};
+
+template <typename T>
+using remove_cvref_t = typename remove_cvref<T>::type;
 } // namespace kl

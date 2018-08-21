@@ -2,6 +2,7 @@
 
 #include <iosfwd>
 #include <iterator>
+#include <type_traits>
 
 namespace kl {
 

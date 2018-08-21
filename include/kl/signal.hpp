@@ -43,7 +43,8 @@ struct connection_info final
 template <typename T>
 size_t hash_std(T&& v)
 {
-    return std::hash<typename std::decay<T>::type>{}(std::forward<T>(v));
+    using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
+    return std::hash<remove_cvref_t>{}(std::forward<T>(v));
 }
 
 template <typename T>
