@@ -12,10 +12,10 @@
 
 struct optional_test
 {
-    boost::optional<int> opt;
     int non_opt;
+    boost::optional<int> opt;
 };
-KL_DEFINE_REFLECTABLE(optional_test, (opt, non_opt))
+KL_DEFINE_REFLECTABLE(optional_test, (non_opt, opt))
 
 struct inner_t
 {
@@ -481,6 +481,15 @@ TEST_CASE("json_convert")
         REQUIRE(err.empty());
         REQUIRE_THROWS_AS(kl::from_json<inner_t>(j),
                           kl::json_deserialize_error&);
+    }
+
+    SECTION("deserialize to struct from an array - tail optional fields")
+    {
+        auto j = json11::Json::parse(R"([234])", err);
+        REQUIRE(err.empty());
+        auto obj = kl::from_json<optional_test>(j);
+        REQUIRE(obj.non_opt == 234);
+        REQUIRE(!obj.opt);
     }
 
     SECTION("deserialize to struct from an array - type mismatch")

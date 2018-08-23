@@ -346,9 +346,9 @@ struct value_factory
         }
         else if (json.is_array())
         {
-            if (json.array_items().size() != ctti::total_num_fields<T>())
+            if (json.array_items().size() > ctti::total_num_fields<T>())
             {
-                throw json_deserialize_error{"array size is different than "
+                throw json_deserialize_error{"array size is greater than "
                                              "declared struct's field "
                                              "count"};
             }
@@ -456,27 +456,6 @@ struct value_factory
             throw json_deserialize_error{"type must be an array but is " +
                                          json_type_name(json)};
 
-        using last_tuple_element =
-            typename std::tuple_element<std::tuple_size<T>::value - 1, T>::type;
-
-        if (json.array_items().size() < std::tuple_size<T>::value &&
-            is_optional<last_tuple_element>::value)
-        {
-            // Pretend there are N nulls at the end of the array
-            // If tuple contains enough tail optionals we'll be good.
-            json11::Json::array arr(json.array_items());
-            for (auto i = 0U;
-                 i < std::tuple_size<T>::value - json.array_items().size(); ++i)
-                arr.emplace_back(nullptr);
-
-            return from_json_tuple<T>(json11::Json{arr},
-                                      make_tuple_indices<T>{});
-        }
-
-        if (json.array_items().size() != std::tuple_size<T>::value)
-            throw json_deserialize_error{
-                "array size is different than tuple size"};
-
         return from_json_tuple<T>(json, make_tuple_indices<T>{});
     }
 
@@ -533,7 +512,8 @@ private:
         template <typename FieldInfo>
         void operator()(FieldInfo f)
         {
-            f.get() = from_json<typename FieldInfo::type>(arr_[index_++]);
+            const auto& j = safe_get_json(arr_, index_++);
+            f.get() = from_json<typename FieldInfo::type>(j);
         }
 
     private:
@@ -542,12 +522,21 @@ private:
     };
 
 private:
+    // Safely gets the json from the array of json values. If provided index is
+    // out-of-bounds we return null value.
+    static const json11::Json
+        safe_get_json(const json11::Json::array& json_array, std::size_t idx)
+    {
+        static const auto null_value = json11::Json{};
+        return idx >= json_array.size() ? null_value : json_array[idx];
+    }
+
     template <typename T, std::size_t... Is>
     static T from_json_tuple(const json11::Json& json, index_sequence<Is...>)
     {
         const auto& arr = json.array_items();
         return std::make_tuple(
-            from_json<typename std::tuple_element<Is, T>::type>(arr[Is])...);
+            from_json<std::tuple_element_t<Is, T>>(safe_get_json(arr, Is))...);
     }
 };
 
