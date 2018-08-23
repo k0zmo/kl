@@ -41,8 +41,18 @@ private:
 // Forward declarations for top-level functions: to- and from- json conversions
 template <typename T>
 json11::Json to_json(const T& t);
+
 template <typename T>
-T from_json(const json11::Json& json);
+T from_json(type_t<T>, const json11::Json& json);
+
+// Shorter version of from_json which can't be overloaded. Only use to invoke
+// the from_json() without providing a bit weird first parameter.
+template <typename T>
+T from_json(const json11::Json& json)
+{
+    constexpr static auto type = type_t<T>{};
+    return from_json(type, json);
+}
 
 namespace detail {
 
@@ -564,7 +574,7 @@ json11::Json to_json(const T& t)
 }
 
 template <typename T>
-T from_json(const json11::Json& json)
+T from_json(type_t<T>, const json11::Json& json)
 {
     return detail::from_json_impl<T>(json, detail::is_json_simple<T>{});
 }

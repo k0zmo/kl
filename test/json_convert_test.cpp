@@ -594,9 +594,11 @@ struct chrono_test
 };
 KL_DEFINE_REFLECTABLE(chrono_test, (t, sec, secs, o))
 
-// Specialize to_json/from_json for std::chrono::seconds
-// Don't overload since from_json only differs by return type
+// Normally, we'd just overload to_json and from_json in the same namespace as T
+// But this is std::chrono and thus we can't add some function overloads to std
+// namespace. Hence we specialize.
 namespace kl {
+
 template <>
 json11::Json to_json(const std::chrono::seconds& t)
 {
@@ -604,7 +606,8 @@ json11::Json to_json(const std::chrono::seconds& t)
 }
 
 template <>
-std::chrono::seconds from_json(const json11::Json& json)
+std::chrono::seconds from_json(type_t<std::chrono::seconds>,
+                               const json11::Json& json)
 {
     return std::chrono::seconds{from_json<unsigned>(json)};
 }
@@ -616,6 +619,87 @@ TEST_CASE("json_convert - extended")
     chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}, our_type{}};
     auto j = kl::to_json(t);
     auto obj = kl::from_json<chrono_test>(j);
+}
+
+struct global_struct {};
+json11::Json to_json(global_struct)
+{
+    return {"global_struct"};
+}
+
+global_struct from_json(kl::type_t<global_struct>, const json11::Json& json)
+{
+    return json.string_value() == "global_struct"
+               ? global_struct{}
+               : throw kl::json_deserialize_error{""};
+}
+
+namespace {
+
+struct struct_in_anonymous_ns{};
+json11::Json to_json(struct_in_anonymous_ns)
+{
+    return {};
+}
+
+struct_in_anonymous_ns from_json(kl::type_t<struct_in_anonymous_ns>,
+                                 const json11::Json&)
+{
+    return {};
+}
+} // namespace
+
+namespace my {
+
+struct none_t {};
+
+json11::Json to_json(none_t)
+{
+    return {nullptr};
+}
+
+none_t from_json(kl::type_t<none_t>, const json11::Json& json)
+{
+    return json.is_null() ? none_t{} : throw kl::json_deserialize_error{""};
+}
+
+template <typename T>
+struct value_wrapper
+{
+    T value;
+};
+
+// Defining such function with specializaton would not be possible as there's no
+// way to partially specialize a function template.
+template <typename T>
+json11::Json to_json(const value_wrapper<T>& t)
+{
+    return {static_cast<double>(t.value)};
+}
+
+template <typename T>
+value_wrapper<T> from_json(kl::type_t<value_wrapper<T>>,
+                           const json11::Json& json)
+{
+    return value_wrapper<T>{kl::from_json<T>(json)};
+}
+} // namespace my
+
+struct aggregate
+{
+    global_struct g;
+    my::none_t n;
+    my::value_wrapper<int> w;
+    struct_in_anonymous_ns a;
+};
+KL_DEFINE_REFLECTABLE(aggregate, (g, n, w, a))
+
+TEST_CASE("json_convert - overloading")
+{
+    aggregate a{{}, {}, {31}, {}};
+    auto j = kl::to_json(a);
+    auto obj = kl::from_json<aggregate>(j);
+    REQUIRE(obj.w.value == 31);
 }
 
 #include "kl/enum_flags.hpp"

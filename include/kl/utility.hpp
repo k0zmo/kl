@@ -40,4 +40,13 @@ To bitwise_cast(From from)
     std::memcpy(&to, &from, sizeof(to));
     return to;
 }
+
+// From https://vector-of-bool.github.io/2017/08/12/partial-specializations.html
+template <typename T>
+struct type_t {};
+
+#if !defined(_MSC_VER) || _MSC_VER >= 1910
+template <typename T>
+constexpr type_t<T> type{};
+#endif
 } // namespace kl
