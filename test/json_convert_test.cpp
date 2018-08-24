@@ -92,6 +92,12 @@ TEST_CASE("json_convert")
 {
     using namespace kl;
 
+    SECTION("parse error")
+    {
+        REQUIRE_NOTHROW(R"([])"_json);
+        REQUIRE_THROWS_AS(R"([{]})"_json, json::parse_error);
+    }
+
     SECTION("serialize inner_t")
     {
         auto j = json::serialize(inner_t{});
