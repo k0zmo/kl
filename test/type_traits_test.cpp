@@ -2,6 +2,11 @@
 
 #include <catch/catch.hpp>
 
+namespace {
+
+KL_HAS_VALID_EXPR_HELPER(call_operator, &T::operator())
+}
+
 TEST_CASE("type_traits")
 {
     SECTION("at_type")
@@ -40,7 +45,7 @@ TEST_CASE("type_traits")
                 const bool&>::value,
             "???");
 
-        static_assert(kl::has_call_operator<decltype(lambda)>::value, "???");
+        static_assert(has_call_operator<decltype(lambda)>::value, "???");
     }
 
     SECTION("func_traits - member function pointer")
@@ -76,7 +81,7 @@ TEST_CASE("type_traits")
                                    double>::value,
                       "???");
 
-        static_assert(kl::has_call_operator<op>::value, "???");
+        static_assert(has_call_operator<op>::value, "???");
     }
 
     SECTION("is_same")

@@ -101,20 +101,15 @@ struct func_traits<Ret (Class::*)(Args...) const> : func_traits<Ret(Args...)>
 };
 
 template <typename F>
-struct func_traits<F&> : func_traits<F>
-{
-};
+struct func_traits<F&> : func_traits<F> {};
 
 template <typename F>
-struct func_traits<F&&> : func_traits<F>
-{
-};
+struct func_traits<F&&> : func_traits<F> {};
 
 template <typename T>
-struct always_false : std::false_type
-{
-};
+struct always_false : std::false_type {};
 
+// Variadic is_same<T...>
 template <typename T, typename U, typename... Rest>
 struct is_same : std::integral_constant<bool, std::is_same<T, U>::value &&
                                                   is_same<U, Rest...>::value>
@@ -123,25 +118,6 @@ struct is_same : std::integral_constant<bool, std::is_same<T, U>::value &&
 
 template <typename T, typename U>
 struct is_same<T, U> : std::integral_constant<bool, std::is_same<T, U>::value>
-{
-};
-
-struct has_call_operator_test
-{
-    // SFINAE for expressions: VS2013 seems to be OK with simple expressions
-    // if U::operator() expression is malformed return type is ill-formed
-    // and whole function is removed from ADL
-    template <typename U>
-    static auto test(U*) -> decltype(&U::operator(), std::true_type());
-
-    template <typename U>
-    static auto test(...) -> std::false_type;
-};
-
-// Checks if given type T has a unambiguous operator()
-template <typename T>
-struct has_call_operator
-    : decltype(has_call_operator_test::template test<T>(nullptr))
 {
 };
 
@@ -196,3 +172,30 @@ struct remove_cvref
 template <typename T>
 using remove_cvref_t = typename remove_cvref<T>::type;
 } // namespace kl
+
+#define KL_HAS_TYPEDEF_HELPER(type)                                            \
+    template <typename T, typename = void>                                     \
+    struct has_##type : std::false_type {};                                    \
+    template <typename T>                                                      \
+    struct has_##type<T, kl::void_t<typename T::type>> : std::true_type {};
+
+/* The old way
+#define KL_HAS_VALID_EXPR_HELPER(name, expr)                                   \
+    struct has_##name##_test                                                   \
+    {                                                                          \
+        template <typename T>                                                  \
+        static auto test(T*) -> decltype(expr, std::true_type());              \
+        template <typename T>                                                  \
+        static auto test(...) -> std::false_type;                              \
+    };                                                                         \
+    template <typename T>                                                      \
+    struct has_##name                                                          \
+        : decltype(has_##name##_test::template test<T>(nullptr)) {};
+*/
+
+#define KL_HAS_VALID_EXPR_HELPER(name, expr)                                   \
+    template <typename T, typename = void>                                     \
+    struct has_##name : std::false_type {};                                    \
+    template <typename T>                                                      \
+    struct has_##name<T, kl::void_t<decltype(expr)>> : std::true_type {};
+
