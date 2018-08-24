@@ -358,7 +358,8 @@ Reflectable reflectable_from_json(const json11::Json& json)
 
     if (json.is_object())
     {
-        ctti::reflect(refl, [&obj = json.object_items()](auto fi) {
+        const auto& obj = json.object_items();
+        ctti::reflect(refl, [&obj](auto fi) {
             using field_type = typename decltype(fi)::type;
 
             try
@@ -386,8 +387,8 @@ Reflectable reflectable_from_json(const json11::Json& json)
                                     "declared struct's field "
                                     "count"};
         }
-        ctti::reflect(refl, [&arr = json.array_items(),
-                             index = 0U](auto fi) mutable {
+        const auto& arr = json.array_items();
+        ctti::reflect(refl, [&arr, index = 0U](auto fi) mutable {
             using field_type = typename decltype(fi)::type;
 
             try
