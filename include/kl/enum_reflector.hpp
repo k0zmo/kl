@@ -124,13 +124,14 @@ struct is_enum_reflectable<Enum, std::enable_if_t<std::is_enum<Enum>::value>>
 
 template <typename T>
 using is_enum_nonreflectable =
-    std::integral_constant<bool, std::is_enum<T>::value &&
-                                     !is_enum_reflectable<T>::value>;
+    bool_constant<std::is_enum<T>::value && !is_enum_reflectable<T>::value>;
 
-template <typename E,
-          std::enable_if_t<is_enum_reflectable<E>::value, bool> = true>
-constexpr enum_reflector<E> reflect()
+template <typename Enum>
+constexpr enum_reflector<Enum> reflect()
 {
+    static_assert(is_enum_reflectable<Enum>::value,
+                  "E must be a reflectable enum - defined using "
+                  "KL_DEFINE_ENUM_REFLECTOR macro");
     return {};
 }
 } // namespace kl
