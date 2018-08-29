@@ -13,7 +13,7 @@ enum class type_qualifier
 };
 using type_qualifier_flags = kl::enum_flags<type_qualifier>;
 
-enum device_type
+enum device_type : std::uint32_t
 {
     default_ = (1 << 0),
     cpu = (1 << 1),
