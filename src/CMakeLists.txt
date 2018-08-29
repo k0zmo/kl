@@ -44,9 +44,7 @@ add_library(kl
     file_view.cpp
 )
 target_include_directories(kl
-    PUBLIC
-        $<BUILD_INTERFACE:${kl_SOURCE_DIR}/include>
-        $<INSTALL_INTERFACE:include>
+    PUBLIC $<BUILD_INTERFACE:${kl_SOURCE_DIR}/include>
 )
 target_link_libraries(kl
     PUBLIC
@@ -84,6 +82,7 @@ elseif(CMAKE_COMPILER_IS_GNUCXX OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
 endif()
 
 install(TARGETS kl kl_cxx_flags EXPORT klTarget
+    INCLUDES DESTINATION include
     RUNTIME DESTINATION bin/$<CONFIG>
     LIBRARY DESTINATION lib/$<CONFIG>
     ARCHIVE DESTINATION lib/$<CONFIG>

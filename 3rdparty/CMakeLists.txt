@@ -5,9 +5,7 @@ add_library(json11
 )
 target_compile_features(json11 PUBLIC cxx_std_11)
 target_include_directories(json11
-    PUBLIC
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>
+    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 add_library(json11::json11 ALIAS json11)
 set_target_properties(json11
@@ -17,13 +15,12 @@ set_target_properties(json11
 # Microsoft/GSL
 add_library(gsl INTERFACE)
 target_include_directories(gsl
-    INTERFACE
-        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-        $<INSTALL_INTERFACE:include>
+    INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
 )
 add_library(GSL::gsl ALIAS gsl)
 
 install(TARGETS json11 gsl EXPORT klTarget
+    INCLUDES DESTINATION include
     RUNTIME DESTINATION bin/$<CONFIG>
     LIBRARY DESTINATION lib/$<CONFIG>
     ARCHIVE DESTINATION lib/$<CONFIG>
