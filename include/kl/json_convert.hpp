@@ -106,9 +106,9 @@ using is_json_constructible = std::integral_constant<
               // We want reflectable unscoped enum to handle ourselves
               !std::is_enum<T>::value>;
 
-KL_HAS_VALID_EXPR_HELPER(reserve, std::declval<T&>().reserve(0U))
-KL_HAS_VALID_EXPR_HELPER(from_json,
-                         T::from_json(std::declval<const json11::Json&>()))
+KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
+KL_VALID_EXPR_HELPER(has_from_json,
+                     T::from_json(std::declval<const json11::Json&>()))
 
 // For all T's that we can directly create json11::Json value from
 template <typename JsonConstructible,

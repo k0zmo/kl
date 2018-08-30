@@ -4,7 +4,7 @@
 
 namespace {
 
-KL_HAS_VALID_EXPR_HELPER(call_operator, &T::operator())
+KL_VALID_EXPR_HELPER(has_call_operator, &T::operator())
 }
 
 TEST_CASE("type_traits")

@@ -179,23 +179,8 @@ using remove_cvref_t = typename remove_cvref<T>::type;
     template <typename T>                                                      \
     struct has_##type<T, kl::void_t<typename T::type>> : std::true_type {};
 
-/* The old way
-#define KL_HAS_VALID_EXPR_HELPER(name, expr)                                   \
-    struct has_##name##_test                                                   \
-    {                                                                          \
-        template <typename T>                                                  \
-        static auto test(T*) -> decltype(expr, std::true_type());              \
-        template <typename T>                                                  \
-        static auto test(...) -> std::false_type;                              \
-    };                                                                         \
-    template <typename T>                                                      \
-    struct has_##name                                                          \
-        : decltype(has_##name##_test::template test<T>(nullptr)) {};
-*/
-
-#define KL_HAS_VALID_EXPR_HELPER(name, expr)                                   \
+#define KL_VALID_EXPR_HELPER(name, expr)                                       \
     template <typename T, typename = void>                                     \
-    struct has_##name : std::false_type {};                                    \
+    struct name : std::false_type {};                                          \
     template <typename T>                                                      \
-    struct has_##name<T, kl::void_t<decltype(expr)>> : std::true_type {};
-
+    struct name<T, kl::void_t<decltype(expr)>> : std::true_type {};
