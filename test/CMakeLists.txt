@@ -48,5 +48,11 @@ if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
     setup_coverage_lcov(kl-coverage kl-test coverage
                         FILTERS
                             '${kl_SOURCE_DIR}/src/*'
-                            '${kl_SOURCE_DIR}/include/*')
+                            '${kl_SOURCE_DIR}/include/*'
+    )
+    # setup_coverage_gcovr(kl-coverage kl-test coverage
+    #                      FILTERS 
+    #                         ${kl_SOURCE_DIR}/src/
+    #                         ${kl_SOURCE_DIR}/include/
+    # )
 endif()
