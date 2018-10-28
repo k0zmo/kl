@@ -47,7 +47,7 @@ std::string base64_encode(gsl::span<const byte> s)
     return ret;
 }
 
-namespace detail {
+namespace {
 
 using base64_lut = byte[256];
 
@@ -70,13 +70,13 @@ struct table_initializer
 };
 
 bool is_base64(byte b) { return b <= 0x3F; }
-} // namespace detail
+} // namespace
 
 boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
 {
     // Invert lookup table used for encoding
-    static detail::base64_lut table = {};
-    static detail::table_initializer _{table};
+    static base64_lut table = {};
+    static table_initializer _{table};
     auto lookup = [](char index) { return table[static_cast<size_t>(index)]; };
 
     boost::optional<std::vector<byte>> ret;
@@ -111,10 +111,10 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
         };
 
         // Validate range of input characters (0-63)
-        if (!detail::is_base64(lut4[0]) ||
-            !detail::is_base64(lut4[1]) ||
-            !detail::is_base64(lut4[2]) ||
-            !detail::is_base64(lut4[3]))
+        if (!is_base64(lut4[0]) ||
+            !is_base64(lut4[1]) ||
+            !is_base64(lut4[2]) ||
+            !is_base64(lut4[3]))
         {
             ret = boost::none;
             return ret;
@@ -129,8 +129,8 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
 
     if (num_eqs == 2)
     {
-        if (!detail::is_base64(lookup(src[0])) ||
-            !detail::is_base64(lookup(src[1])))
+        if (!is_base64(lookup(src[0])) ||
+            !is_base64(lookup(src[1])))
         {
             ret = boost::none;
             return ret;
@@ -140,9 +140,9 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
     }
     else if (num_eqs == 1)
     {
-        if (!detail::is_base64(lookup(src[0])) ||
-            !detail::is_base64(lookup(src[1])) ||
-            !detail::is_base64(lookup(src[2])))
+        if (!is_base64(lookup(src[0])) ||
+            !is_base64(lookup(src[1])) ||
+            !is_base64(lookup(src[2])))
         {
             ret = boost::none;
             return ret;
