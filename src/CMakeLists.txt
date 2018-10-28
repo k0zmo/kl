@@ -41,8 +41,13 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/binary_rw/variant.hpp
     ${kl_SOURCE_DIR}/include/kl/binary_rw/vector.hpp
     base64.cpp
-    file_view.cpp
 )
+if(WIN32)
+    target_sources(kl PRIVATE file_view_win32.cpp)
+elseif(UNIX)
+    target_sources(kl PRIVATE file_view_unix.cpp)
+endif()
+
 target_include_directories(kl
     PUBLIC $<BUILD_INTERFACE:${kl_SOURCE_DIR}/include>
 )

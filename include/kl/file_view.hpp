@@ -15,11 +15,9 @@ public:
     explicit file_view(gsl::cstring_span<> file_path);
     ~file_view();
 
-    gsl::span<const byte> get_bytes() const;
+    gsl::span<const byte> get_bytes() const { return contents_; }
 
 private:
-    struct impl;
-    std::unique_ptr<impl> impl_;
+    gsl::span<const byte> contents_;
 };
-
 } // namespace kl
