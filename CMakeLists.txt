@@ -1,15 +1,15 @@
 cmake_minimum_required(VERSION 3.9)
+
+# Determine if kl is build as a subproject (using add_subdirectory)
+# or if it is the master project.
+if(NOT DEFINED PROJECT_NAME)
+    set(master_project ON)
+endif()
+
 project(kl LANGUAGES CXX VERSION 0.1)
 
 # Set CMake modules path
 list(APPEND CMAKE_MODULE_PATH "${kl_SOURCE_DIR}/cmake")
-
-# Determine if kl is build as a subproject (using add_subdirectory)
-# or if it is the master project.
-set(master_project OFF)
-if(kl_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
-    set(master_project ON)
-endif()
 
 # Build tests in the master project by default
 option(KL_TEST "Generate the test target." ${master_project})
@@ -24,7 +24,7 @@ if(KL_DEV_BUILD)
     set(CMAKE_CXX_EXTENSIONS OFF)
     # Generate JSON Compilation Database
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
-    
+
     include(SetupSanitizers)
 endif()
 

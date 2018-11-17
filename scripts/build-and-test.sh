@@ -22,14 +22,14 @@ mkdir -p build && cd build
 cmake -E env LDFLAGS="-fuse-ld=gold" \
     cmake -DCMAKE_BUILD_TYPE="$VARIANT" ..
 
-if [ "$VARIANT" = "Coverage" ]; then 
+if [ "$VARIANT" = "Coverage" ]; then
     make kl-coverage
-else 
+else
     make
     CTEST_OUTPUT_ON_FAILURE=1 ctest
 fi
 
-if [ "$VARIANT" = "Coverage" ]; then 
+if [ "$VARIANT" = "Coverage" ]; then
     echo "Sending code coverage data"
     ~/.local/bin/codecov -X gcov
 fi

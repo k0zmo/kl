@@ -11,7 +11,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-5']
-      env: 
+      env:
         - COMPILER=gcc-5
         - COMPILERXX=g++-5
         - VARIANT=Release
@@ -21,7 +21,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-6']
-      env: 
+      env:
         - COMPILER=gcc-6
         - COMPILERXX=g++-6
         - VARIANT=Release
@@ -31,7 +31,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-7']
-      env: 
+      env:
         - COMPILER=gcc-7
         - COMPILERXX=g++-7
         - VARIANT=Coverage
@@ -41,7 +41,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-7']
-      env: 
+      env:
         - COMPILER=gcc-7
         - COMPILERXX=g++-7
         - VARIANT=ASan
@@ -53,7 +53,7 @@ matrix:
         apt:
           sources: ['ubuntu-toolchain-r-test']
           packages: ['g++-7']
-      env: 
+      env:
         - COMPILER=gcc-7
         - COMPILERXX=g++-7
         - VARIANT=UBSan

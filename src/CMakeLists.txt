@@ -68,7 +68,7 @@ add_library(kl::kl ALIAS kl)
 
 add_library(kl_dev_cxx_flags INTERFACE)
 if(MSVC)
-    target_compile_options(kl_dev_cxx_flags INTERFACE 
+    target_compile_options(kl_dev_cxx_flags INTERFACE
         /W4
         /wd4127  # conditional expression in constant)
         /wd4100  # unreferenced formal parameter
