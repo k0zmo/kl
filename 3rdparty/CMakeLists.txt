@@ -4,7 +4,7 @@ set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL ON)
 
 FetchContent_Declare(json11
     GIT_REPOSITORY https://github.com/k0zmo/json11.git
-    GIT_TAG 17e409ea4d26f0cc00630ff41ceea8494c760d6c
+    GIT_TAG ac1a452c1f420b8e912a8291f867c3d71db657f0
     GIT_SHALLOW ON
 )
 FetchContent_Declare(GSL
@@ -22,7 +22,6 @@ FetchContent_GetProperties(json11)
 if(NOT json11_POPULATED)
     FetchContent_Populate(json11)
     add_subdirectory(${json11_SOURCE_DIR} ${json11_BINARY_DIR})
-    add_library(json11::json11 ALIAS json11)
     set_target_properties(json11 PROPERTIES FOLDER 3rdparty)
 endif()
 
