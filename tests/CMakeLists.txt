@@ -1,4 +1,4 @@
-add_executable(kl-test main_test.cpp)
+add_executable(kl-tests main_test.cpp)
 set(test_files
     base_range_test.cpp
     base64_test.cpp
@@ -25,11 +25,11 @@ set(test_files
     utility_test.cpp
     zip_test.cpp
 )
-target_sources(kl-test PRIVATE ${test_files})
-target_link_libraries(kl-test PRIVATE
+target_sources(kl-tests PRIVATE ${test_files})
+target_link_libraries(kl-tests PRIVATE
                       kl::kl Catch2::Catch2)
 
-get_target_property(sources_list kl-test SOURCES)
+get_target_property(sources_list kl-tests SOURCES)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
              PREFIX kl
              FILES ${sources_list})
@@ -37,7 +37,7 @@ source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
 foreach(test_file ${test_files})
     get_filename_component(no_ext ${test_file} NAME_WE)
     if(no_ext MATCHES "_test")
-        add_test(NAME ${no_ext} COMMAND kl-test -r compact -\# ~[.] [\#${no_ext}])
+        add_test(NAME ${no_ext} COMMAND kl-tests -r compact -\# ~[.] [\#${no_ext}])
         set_tests_properties(${no_ext} PROPERTIES FAIL_REGULAR_EXPRESSION "No tests ran.")
     endif()
 endforeach()
@@ -45,12 +45,12 @@ endforeach()
 # Add kl-coverage target for calculating test coverage
 include(SetupCoverage)
 if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    setup_coverage_lcov(kl-coverage kl-test coverage
+    setup_coverage_lcov(kl-coverage kl-tests coverage
                         FILTERS
                             '${kl_SOURCE_DIR}/src/*'
                             '${kl_SOURCE_DIR}/include/*'
     )
-    # setup_coverage_gcovr(kl-coverage kl-test coverage
+    # setup_coverage_gcovr(kl-coverage kl-tests coverage
     #                      FILTERS
     #                         ${kl_SOURCE_DIR}/src/
     #                         ${kl_SOURCE_DIR}/include/

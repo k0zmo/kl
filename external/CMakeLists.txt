@@ -22,7 +22,7 @@ FetchContent_GetProperties(json11)
 if(NOT json11_POPULATED)
     FetchContent_Populate(json11)
     add_subdirectory(${json11_SOURCE_DIR} ${json11_BINARY_DIR})
-    set_target_properties(json11 PROPERTIES FOLDER 3rdparty)
+    set_target_properties(json11 PROPERTIES FOLDER external)
 endif()
 
 FetchContent_GetProperties(GSL)

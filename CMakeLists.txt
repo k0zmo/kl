@@ -30,9 +30,9 @@ endif()
 
 find_package(Boost 1.61.0 REQUIRED COMPONENTS)
 
-add_subdirectory(3rdparty)
+add_subdirectory(external)
 add_subdirectory(src)
 if(KL_TEST)
     enable_testing()
-    add_subdirectory(test)
+    add_subdirectory(tests)
 endif()
