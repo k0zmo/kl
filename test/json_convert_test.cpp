@@ -2,7 +2,7 @@
 #include "kl/ctti.hpp"
 #include "kl/enum_flags.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 #include <boost/optional/optional_io.hpp>
 
 #include <string>
@@ -95,7 +95,7 @@ TEST_CASE("json_convert")
     SECTION("parse error")
     {
         REQUIRE_NOTHROW(R"([])"_json);
-        REQUIRE_THROWS_AS(R"([{]})"_json, json::parse_error&);
+        REQUIRE_THROWS_AS(R"([{]})"_json, json::parse_error);
     }
 
     SECTION("serialize inner_t")
@@ -113,14 +113,14 @@ TEST_CASE("json_convert")
     SECTION("deserialize inner_t - empty json")
     {
         REQUIRE_THROWS_AS(json::deserialize<inner_t>({}),
-                          json::deserialize_error&);
+                          json::deserialize_error);
     }
 
     SECTION("deserialize inner_t - missing one field")
     {
         auto j = R"({"d": 1.0})"_json;
         REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
     }
 
     SECTION("deserialize inner_t - one additional field")
@@ -155,27 +155,27 @@ TEST_CASE("json_convert")
     {
         json11::Json null;
         REQUIRE_THROWS_AS(json::deserialize<int>(null),
-                          json::deserialize_error&);
+                          json::deserialize_error);
         REQUIRE_THROWS_AS(json::deserialize<bool>(null),
-                          json::deserialize_error&);
+                          json::deserialize_error);
         REQUIRE_THROWS_AS(json::deserialize<float>(null),
-                          json::deserialize_error&);
+                          json::deserialize_error);
         REQUIRE_THROWS_AS(json::deserialize<std::string>(null),
-                          json::deserialize_error&);
+                          json::deserialize_error);
         REQUIRE_THROWS_AS(json::deserialize<std::tuple<int>>(null),
-                          json::deserialize_error&);
+                          json::deserialize_error);
         REQUIRE_THROWS_AS(json::deserialize<std::vector<int>>(null),
-                          json::deserialize_error&);
+                          json::deserialize_error);
         REQUIRE_THROWS_AS((json::deserialize<std::map<std::string, int>>(null)),
-                          json::deserialize_error&);
+                          json::deserialize_error);
 
         json11::Json arr{json11::Json::array{3, true}};
         REQUIRE_THROWS_AS(json::deserialize<std::vector<int>>(arr),
-                          json::deserialize_error&);
+                          json::deserialize_error);
 
         json11::Json obj{json11::Json::object{{"key0", 3}, {"key2", true}}};
         REQUIRE_THROWS_AS((json::deserialize<std::map<std::string, int>>(obj)),
-                          json::deserialize_error&);
+                          json::deserialize_error);
     }
 
     SECTION("deserialize tuple")
@@ -198,11 +198,11 @@ TEST_CASE("json_convert")
 
         j = R"([7, 13, true])"_json;
         REQUIRE_THROWS_AS(json::deserialize<decltype(t)>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
 
         j = R"([7, 13, "rgb", 1, true])"_json;
         REQUIRE_THROWS_AS(json::deserialize<decltype(t)>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
     }
 
     SECTION("serialize different types and 'modes' for enums")
@@ -229,15 +229,15 @@ TEST_CASE("json_convert")
     {
         auto j = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref", "e3": 0})"_json;
         REQUIRE_THROWS_AS(json::deserialize<enums>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
 
         j = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref2", "e3": 0})"_json;
         REQUIRE_THROWS_AS(json::deserialize<enums>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
 
         j = R"({"e0": 0, "e1": true, "e2": "oe_one_ref", "e3": "one"})"_json;
         REQUIRE_THROWS_AS(json::deserialize<enums>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
     }
 
     SECTION("skip serializing optional fields")
@@ -293,7 +293,7 @@ TEST_CASE("json_convert")
         }
 
         REQUIRE_THROWS_AS(json::deserialize<optional_test>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
     }
 
     SECTION("serialize complex structure with std/boost containers")
@@ -437,11 +437,11 @@ TEST_CASE("json_convert")
     {
         auto j = R"([3,4.0,"QWE"])"_json;
         REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
 
         j = R"([3])"_json;
         REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
     }
 
     SECTION("deserialize to struct from an array - tail optional fields")
@@ -456,11 +456,11 @@ TEST_CASE("json_convert")
     {
         auto j = R"([3,"QWE"])"_json;
         REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
 
         j = R"([false,4])"_json;
         REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
     }
 
     SECTION("optional<string>")
@@ -481,7 +481,7 @@ TEST_CASE("json_convert")
 
         auto j = R"([4])"_json;
         REQUIRE_THROWS_AS(json::deserialize<tuple_t>(j),
-                          json::deserialize_error&);
+                          json::deserialize_error);
 
         j = R"([4,true])"_json;
         auto t = json::deserialize<tuple_t>(j);

@@ -1,6 +1,6 @@
 #include "kl/file_view.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 #include <fstream>
 #include <string>
 
@@ -9,7 +9,7 @@ TEST_CASE("file_view")
     SECTION("file not found")
     {
         REQUIRE_THROWS_AS(kl::file_view{"test22_does_not_exist.tmp"},
-                          std::runtime_error&);
+                          std::runtime_error);
     }
 
     SECTION("read empty file")

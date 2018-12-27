@@ -7,7 +7,7 @@
 #include "kl/binary_rw/variant.hpp"
 #include "kl/binary_rw/vector.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 #include <boost/optional/optional_io.hpp>
 #include <gsl/string_span>
 

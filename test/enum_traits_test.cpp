@@ -1,6 +1,6 @@
 #include "kl/enum_traits.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 
 namespace {
 

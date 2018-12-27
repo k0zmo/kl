@@ -85,13 +85,3 @@ elseif(CMAKE_COMPILER_IS_GNUCXX OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
         $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-braces>
     )
 endif()
-
-install(TARGETS kl kl_cxx_flags EXPORT klTarget
-    INCLUDES DESTINATION include
-    RUNTIME DESTINATION bin/$<CONFIG>
-    LIBRARY DESTINATION lib/$<CONFIG>
-    ARCHIVE DESTINATION lib/$<CONFIG>
-)
-install(DIRECTORY ${kl_SOURCE_DIR}/include/kl
-    DESTINATION include
-)

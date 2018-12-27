@@ -1,7 +1,7 @@
 #include "kl/json_print.hpp"
 #include "kl/ctti.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 #include <sstream>
 
 namespace {

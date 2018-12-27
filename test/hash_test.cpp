@@ -1,6 +1,6 @@
 #include "kl/hash.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 #include <string>
 #include <cstring>
 

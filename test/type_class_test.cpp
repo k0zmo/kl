@@ -1,6 +1,6 @@
 #include "kl/type_class.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 
 namespace {
 

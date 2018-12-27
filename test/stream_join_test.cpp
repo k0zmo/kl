@@ -1,6 +1,6 @@
 #include "kl/stream_join.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 #include <vector>
 #include <sstream>
 

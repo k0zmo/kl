@@ -1,42 +1,42 @@
-# dropbox/json11
-add_library(json11
-    json11/json11.hpp
-    json11/json11.cpp
-)
-target_compile_features(json11 PUBLIC cxx_std_11)
-target_include_directories(json11
-    PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-)
-add_library(json11::json11 ALIAS json11)
-set_target_properties(json11
-    PROPERTIES FOLDER 3rdparty
-)
+include(FetchContent)
 
-# Microsoft/GSL
-add_library(gsl INTERFACE)
-target_include_directories(gsl
-    INTERFACE $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
-)
-add_library(GSL::gsl ALIAS gsl)
+set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL ON)
 
-install(TARGETS json11 gsl EXPORT klTarget
-    INCLUDES DESTINATION include
-    RUNTIME DESTINATION bin/$<CONFIG>
-    LIBRARY DESTINATION lib/$<CONFIG>
-    ARCHIVE DESTINATION lib/$<CONFIG>
+FetchContent_Declare(json11
+    GIT_REPOSITORY https://github.com/k0zmo/json11.git
+    GIT_TAG 17e409ea4d26f0cc00630ff41ceea8494c760d6c
+    GIT_SHALLOW ON
 )
-install(FILES json11/json11.hpp
-    DESTINATION include/json11
+FetchContent_Declare(GSL
+    URL https://github.com/Microsoft/GSL/archive/v1.0.0.zip
+    URL_HASH SHA1=e9824bf3693bf34f17850915a744deec905c90be
 )
-install(DIRECTORY gsl
-    DESTINATION include
-)
-
-# philsquared/Catch
 if(KL_TEST)
-    add_library(catch INTERFACE)
-    target_include_directories(catch
-        INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
+    FetchContent_Declare(Catch2
+        URL https://github.com/catchorg/Catch2/archive/v2.4.0.zip
+        URL_HASH SHA1=0c24c01df55aa8f06f5dfb47db27179aa24441c2
     )
-    add_library(Catch::catch ALIAS catch)
+endif()
+
+FetchContent_GetProperties(json11)
+if(NOT json11_POPULATED)
+    FetchContent_Populate(json11)
+    add_subdirectory(${json11_SOURCE_DIR} ${json11_BINARY_DIR})
+    add_library(json11::json11 ALIAS json11)
+    set_target_properties(json11 PROPERTIES FOLDER 3rdparty)
+endif()
+
+FetchContent_GetProperties(GSL)
+if(NOT gsl_POPULATED)
+    FetchContent_Populate(GSL)
+    add_subdirectory(${gsl_SOURCE_DIR} ${gsl_BINARY_DIR})
+    add_library(GSL::gsl ALIAS GSL)
+endif()
+
+if(KL_TEST)
+    FetchContent_GetProperties(Catch2)
+    if(NOT catch2_POPULATED) # Variable names are lowercased
+        FetchContent_Populate(Catch2)
+        add_subdirectory(${catch2_SOURCE_DIR} ${catch2_BINARY_DIR})
+    endif()
 endif()

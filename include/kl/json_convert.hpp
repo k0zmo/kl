@@ -8,7 +8,7 @@
 #include "kl/utility.hpp"
 
 #include <boost/optional.hpp>
-#include <json11/json11.hpp>
+#include <json11.hpp>
 
 #include <exception>
 

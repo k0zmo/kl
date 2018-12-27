@@ -1,6 +1,6 @@
 #include "kl/utility.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 
 TEST_CASE("utility")
 {

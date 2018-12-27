@@ -1,6 +1,6 @@
 #include "kl/signal.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 #include <boost/optional.hpp>
 #include <boost/optional/optional_io.hpp>
 

@@ -1,7 +1,7 @@
 #include "kl/enum_range.hpp"
 #include "kl/enum_reflector.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 #include <boost/optional/optional_io.hpp>
 
 #include <string>

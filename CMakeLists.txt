@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.9)
+cmake_minimum_required(VERSION 3.11)
 
 # Determine if kl is build as a subproject (using add_subdirectory)
 # or if it is the master project.
@@ -36,31 +36,3 @@ if(KL_TEST)
     enable_testing()
     add_subdirectory(test)
 endif()
-
-# Installation stuff
-set(config_file ${CMAKE_CURRENT_BINARY_DIR}/klConfig.cmake)
-set(config_version_file ${CMAKE_CURRENT_BINARY_DIR}/klConfigVersion.cmake)
-
-include(CMakePackageConfigHelpers)
-write_basic_package_version_file(${config_version_file}
-    VERSION ${kl_VERSION}
-    COMPATIBILITY AnyNewerVersion
-)
-
-file(WRITE ${config_file}
-"include(CMakeFindDependencyMacro)
-find_dependency(Boost 1.61.0 REQUIRED COMPONENTS)
-if(NOT TARGET kl::kl)
-  include(\"\${CMAKE_CURRENT_LIST_DIR}/klTarget.cmake\")
-endif()
-")
-
-install(FILES ${config_file} ${config_version_file}
-    DESTINATION lib/cmake/kl
-)
-
-install(EXPORT klTarget
-    NAMESPACE kl::
-    DESTINATION lib/cmake/kl
-    FILE klTarget.cmake
-)

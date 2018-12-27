@@ -1,6 +1,6 @@
 #include "kl/zip.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 
 #include <vector>
 #include <array>

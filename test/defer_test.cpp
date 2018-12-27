@@ -1,6 +1,6 @@
 #include "kl/defer.hpp"
 
-#include <catch/catch.hpp>
+#include <catch2/catch.hpp>
 
 TEST_CASE("defer")
 {
