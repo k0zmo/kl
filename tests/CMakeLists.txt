@@ -45,14 +45,16 @@ endforeach()
 # Add kl-coverage target for calculating test coverage
 include(CodeCoverage)
 if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    setup_coverage_lcov(kl-coverage kl-tests coverage
-                        FILTERS
-                            '${kl_SOURCE_DIR}/src/*'
-                            '${kl_SOURCE_DIR}/include/*'
+    add_coverage_target_lcov(kl-coverage
+        COMMAND kl-tests
+        FILTERS
+            '${kl_SOURCE_DIR}/src/*'
+            '${kl_SOURCE_DIR}/include/*'
     )
-    # setup_coverage_gcovr(kl-coverage kl-tests coverage
-    #                      FILTERS
-    #                         ${kl_SOURCE_DIR}/src/
-    #                         ${kl_SOURCE_DIR}/include/
+    # add_coverage_target_gcovr(kl-coverage
+    #     COMMAND kl-tests
+    #     FILTERS
+    #        ${kl_SOURCE_DIR}/src/
+    #        ${kl_SOURCE_DIR}/include/
     # )
 endif()
