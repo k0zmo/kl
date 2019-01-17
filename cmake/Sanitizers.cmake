@@ -1,9 +1,9 @@
-# SetupSanitizers
+# Sanitizers
 #  Included, adds new build or configuration types:
 #    - ASan - AddressSanitizer
 #    - UBSan - UndefinedBehaviorSanitizer
 #    - TSan - ThreadSanitizer
-#    - MSan - MemorySanitizer
+#    - MSan - MemorySanitizer (Clang only)
 #
 
 # This only works for GCC or Clang
@@ -13,29 +13,29 @@ if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
     return()
 endif()
 
-function(setup_sanitize_target _name _c_flags _linker_flags)
-    string(TOUPPER ${_name} _name_uppercase)
+function(add_sanitized_build_type _name _c_flags _linker_flags)
+    string(TOUPPER ${_name} uc_name)
 
     if(CMAKE_CXX_FLAGS_DEBUG)
         # No point to set it if it's C-only project
-        set(CMAKE_CXX_FLAGS_${_name_uppercase} ${_c_flags}
+        set(CMAKE_CXX_FLAGS_${uc_name} ${_c_flags}
             CACHE STRING "Flags used by the C++ compiler during ${_name} builds." FORCE)
     endif()
     if(CMAKE_C_FLAGS_DEBUG)
         # No point to set it if it's C++-only project
-        set(CMAKE_C_FLAGS_${_name_uppercase} ${_c_flags}
+        set(CMAKE_C_FLAGS_${uc_name} ${_c_flags}
             CACHE STRING "Flags used by the C compiler during ${_name} builds." FORCE)
     endif()
 
-    set(CMAKE_SHARED_LINKER_FLAGS_${_name_uppercase} ${_linker_flags}
+    set(CMAKE_SHARED_LINKER_FLAGS_${uc_name} ${_linker_flags}
         CACHE STRING "Flags used by the shared libraries linker during ${_name} builds." FORCE)
-    set(CMAKE_EXE_LINKER_FLAGS_${_name_uppercase} ${_linker_flags}
+    set(CMAKE_EXE_LINKER_FLAGS_${uc_name} ${_linker_flags}
         CACHE STRING "Flags used for linking binaries during ${_name} builds." FORCE)
 
-    mark_as_advanced(CMAKE_CXX_FLAGS_${_name_uppercase}
-                     CMAKE_C_FLAGS_${_name_uppercase},
-                     CMAKE_SHARED_LINKER_FLAGS_${_name_uppercase},
-                     CMAKE_EXE_LINKER_FLAGS_${_name_uppercase})
+    mark_as_advanced(CMAKE_CXX_FLAGS_${uc_name}
+                     CMAKE_C_FLAGS_${uc_name},
+                     CMAKE_SHARED_LINKER_FLAGS_${uc_name},
+                     CMAKE_EXE_LINKER_FLAGS_${uc_name})
 
     if(CMAKE_CONFIGURATION_TYPES)
         # Add '${_name}' build type for multi-config generators
@@ -55,18 +55,18 @@ function(setup_sanitize_target _name _c_flags _linker_flags)
     endif()
 endfunction()
 
-setup_sanitize_target("ASan"  
-                      "-O1 -g -fsanitize=address -fno-omit-frame-pointer -DNDEBUG"
-                      "-fsanitize=address -fuse-ld=gold")
-setup_sanitize_target("TSan"  
-                      "-O1 -g -fsanitize=thread -DNDEBUG" 
-                      "-fsanitize=thread")
-setup_sanitize_target("UBSan" 
-                      "-O1 -g -fsanitize=undefined -fno-omit-frame-pointer -DNDEBUG" 
-                      "-fsanitize=undefined")
+add_sanitized_build_type("ASan"  
+                         "-O1 -g -fsanitize=address -fno-omit-frame-pointer -DNDEBUG"
+                         "-fsanitize=address -fuse-ld=gold")
+add_sanitized_build_type("UBSan" 
+                         "-O1 -g -fsanitize=undefined -fno-omit-frame-pointer -DNDEBUG" 
+                         "-fsanitize=undefined")
+add_sanitized_build_type("TSan"  
+                         "-O1 -g -fsanitize=thread -DNDEBUG" 
+                         "-fsanitize=thread")
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    setup_sanitize_target("MSan"  
-                          "-O2 -g -fsanitize=memory -fno-omit-frame-pointer -DNDEBUG"
-                          "-fsanitize=memory")
+    add_sanitized_build_type("MSan"  
+                             "-O2 -g -fsanitize=memory -fno-omit-frame-pointer -DNDEBUG"
+                             "-fsanitize=memory")
 endif()

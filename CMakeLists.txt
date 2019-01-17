@@ -25,7 +25,7 @@ if(KL_DEV_BUILD)
     # Generate JSON Compilation Database
     set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-    include(SetupSanitizers)
+    include(Sanitizers)
 endif()
 
 find_package(Boost 1.61.0 REQUIRED COMPONENTS)
