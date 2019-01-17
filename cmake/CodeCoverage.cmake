@@ -34,36 +34,11 @@ if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
     return()
 endif()
 
-# Note: C(XX) flags are also used in linker invocation
-if(CMAKE_CXX_FLAGS_DEBUG)
-    # No point to set it if it's C-only project
-    set(CMAKE_CXX_FLAGS_COVERAGE "${CMAKE_CXX_FLAGS_DEBUG} --coverage"
-        CACHE STRING "Flags used by the C++ compiler during coverage builds." FORCE)
-    mark_as_advanced(CMAKE_CXX_FLAGS_COVERAGE)
-endif()
-if(CMAKE_C_FLAGS_DEBUG)
-    # No point to set it if it's C++-only project
-    set(CMAKE_C_FLAGS_COVERAGE "${CMAKE_C_FLAGS_DEBUG} --coverage"
-        CACHE STRING "Flags used by the C compiler during coverage builds." FORCE)
-    mark_as_advanced(CMAKE_C_FLAGS_COVERAGE)
-endif()
-
-if(CMAKE_CONFIGURATION_TYPES)
-    # Add 'Coverage' build type for multi-config generators
-    list(APPEND CMAKE_CONFIGURATION_TYPES Coverage)
-    list(REMOVE_DUPLICATES CMAKE_CONFIGURATION_TYPES)
-    set(CONFIGURATION_TYPES "${CMAKE_CONFIGURATION_TYPES}" 
-        CACHE STRING "List of supported configuration types" FORCE)
-else()
-    # Modify CMAKE_BUILD_TYPE enum values for cmake-gui
-    get_property(build_type_strings CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS)
-    list(LENGTH build_type_strings build_type_strings_length)
-    if(NOT build_type_strings_length EQUAL 0)
-        list(APPEND build_type_strings Coverage)
-        list(REMOVE_DUPLICATES build_type_strings)
-        set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${build_type_strings})
-    endif()
-endif()
+include(DefineBuildType)
+define_build_type(Coverage
+    BASE Debug
+    COMPILER_FLAGS "--coverage"
+)
 
 include(FindPackageHandleStandardArgs)
 
