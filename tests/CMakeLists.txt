@@ -58,3 +58,12 @@ if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
     #        ${kl_SOURCE_DIR}/include/
     # )
 endif()
+
+# if(MSVC)
+#     add_coverage_target_occ(kl-coverage
+#         RUNNER kl-tests
+#         FILTERS
+#             ${kl_SOURCE_DIR}/src
+#             ${kl_SOURCE_DIR}/include
+#     )
+# endif()

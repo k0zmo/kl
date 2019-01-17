@@ -33,19 +33,6 @@
 #       )
 #   endif()
 
-# This only works for GCC or Clang
-if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
-   NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
-    message(STATUS "No coverage build type for compiler: ${CMAKE_CXX_COMPILER_ID}")
-    return()
-endif()
-
-include(DefineBuildType)
-define_build_type(Coverage
-    BASE Debug
-    COMPILER_FLAGS "--coverage"
-)
-
 function(add_coverage_target_lcov _target)
     find_program(LCOV_EXECUTABLE lcov)
     mark_as_advanced(LCOV_EXECUTABLE)
@@ -185,3 +172,57 @@ function(add_coverage_target_gcovr _target)
         COMMENT "Open ./${output_file} to see coverage report"
     )
 endfunction()
+
+function(add_coverage_target_occ _target)
+    find_program(OPEN_CPP_COVERAGE_EXECUTABLE OpenCppCoverage)
+    mark_as_advanced(OPEN_CPP_COVERAGE_EXECUTABLE)
+    if(NOT OPEN_CPP_COVERAGE_EXECUTABLE)
+        message(FATAL_ERROR "OpenCppCoverage not found!")
+    endif()
+
+    set(options COBERTURA)
+    set(one_value_args RUNNER OUTPUT_NAME)
+    set(multi_value_args FILTERS)
+    cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+
+    if(NOT ARG_RUNNER)
+        message(FATAL_ERROR "No RUNNER specified in add_coverage_target_occ(${_target})")
+    endif()
+
+    if(ARG_FILTERS)
+        set(sources)
+        foreach(_loop IN ITEMS ${ARG_FILTERS})
+            # OpenCppCoverage requires backslashes
+            file(TO_NATIVE_PATH ${_loop} filter_path)
+            list(APPEND sources --sources \"${filter_path}\")
+        endforeach()
+    endif()
+
+    set(output_name ${_target})
+    if(ARG_OUTPUT_NAME)
+        set(output_name ${ARG_OUTPUT_NAME})
+    endif()
+    
+    if(ARG_COBERTURA)
+        set(export_type "--export_type=cobertura:${output_name}.xml")
+    else()
+        set(export_type "--export_type=html:${output_name}")        
+    endif()
+
+    add_custom_target(${_target}
+        COMMAND ${OPEN_CPP_COVERAGE_EXECUTABLE} ${sources} ${export_type} -- $<TARGET_FILE:${ARG_RUNNER}>
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+    )
+endfunction()
+
+# Define 'Coverage' build type for Clang and GCC 
+if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
+   NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
+    message(STATUS "No coverage build type for compiler: ${CMAKE_CXX_COMPILER_ID}")
+else()
+    include(DefineBuildType)
+    define_build_type(Coverage
+        BASE Debug
+        COMPILER_FLAGS "--coverage"
+    )
+endif()
