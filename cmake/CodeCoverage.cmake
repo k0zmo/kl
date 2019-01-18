@@ -49,28 +49,28 @@ function(add_coverage_target_lcov _target)
     set(options BRANCHES)
     set(one_value_args COMMAND OUTPUT_NAME)
     set(multi_value_args FILTERS ARGS)
-    cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(NOT ARG_COMMAND)
+    if(NOT arg_COMMAND)
         message(FATAL_ERROR "No COMMAND specified in add_coverage_target_lcov(${_target})")
     endif()
 
     set(output_name ${_target})
-    if(ARG_OUTPUT_NAME)
-        set(output_name ${ARG_OUTPUT_NAME})
+    if(arg_OUTPUT_NAME)
+        set(output_name ${arg_OUTPUT_NAME})
     endif()
 
-    if(ARG_BRANCHES)
+    if(arg_BRANCHES)
         set(branch_coverage --rc lcov_branch_coverage=1)
     endif()
 
-    if(NOT ARG_FILTERS)
-        set(ARG_FILTERS '*')
+    if(NOT arg_FILTERS)
+        set(arg_FILTERS '*')
     endif()
 
-    list(APPEND args COMMAND ${LCOV_EXECUTABLE} -q --zerocounters --directory .)
-    list(APPEND args COMMAND ${ARG_COMMAND} ${ARG_ARGS})
-    list(APPEND args COMMAND
+    list(APPEND cmd COMMAND ${LCOV_EXECUTABLE} -q --zerocounters --directory .)
+    list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS})
+    list(APPEND cmd COMMAND
         ${LCOV_EXECUTABLE} 
         -q
         --capture
@@ -78,25 +78,25 @@ function(add_coverage_target_lcov _target)
         --output-file ${output_name}.all.info
         ${branch_coverage}
     )
-    list(APPEND args COMMAND
+    list(APPEND cmd COMMAND
         ${LCOV_EXECUTABLE}
         -q
         --extract ${output_name}.all.info
-        ${ARG_FILTERS}
+        ${arg_FILTERS}
         --output-file ${output_name}.info
         ${branch_coverage}
     )
-    list(APPEND args COMMAND
+    list(APPEND cmd COMMAND
         ${GENHTML_EXECUTABLE}
         -q
         --output-directory ${output_name}
         ${output_name}.info
         ${branch_coverage}
     )
-    list(APPEND args COMMAND ${CMAKE_COMMAND} -E remove ${output_name}.all.info)
+    list(APPEND cmd COMMAND ${CMAKE_COMMAND} -E remove ${output_name}.all.info)
 
     add_custom_target(${_target}
-        ${args}
+        ${cmd}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Gathering and processing code coverage counters to generate HTML report"
     )
@@ -117,34 +117,34 @@ function(add_coverage_target_gcovr _target)
     set(options XML)
     set(one_value_args COMMAND OUTPUT_NAME)
     set(multi_value_args FILTERS EXCLUDE ARGS)
-    cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(NOT ARG_COMMAND)
+    if(NOT arg_COMMAND)
         message(FATAL_ERROR "No COMMAND specified in add_coverage_target_gcovr(${_target})")
     endif()
 
     set(output_name ${_target})
-    if(ARG_OUTPUT_NAME)
-        set(output_name ${ARG_OUTPUT_NAME})
+    if(arg_OUTPUT_NAME)
+        set(output_name ${arg_OUTPUT_NAME})
     endif()
 
-    if(ARG_FILTERS)
+    if(arg_FILTERS)
         set(tmp_list "")
-        foreach(_loop ${ARG_FILTERS})
+        foreach(_loop ${arg_FILTERS})
             list(APPEND tmp_list --filter=${_loop})
         endforeach()
-        set(ARG_FILTERS ${tmp_list})
+        set(arg_FILTERS ${tmp_list})
     endif()
 
-    if(ARG_EXCLUDE)
+    if(arg_EXCLUDE)
         set(tmp_list "")
-        foreach(_loop ${ARG_EXCLUDE})
+        foreach(_loop ${arg_EXCLUDE})
             list(APPEND tmp_list --exclude=${_loop})
         endforeach()
-        set(ARG_EXCLUDE ${tmp_list})
+        set(arg_EXCLUDE ${tmp_list})
     endif()
 
-    if(ARG_XML)
+    if(arg_XML)
         set(output_mode --xml)
         set(output_file ${output_name}.xml)
     else()
@@ -152,18 +152,18 @@ function(add_coverage_target_gcovr _target)
         set(output_file ${output_name}.html)
     endif()
 
-    list(APPEND args COMMAND ${ARG_COMMAND} ${ARG_ARGS})
-    list(APPEND args COMMAND 
+    list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS})
+    list(APPEND cmd COMMAND 
         ${GCOVR_EXECUTABLE} 
         --delete ${output_mode}
         --root=${CMAKE_SOURCE_DIR}
-        ${ARG_FILTERS}
-        ${ARG_EXCLUDE}
+        ${arg_FILTERS}
+        ${arg_EXCLUDE}
         --output=${output_file}
     )
 
     add_custom_target(${_target}
-        ${args}
+        ${cmd}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
         COMMENT "Running gcovr to produce HTML report"
     )
@@ -183,15 +183,15 @@ function(add_coverage_target_occ _target)
     set(options COBERTURA)
     set(one_value_args RUNNER OUTPUT_NAME)
     set(multi_value_args FILTERS)
-    cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(NOT ARG_RUNNER)
+    if(NOT arg_RUNNER)
         message(FATAL_ERROR "No RUNNER specified in add_coverage_target_occ(${_target})")
     endif()
 
-    if(ARG_FILTERS)
+    if(arg_FILTERS)
         set(sources)
-        foreach(_loop IN ITEMS ${ARG_FILTERS})
+        foreach(_loop IN ITEMS ${arg_FILTERS})
             # OpenCppCoverage requires backslashes
             file(TO_NATIVE_PATH ${_loop} filter_path)
             list(APPEND sources --sources \"${filter_path}\")
@@ -199,18 +199,18 @@ function(add_coverage_target_occ _target)
     endif()
 
     set(output_name ${_target})
-    if(ARG_OUTPUT_NAME)
-        set(output_name ${ARG_OUTPUT_NAME})
+    if(arg_OUTPUT_NAME)
+        set(output_name ${arg_OUTPUT_NAME})
     endif()
     
-    if(ARG_COBERTURA)
+    if(arg_COBERTURA)
         set(export_type "--export_type=cobertura:${output_name}.xml")
     else()
         set(export_type "--export_type=html:${output_name}")        
     endif()
 
     add_custom_target(${_target}
-        COMMAND ${OPEN_CPP_COVERAGE_EXECUTABLE} ${sources} ${export_type} -- $<TARGET_FILE:${ARG_RUNNER}>
+        COMMAND ${OPEN_CPP_COVERAGE_EXECUTABLE} ${sources} ${export_type} -- $<TARGET_FILE:${arg_RUNNER}>
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 endfunction()

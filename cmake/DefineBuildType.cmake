@@ -5,11 +5,11 @@ function(__define_build_type_impl _name)
         set(CMAKE_CONFIGURATION_TYPES "${CMAKE_CONFIGURATION_TYPES}" 
             CACHE STRING "List of supported configuration types" FORCE)
     else()
-        get_property(build_type_strings CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS)
-        list(LENGTH build_type_strings build_type_strings_length)
-        if(NOT build_type_strings_length EQUAL 0)
-            list(APPEND build_type_strings ${_name})
-            list(REMOVE_DUPLICATES build_type_strings)
+        get_property(build_types CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS)
+        list(LENGTH build_types build_types_length)
+        if(NOT build_types_length EQUAL 0)
+            list(APPEND build_types ${_name})
+            list(REMOVE_DUPLICATES build_types)
             set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS ${build_type_strings})
         endif()
     endif()
@@ -32,22 +32,22 @@ function(define_build_type _name)
         RC_FLAGS
     )
     set(multi_value_args "")
-    cmake_parse_arguments(ARG "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
+    cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(ARG_BASE)
-        string(TOUPPER ${ARG_BASE} uc_base)
-        set(ARG_BASE "_${uc_base}")
+    if(arg_BASE)
+        string(TOUPPER ${arg_BASE} uc_base)
+        set(arg_BASE "_${uc_base}")
     endif()
 
-    if(ARG_COMPILER_FLAGS)
-        set(ARG_C_FLAGS ${ARG_COMPILER_FLAGS})
-        set(ARG_CXX_FLAGS ${ARG_COMPILER_FLAGS})
+    if(arg_COMPILER_FLAGS)
+        set(arg_C_FLAGS ${arg_COMPILER_FLAGS})
+        set(arg_CXX_FLAGS ${arg_COMPILER_FLAGS})
     endif()
 
-    if(ARG_LINKER_FLAGS)
-        set(ARG_EXE_LINKER_FLAGS ${ARG_LINKER_FLAGS})
-        set(ARG_SHARED_LINKER_FLAGS ${ARG_LINKER_FLAGS})
-        set(ARG_MODULE_LINKER_FLAGS ${ARG_LINKER_FLAGS})
+    if(arg_LINKER_FLAGS)
+        set(arg_EXE_LINKER_FLAGS ${arg_LINKER_FLAGS})
+        set(arg_SHARED_LINKER_FLAGS ${arg_LINKER_FLAGS})
+        set(arg_MODULE_LINKER_FLAGS ${arg_LINKER_FLAGS})
     endif()
 
     foreach(flags IN ITEMS C_FLAGS
@@ -58,29 +58,29 @@ function(define_build_type _name)
                            SHARED_LINKER_FLAGS
                            MODULE_LINKER_FLAGS)
         string(TOLOWER ${flags} lc_flags)
-        if(ARG_BASE)
-            set(${lc_flags} "${CMAKE_${flags}${ARG_BASE}} ${ARG_${flags}}")
+        if(arg_BASE)
+            set(${lc_flags} "${CMAKE_${flags}${arg_BASE}} ${arg_${flags}}")
         else()
-            set(${lc_flags} "${ARG_${flags}}")
+            set(${lc_flags} "${arg_${flags}}")
         endif()
     endforeach()
 
     # Don't define C flags if it's C++-only project
-    if(DEFINED CMAKE_C_FLAGS${ARG_BASE}) 
+    if(DEFINED CMAKE_C_FLAGS${arg_BASE}) 
         mark_as_advanced(CMAKE_C_FLAGS_${uc_name})
         set(CMAKE_C_FLAGS_${uc_name} "${c_flags}"
             CACHE STRING "Flags used by the C compiler during ${uc_name} builds." FORCE)
     endif()
 
     # Don't define CXX flags if it's C-only project
-    if(DEFINED CMAKE_CXX_FLAGS${ARG_BASE})
+    if(DEFINED CMAKE_CXX_FLAGS${arg_BASE})
         mark_as_advanced(CMAKE_CXX_FLAGS_${uc_name})
         set(CMAKE_CXX_FLAGS_${uc_name} "${cxx_flags}"
             CACHE STRING "Flags used by the CXX compiler during ${uc_name} builds." FORCE)
     endif()
 
     # Don't define RC flags if we're building on anything other than WIN32
-    if(DEFINED CMAKE_RC_FLAGS${ARG_BASE})
+    if(DEFINED CMAKE_RC_FLAGS${arg_BASE})
         mark_as_advanced(CMAKE_RC_FLAGS_${uc_name})
         set(CMAKE_RC_FLAGS_${uc_name} "${rc_flags}"
             CACHE STRING "Flags for Windows Resource Compiler during ${uc_name} builds." FORCE)
