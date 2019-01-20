@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.11)
 # Determine if kl is build as a subproject (using add_subdirectory)
 # or if it is the master project.
 if(NOT DEFINED PROJECT_NAME)
-    set(master_project ON)
+    set(kl_master_project ON)
 endif()
 
 project(kl LANGUAGES CXX VERSION 0.1)
@@ -12,10 +12,10 @@ project(kl LANGUAGES CXX VERSION 0.1)
 list(APPEND CMAKE_MODULE_PATH "${kl_SOURCE_DIR}/cmake")
 
 # Build tests in the master project by default
-option(KL_TEST "Generate the test target." ${master_project})
-option(KL_DEV_BUILD "Enable compiler flags useful while developing kl." ${master_project})
+option(KL_TEST "Generate the test target." ${kl_master_project})
+option(KL_DEV_BUILD "Enable compiler flags useful while developing kl." ${kl_master_project})
 
-if(master_project)
+if(kl_master_project)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 endif()
 
