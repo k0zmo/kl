@@ -3028,11 +3028,21 @@ function (cotire_process_target_language _language _configurations _target _whol
 		if (_targetUsePCH)
 			cotire_make_pch_file_path(${_language} ${_target} _pchFile)
 			if (_pchFile)
-				# first file in _sourceFiles is passed as the host file
+				# check for user provided host file
+				get_property(_hostFile TARGET ${_target} PROPERTY COTIRE_${_language}_HOST_FILE_INIT)
+				if (_hostFile)
+					# Make sure _sourceFiles contains _hostFile and remove it
+					list(FIND _sourceFiles ${_hostFile} _hostFileIndex)
+					if (_hostFileIndex EQUAL -1)
+						message(FATAL_ERROR "cotire: Provided host file ${_hostFile} is not a source file of the target ${_target}")
+					endif()
+					list(REMOVE_AT _sourceFiles ${_hostFileIndex})
+				endif()
+				# first file in _sourceFiles is passed as the host file if _hostFile is not defined
 				cotire_setup_pch_file_compilation(
-					${_language} ${_target} "${_targetConfigScript}" "${_prefixFile}" "${_pchFile}" ${_sourceFiles})
+					${_language} ${_target} "${_targetConfigScript}" "${_prefixFile}" "${_pchFile}" ${_hostFile} ${_sourceFiles})
 				cotire_setup_pch_file_inclusion(
-					${_language} ${_target} ${_wholeTarget} "${_prefixFile}" "${_pchFile}" ${_sourceFiles})
+					${_language} ${_target} ${_wholeTarget} "${_prefixFile}" "${_pchFile}" ${_hostFile} ${_sourceFiles})
 			endif()
 		elseif (_prefixHeaderFiles)
 			# user provided prefix header must be included unconditionally
@@ -4080,6 +4090,16 @@ else()
 			"If set, cotire will add the given header file(s) to the generated prefix header file."
 			"If not set, cotire will generate a prefix header by tracking the header files included by the unity source file."
 			"The property can be set to a user provided prefix header file (e.g., stdafx.h)."
+			"Defaults to empty."
+	)
+
+	define_property(
+		TARGET PROPERTY "COTIRE_<LANG>_HOST_FILE_INIT"
+		BRIEF_DOCS "User provided host file to be used instead of the automatically selected one."
+		FULL_DOCS
+			"If set, cotire will use the given source file as the host file to generate the precompiled header."
+			"If not set, cotire will use the first target source file as the host file to generate the precompiled header."
+			"The property can be set to a user provided host file (e.g., stdafx.cpp)."
 			"Defaults to empty."
 	)
 
