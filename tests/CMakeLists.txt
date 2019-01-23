@@ -72,5 +72,4 @@ include(PrecompileHeader)
 target_precompile_header(kl-tests 
     PREFIX_FILE pch.hpp
     EXCLUDE main_test.cpp
-    GENERATE_HOST_FILE
 )
