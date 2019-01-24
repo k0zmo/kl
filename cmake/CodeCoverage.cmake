@@ -71,7 +71,7 @@ function(add_coverage_target_lcov _target)
     list(APPEND cmd COMMAND ${LCOV_EXECUTABLE} -q --zerocounters --directory .)
     list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS})
     list(APPEND cmd COMMAND
-        ${LCOV_EXECUTABLE} 
+        ${LCOV_EXECUTABLE}
         -q
         --capture
         --directory .
@@ -153,8 +153,8 @@ function(add_coverage_target_gcovr _target)
     endif()
 
     list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS})
-    list(APPEND cmd COMMAND 
-        ${GCOVR_EXECUTABLE} 
+    list(APPEND cmd COMMAND
+        ${GCOVR_EXECUTABLE}
         --delete ${output_mode}
         --root=${CMAKE_SOURCE_DIR}
         ${arg_FILTERS}
@@ -202,11 +202,11 @@ function(add_coverage_target_occ _target)
     if(arg_OUTPUT_NAME)
         set(output_name ${arg_OUTPUT_NAME})
     endif()
-    
+
     if(arg_COBERTURA)
         set(export_type "--export_type=cobertura:${output_name}.xml")
     else()
-        set(export_type "--export_type=html:${output_name}")        
+        set(export_type "--export_type=html:${output_name}")
     endif()
 
     add_custom_target(${_target}
@@ -215,7 +215,7 @@ function(add_coverage_target_occ _target)
     )
 endfunction()
 
-# Define 'Coverage' build type for Clang and GCC 
+# Define 'Coverage' build type for Clang and GCC
 if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
    NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
     message(STATUS "No coverage build type for compiler: ${CMAKE_CXX_COMPILER_ID}")

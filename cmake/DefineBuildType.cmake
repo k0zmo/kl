@@ -2,7 +2,7 @@ function(__define_build_type_impl _name)
     if(CMAKE_CONFIGURATION_TYPES)
         list(APPEND CMAKE_CONFIGURATION_TYPES ${_name})
         list(REMOVE_DUPLICATES CMAKE_CONFIGURATION_TYPES)
-        set(CMAKE_CONFIGURATION_TYPES "${CMAKE_CONFIGURATION_TYPES}" 
+        set(CMAKE_CONFIGURATION_TYPES "${CMAKE_CONFIGURATION_TYPES}"
             CACHE STRING "List of supported configuration types" FORCE)
     else()
         get_property(build_types CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS)
@@ -19,7 +19,7 @@ function(define_build_type _name)
     string(TOUPPER ${_name} uc_name)
 
     set(options "")
-    set(one_value_args 
+    set(one_value_args
         BASE
         COMPILER_FLAGS # Both C and CXX flags
         LINKER_FLAGS # EXE, SHARED and MODULE flags
@@ -66,7 +66,7 @@ function(define_build_type _name)
     endforeach()
 
     # Don't define C flags if it's C++-only project
-    if(DEFINED CMAKE_C_FLAGS${arg_BASE}) 
+    if(DEFINED CMAKE_C_FLAGS${arg_BASE})
         mark_as_advanced(CMAKE_C_FLAGS_${uc_name})
         set(CMAKE_C_FLAGS_${uc_name} "${c_flags}"
             CACHE STRING "Flags used by the C compiler during ${uc_name} builds." FORCE)

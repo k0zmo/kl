@@ -53,7 +53,7 @@ function(target_precompile_header _target)
             "/Fp${pch_file_native}"
             /Zm170
         )
-        set(source_file_flags 
+        set(source_file_flags
             "/Yu${prefix_file_native}"
             "/Fp${pch_file_native}"
             "/FI${prefix_file_native}"
@@ -62,11 +62,11 @@ function(target_precompile_header _target)
 
         __filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
         foreach(source_file IN ITEMS ${source_files})
-            set_property(SOURCE ${source_file} 
+            set_property(SOURCE ${source_file}
                 APPEND_STRING PROPERTY COMPILE_OPTIONS ${source_file_flags}
             )
             # OBJECT_DEPENDS is needed for Ninja generator, MSBuild simply ignores it
-            set_property(SOURCE ${source_file} 
+            set_property(SOURCE ${source_file}
                 APPEND PROPERTY OBJECT_DEPENDS ${pch_file}
             )
         endforeach()
@@ -75,7 +75,7 @@ function(target_precompile_header _target)
         # and set proper compile flags
         file(GENERATE OUTPUT ${host_file} CONTENT "#include \"${prefix_file}\"\n")
         target_sources(${_target} PRIVATE ${host_file})
-        set_source_files_properties(${host_file} PROPERTIES 
+        set_source_files_properties(${host_file} PROPERTIES
             COMPILE_OPTIONS "${host_file_flags}"
             OBJECT_OUTPUTS ${pch_file}
             OBJECT_DEPENDS ${prefix_file}
@@ -89,7 +89,7 @@ function(target_precompile_header _target)
         file(TO_NATIVE_PATH ${gch_file} gch_file_native)
         file(TO_NATIVE_PATH ${prefix_file} prefix_file_native)
 
-        # We dont need a host file in case of GCC/Clang but if the prefix file 
+        # We dont need a host file in case of GCC/Clang but if the prefix file
         # contains #pragma once then we avoid getting a warning of having this in 'main file'
         file(GENERATE OUTPUT ${host_file} CONTENT "#include \"${prefix_file}\"\n")
 
@@ -129,10 +129,10 @@ function(target_precompile_header _target)
         add_custom_target(${_target}.pch-symlink DEPENDS ${gch_file})
         add_dependencies(${_target}.pch-symlink ${_target}.pch)
 
-        # Finally, append proper compile flags for each not-excluded source file 
+        # Finally, append proper compile flags for each not-excluded source file
         __filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
         foreach(source_file IN ITEMS ${source_files})
-            set_property(SOURCE ${source_file} 
+            set_property(SOURCE ${source_file}
                 APPEND_STRING PROPERTY COMPILE_OPTIONS "-include;${host_file_native};-Winvalid-pch"
             )
         endforeach()
