@@ -60,7 +60,7 @@ function(target_precompile_header _target)
             /Zm170
         )
 
-        __filter_source_files_pch(${_target} ${arg_EXCLUDE} source_files)
+        __filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
         foreach(source_file IN ITEMS ${source_files})
             set_property(SOURCE ${source_file} 
                 APPEND_STRING PROPERTY COMPILE_OPTIONS ${source_file_flags}
@@ -130,7 +130,7 @@ function(target_precompile_header _target)
         add_dependencies(${_target}.pch-symlink ${_target}.pch)
 
         # Finally, append proper compile flags for each not-excluded source file 
-        __filter_source_files_pch(${_target} ${arg_EXCLUDE} source_files)
+        __filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
         foreach(source_file IN ITEMS ${source_files})
             set_property(SOURCE ${source_file} 
                 APPEND_STRING PROPERTY COMPILE_OPTIONS "-include;${host_file_native};-Winvalid-pch"
