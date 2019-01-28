@@ -86,8 +86,6 @@ function(target_precompile_header _target)
         get_filename_component(prefix_file ${arg_PREFIX_FILE} REALPATH)
 
         file(TO_NATIVE_PATH ${host_file} host_file_native)
-        file(TO_NATIVE_PATH ${gch_file} gch_file_native)
-        file(TO_NATIVE_PATH ${prefix_file} prefix_file_native)
 
         # We dont need a host file in case of GCC/Clang but if the prefix file
         # contains #pragma once then we avoid getting a warning of having this in 'main file'
@@ -134,6 +132,9 @@ function(target_precompile_header _target)
         foreach(source_file IN ITEMS ${source_files})
             set_property(SOURCE ${source_file}
                 APPEND_STRING PROPERTY COMPILE_OPTIONS "-include;${host_file_native};-Winvalid-pch"
+            )
+            set_property(SOURCE ${source_file}
+                APPEND PROPERTY OBJECT_DEPENDS ${prefix_file}
             )
         endforeach()
         add_dependencies(${_target} ${_target}.pch-symlink)
