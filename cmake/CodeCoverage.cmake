@@ -182,7 +182,7 @@ function(add_coverage_target_occ _target)
 
     set(options COBERTURA)
     set(one_value_args RUNNER OUTPUT_NAME)
-    set(multi_value_args FILTERS)
+    set(multi_value_args FILTERS EXCLUDE)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT arg_RUNNER)
@@ -198,6 +198,15 @@ function(add_coverage_target_occ _target)
         endforeach()
     endif()
 
+    if(arg_EXCLUDE)
+        set(excluded)
+        foreach(_loop IN ITEMS ${arg_EXCLUDE})
+            # OpenCppCoverage requires backslashes
+            file(TO_NATIVE_PATH ${_loop} filter_path)
+            list(APPEND excluded --excluded_sources \"${filter_path}\")
+        endforeach()
+    endif()
+
     set(output_name ${_target})
     if(arg_OUTPUT_NAME)
         set(output_name ${arg_OUTPUT_NAME})
@@ -210,7 +219,7 @@ function(add_coverage_target_occ _target)
     endif()
 
     add_custom_target(${_target}
-        COMMAND ${OPEN_CPP_COVERAGE_EXECUTABLE} ${sources} ${export_type} -- $<TARGET_FILE:${arg_RUNNER}>
+        COMMAND ${OPEN_CPP_COVERAGE_EXECUTABLE} ${sources} ${excluded} ${export_type} -- $<TARGET_FILE:${arg_RUNNER}>
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 endfunction()
