@@ -31,7 +31,7 @@ function(target_precompile_headers _target)
     endif()
 
     set(options "")
-    set(one_value_args PREFIX_FILE)
+    set(one_value_args PREFIX_FILE SOURCE_GROUP)
     set(multi_value_args HEADERS EXCLUDE)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
@@ -87,7 +87,10 @@ function(target_precompile_headers _target)
         # Generate a host file (e.g stdafx.cpp), add it as a source to the given target
         # and set proper compile flags
         file(GENERATE OUTPUT ${host_file} CONTENT "#include \"${prefix_file}\"\n")
-        target_sources(${_target} PRIVATE ${host_file})
+        target_sources(${_target} PRIVATE ${host_file} ${arg_PREFIX_FILE})
+        if(arg_SOURCE_GROUP)
+            source_group(${arg_SOURCE_GROUP} FILES ${host_file} ${arg_PREFIX_FILE})
+        endif()
         set_source_files_properties(${host_file} PROPERTIES
             COMPILE_OPTIONS "${host_file_flags}"
             OBJECT_OUTPUTS ${pch_file}

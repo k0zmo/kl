@@ -94,4 +94,5 @@ target_precompile_headers(kl-tests
         catch2/catch.hpp
     EXCLUDE
         main_test.cpp
+    SOURCE_GROUP pch
 )
