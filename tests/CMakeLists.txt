@@ -68,8 +68,8 @@ endif()
 #     )
 # endif()
 
-include(PrecompileHeader)
-target_precompile_header(kl-tests
+include(PrecompileHeaders)
+target_precompile_headers(kl-tests
     HEADERS
         string
         vector

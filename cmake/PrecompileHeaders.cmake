@@ -20,7 +20,7 @@ function(__filter_source_files_pch _target _excluded _out)
     set(${_out} ${out} PARENT_SCOPE)
 endfunction()
 
-function(target_precompile_header _target)
+function(target_precompile_headers _target)
     set(enabled_option_name ${PROJECT_NAME}_USE_PRECOMPILED_HEADER)
     string(TOUPPER ${enabled_option_name} enabled_option_name)
 
@@ -36,11 +36,11 @@ function(target_precompile_header _target)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT arg_PREFIX_FILE AND NOT arg_HEADERS)
-        message(FATAL_ERROR "No PREFIX_FILE or HEADERS specified in target_precompile_header(${_target})")
+        message(FATAL_ERROR "No PREFIX_FILE or HEADERS specified in target_precompile_headers(${_target})")
     endif()
 
     if(arg_PREFIX_FILE AND arg_HEADERS)
-        message(FATAL_ERROR "Specify either PREFIX_FILE or HEADERS but not both in target_precompile_header(${_target})")
+        message(FATAL_ERROR "Specify either PREFIX_FILE or HEADERS but not both in target_precompile_headers(${_target})")
     endif()
 
     if(arg_HEADERS)
