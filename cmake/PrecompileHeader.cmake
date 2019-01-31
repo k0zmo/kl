@@ -32,17 +32,30 @@ function(target_precompile_header _target)
 
     set(options "")
     set(one_value_args PREFIX_FILE)
-    set(multi_value_args EXCLUDE)
+    set(multi_value_args HEADERS EXCLUDE)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    if(NOT arg_PREFIX_FILE)
-        message(FATAL_ERROR "No PREFIX_FILE specified in target_precompile_header(${_target})")
+    if(NOT arg_PREFIX_FILE AND NOT arg_HEADERS)
+        message(FATAL_ERROR "No PREFIX_FILE or HEADERS specified in target_precompile_header(${_target})")
     endif()
+
+    if(arg_PREFIX_FILE AND arg_HEADERS)
+        message(FATAL_ERROR "Specify either PREFIX_FILE or HEADERS but not both in target_precompile_header(${_target})")
+    endif()
+
+    if(arg_HEADERS)
+        # Generate prefix file based on HEADERS list
+        set(arg_PREFIX_FILE ${CMAKE_CURRENT_BINARY_DIR}/${_target}_pch.hpp)
+        foreach(header IN ITEMS ${arg_HEADERS})
+            string(APPEND content "#include <${header}>\n")
+        endforeach()
+        file(GENERATE OUTPUT ${arg_PREFIX_FILE} CONTENT ${content})
+    endif()
+    get_filename_component(prefix_file ${arg_PREFIX_FILE} REALPATH)
 
     if(MSVC)
         set(host_file ${CMAKE_CURRENT_BINARY_DIR}/${_target}_pch.cpp)
         set(pch_file ${CMAKE_CURRENT_BINARY_DIR}/${_target}_pch.pch)
-        get_filename_component(prefix_file ${arg_PREFIX_FILE} REALPATH)
 
         file(TO_NATIVE_PATH ${host_file} host_file_native)
         file(TO_NATIVE_PATH ${pch_file} pch_file_native)
@@ -81,15 +94,16 @@ function(target_precompile_header _target)
             OBJECT_DEPENDS ${prefix_file}
         )
     elseif(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-        set(host_file ${CMAKE_CURRENT_BINARY_DIR}/${_target}_pch.hpp)
-        set(gch_file ${CMAKE_CURRENT_BINARY_DIR}/${_target}_pch.hpp.gch)
-        get_filename_component(prefix_file ${arg_PREFIX_FILE} REALPATH)
-
+        if(arg_HEADERS)
+            set(host_file ${arg_PREFIX_FILE})
+        else()
+            # PREFIX_FILE was provided - but we need a file in binary dir with the same name as output .gch file.
+            set(host_file ${CMAKE_CURRENT_BINARY_DIR}/${_target}_pch.hpp)
+            file(GENERATE OUTPUT ${host_file} CONTENT "#include \"${prefix_file}\"\n")
+        endif()
         file(TO_NATIVE_PATH ${host_file} host_file_native)
 
-        # We dont need a host file in case of GCC/Clang but if the prefix file
-        # contains #pragma once then we avoid getting a warning of having this in 'main file'
-        file(GENERATE OUTPUT ${host_file} CONTENT "#include \"${prefix_file}\"\n")
+        set(gch_file ${host_file}.gch) 
 
         # Add target to compile the prefix header with exactly the same properties as the source target
         add_library(${_target}.pch OBJECT ${host_file})

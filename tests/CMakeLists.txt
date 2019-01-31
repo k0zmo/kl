@@ -70,6 +70,28 @@ endif()
 
 include(PrecompileHeader)
 target_precompile_header(kl-tests
-    PREFIX_FILE pch.hpp
-    EXCLUDE main_test.cpp
+    HEADERS
+        string
+        vector
+        memory
+        chrono
+        functional
+        algorithm
+        map
+        set
+        cstring
+        sstream
+        fstream
+        unordered_map
+        boost/optional.hpp
+        boost/optional/optional_io.hpp
+        boost/endian/arithmetic.hpp
+        boost/variant.hpp
+        boost/iterator/iterator_facade.hpp
+        boost/utility/string_view.hpp
+        gsl/string_span
+        gsl/span
+        catch2/catch.hpp
+    EXCLUDE
+        main_test.cpp
 )
