@@ -126,10 +126,15 @@ function(target_precompile_headers _target)
             INCLUDE_DIRECTORIES
             LINK_LIBRARIES
             POSITION_INDEPENDENT_CODE
-            SYSTEM_INCLUDE_DIRECTORIES)
+            SYSTEM_INCLUDE_DIRECTORIES
+            CXX_STANDARD
+            CXX_STANDARD_REQUIRED
+            CXX_EXTENSIONS)
         foreach(property IN ITEMS ${properties})
             get_target_property(var ${_target} ${property})
-            if(var)
+            if(NOT (var STREQUAL var-NOTFOUND OR var STREQUAL ""))
+                # Simply checking for if(var) is not sufficient 
+                # since some properties can have value of OFF
                 set_target_properties(${_target}.pch PROPERTIES ${property} "${var}")
             endif()
         endforeach()
