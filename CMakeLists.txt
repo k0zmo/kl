@@ -14,6 +14,7 @@ list(APPEND CMAKE_MODULE_PATH "${kl_SOURCE_DIR}/cmake")
 # Build tests in the master project by default
 option(KL_TEST "Generate the test target." ${kl_master_project})
 option(KL_DEV_BUILD "Enable compiler flags useful while developing kl." ${kl_master_project})
+option(KL_USE_OPENCPPCOVERAGE "Use OpenCppCoverage to calculate code coverage." OFF)
 
 if(kl_master_project)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
