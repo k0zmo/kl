@@ -8,13 +8,15 @@
 #include "kl/utility.hpp"
 
 #include <boost/optional.hpp>
-#include <json11.hpp>
+#include <rapidjson/document.h>
+#include <rapidjson/error/en.h>
 
 #include <exception>
 #include <string>
 
-KL_DEFINE_ENUM_REFLECTOR(json11, Json::Type,
-                         (NUL, NUMBER, BOOL, STRING, ARRAY, OBJECT))
+KL_DEFINE_ENUM_REFLECTOR(rapidjson, Type,
+                         (kNullType, kFalseType, kTrueType, kObjectType,
+                          kArrayType, kStringType, kNumberType))
 
 namespace kl {
 namespace json {
@@ -64,18 +66,21 @@ template <typename T>
 struct serializer;
 
 template <typename T>
-json11::Json serialize(const T& obj);
+rapidjson::Document serialize(const T& obj);
 
 template <typename T>
-T deserialize(type_t<T>, const json11::Json& j);
+rapidjson::Value serialize(const T& obj, rapidjson::Document& doc);
+
+template <typename T>
+T deserialize(type_t<T>, const rapidjson::Value& value);
 
 // Shorter version of from which can't be overloaded. Only use to invoke
 // the from() without providing a bit weird first parameter.
 template <typename T>
-T deserialize(const json11::Json& j)
+T deserialize(const rapidjson::Value& value)
 {
     // TODO replace with variable template type<T>
-    return json::deserialize(type_t<T>{}, j);
+    return json::deserialize(type_t<T>{}, value);
 }
 
 namespace detail {
@@ -101,199 +106,247 @@ struct is_vector_alike
 
 // Checks if we can construct a Json object with given T
 template <typename T>
-using is_json_constructible = std::integral_constant<
-    bool, std::is_constructible<json11::Json, T>::value &&
-              // We want reflectable unscoped enum to handle ourselves
-              !std::is_enum<T>::value>;
+using is_json_constructible =
+    bool_constant<std::is_constructible<rapidjson::Value, T>::value &&
+                  // We want reflectable unscoped enum to handle ourselves
+                  !std::is_enum<T>::value>;
 
 KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
-KL_VALID_EXPR_HELPER(has_from_json,
-                     T::from_json(std::declval<const json11::Json&>()))
 
-// For all T's that we can directly create json11::Json value from
+// For all T's that we can directly create rapidjson::Value value from
 template <typename JsonConstructible,
           enable_if<is_json_constructible<JsonConstructible>> = true>
-json11::Json to_json(const JsonConstructible& value)
+rapidjson::Value to_json(const JsonConstructible& value, rapidjson::Document&)
 {
-    return {value};
+    return rapidjson::Value{value};
+}
+
+template <typename Ch>
+rapidjson::Value to_json(const std::basic_string<Ch>& str,
+                         rapidjson::Document& doc)
+{
+    return rapidjson::Value{str, doc.GetAllocator()};
 }
 
 // For all T's that quacks like a std::map
 template <typename Map, enable_if<negation<is_json_constructible<Map>>,
                                   is_map_alike<Map>> = true>
-json11::Json to_json(const Map& map)
+rapidjson::Value to_json(const Map& map, rapidjson::Document& doc)
 {
     static_assert(
         std::is_constructible<std::string, typename Map::key_type>::value,
         "std::string must be constructible from the Map's key type");
 
-    json11::Json::object obj;
+    rapidjson::Value obj(rapidjson::kObjectType);
     for (const auto& kv : map)
-        obj.emplace(kv.first, json::serialize(kv.second));
-    return {std::move(obj)};
+        obj.AddMember(rapidjson::StringRef(kv.first),
+                      json::serialize(kv.second, doc), doc.GetAllocator());
+    return obj;
 }
 
 // For all T's that quacks like a std::vector
 template <typename Vector, enable_if<negation<is_json_constructible<Vector>>,
                                      negation<is_map_alike<Vector>>,
                                      is_vector_alike<Vector>> = true>
-json11::Json to_json(const Vector& vec)
+rapidjson::Value to_json(const Vector& vec, rapidjson::Document& doc)
 {
-    json11::Json::array array;
-    array.reserve(vec.size());
-    for (const auto& item : vec)
-        array.push_back(json::serialize(item));
-    return {std::move(array)};
+    rapidjson::Value arr(rapidjson::kArrayType);
+    for (const auto& v : vec)
+        arr.PushBack(json::serialize(v, doc), doc.GetAllocator());
+    return arr;
 }
 
 // For all T's for which there's a type_info defined
 template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
-json11::Json to_json(const Reflectable& refl)
+rapidjson::Value to_json(const Reflectable& refl, rapidjson::Document& doc)
 {
-    json11::Json::object obj;
-    ctti::reflect(refl, [&obj](auto fi) {
-        auto json = json::serialize(fi.get());
-        // We don't include fields with null as value in returned JSON object
-        if (!json.is_null())
-            obj.emplace(fi.name(), std::move(json));
+    rapidjson::Value obj{rapidjson::kObjectType};
+    ctti::reflect(refl, [&obj, &doc](auto fi) {
+        auto json = json::serialize(fi.get(), doc);
+        if (!json.IsNull())
+            obj.AddMember(rapidjson::StringRef(fi.name()), std::move(json),
+                          doc.GetAllocator());
     });
-    return {std::move(obj)};
+    return obj;
 }
 
 template <typename Enum>
-json11::Json enum_to_json(Enum e, std::true_type /*is_enum_reflectable*/)
+rapidjson::Value enum_to_json(Enum e, rapidjson::Document& doc,
+                              std::true_type /*is_enum_reflectable*/)
 {
-    return json::serialize(enum_reflector<Enum>::to_string(e));
+    return rapidjson::Value{
+        rapidjson::StringRef(enum_reflector<Enum>::to_string(e)),
+        doc.GetAllocator()};
 }
 
 template <typename Enum>
-json11::Json enum_to_json(Enum e, std::false_type /*is_enum_reflectable*/)
+rapidjson::Value enum_to_json(Enum e, rapidjson::Document& doc,
+                              std::false_type /*is_enum_reflectable*/)
 {
-    return json::serialize(underlying_cast(e));
+    return json::serialize(underlying_cast(e), doc);
 }
 
 template <typename Enum, enable_if<std::is_enum<Enum>> = true>
-json11::Json to_json(Enum e)
+rapidjson::Value to_json(Enum e, rapidjson::Document& doc)
 {
-    return enum_to_json(e, is_enum_reflectable<Enum>{});
+    return enum_to_json(e, doc, is_enum_reflectable<Enum>{});
 }
 
 template <typename Enum>
-json11::Json to_json(const enum_flags<Enum>& flags)
+rapidjson::Value to_json(const enum_flags<Enum>& flags,
+                         rapidjson::Document& doc)
 {
     static_assert(is_enum_reflectable<Enum>::value,
                   "Only flags of reflectable enums are supported");
-    json11::Json::array arr;
+    rapidjson::Value arr(rapidjson::kArrayType);
 
     for (const auto possible_value : enum_reflector<Enum>::values())
     {
         if (flags.test(possible_value))
-            arr.push_back(enum_reflector<Enum>::to_string(possible_value));
+            arr.PushBack(to_json(possible_value, doc), doc.GetAllocator());
     }
 
-    return {arr};
+    return arr;
 }
 
 template <typename Tuple, std::size_t... Is>
-json11::Json tuple_to_json(const Tuple& tuple, index_sequence<Is...>)
+rapidjson::Value tuple_to_json(const Tuple& tuple, rapidjson::Document& doc,
+                               index_sequence<Is...>)
 {
-    return {{json::serialize(std::get<Is>(tuple))...}};
+    rapidjson::Value arr{rapidjson::kArrayType};
+    using swallow = std::initializer_list<int>;
+    swallow{(arr.PushBack(json::serialize(std::get<Is>(tuple), doc),
+                          doc.GetAllocator()),
+             0)...};
+    return arr;
 }
 
 template <typename... Ts>
-json11::Json to_json(const std::tuple<Ts...>& tuple)
+rapidjson::Value to_json(const std::tuple<Ts...>& tuple,
+                         rapidjson::Document& doc)
 {
-    return tuple_to_json(tuple, make_index_sequence<sizeof...(Ts)>{});
-}
-
-inline json11::Json to_json(std::uint32_t value)
-{
-    if (static_cast<int>(value) >= 0)
-        return json::serialize(static_cast<int>(value));
-    return json::serialize(static_cast<double>(value));
+    return tuple_to_json(tuple, doc, make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T>
-json11::Json to_json(const boost::optional<T>& opt)
+rapidjson::Value to_json(const boost::optional<T>& opt,
+                         rapidjson::Document& doc)
 {
     if (opt)
-        return json::serialize(*opt);
-    return json::serialize(nullptr);
+        return json::serialize(*opt, doc);
+    return rapidjson::Value{};
 }
 
 // from_json implementation
 
-inline std::string json_type_name(const json11::Json& json)
+inline std::string json_type_name(const rapidjson::Value& value)
 {
-    return {enum_reflector<json11::Json::Type>::to_string(json.type())};
+    return {enum_reflector<rapidjson::Type>::to_string(value.GetType())};
 }
 
-template <typename Integral, enable_if<std::is_integral<Integral>> = true>
-Integral from_json(type_t<Integral>, const json11::Json& json)
+template <typename T>
+struct is_64bit : kl::bool_constant<sizeof(T) == 8> {};
+
+class arithmetic_value_extractor
 {
-    if (!json.is_number())
+public:
+    explicit arithmetic_value_extractor(const rapidjson::Value& value)
+        : value_{value}
+    {
+    }
+
+    template <typename T,
+              enable_if<std::is_signed<T>, negation<is_64bit<T>>> = true>
+    operator T() const
+    {
+        return static_cast<T>(value_.GetInt());
+    }
+
+    template <typename T, enable_if<std::is_signed<T>, is_64bit<T>> = true>
+    operator T() const
+    {
+        return value_.GetInt64();
+    }
+
+    template <typename T,
+              enable_if<std::is_unsigned<T>, negation<is_64bit<T>>> = true>
+    operator T() const
+    {
+        return static_cast<T>(value_.GetUint());
+    }
+
+    template <typename T, enable_if<std::is_unsigned<T>, is_64bit<T>> = true>
+    operator T() const
+    {
+        return value_.GetUint64();
+    }
+
+    operator float() const { return value_.GetFloat(); }
+    operator double() const { return value_.GetDouble(); }
+
+private:
+    const rapidjson::Value& value_;
+};
+
+template <typename Integral, enable_if<std::is_integral<Integral>> = true>
+Integral from_json(type_t<Integral>, const rapidjson::Value& value)
+{
+    if (!value.IsNumber())
         throw deserialize_error{"type must be an integral but is " +
-                                json_type_name(json)};
-    // This check will be ellided by the compiler since it's a constant expr
-    if (std::is_unsigned<Integral>::value && sizeof(Integral) == 4)
-        return static_cast<Integral>(json.number_value());
-    return static_cast<Integral>(json.int_value());
+                                json_type_name(value)};
+
+    return static_cast<Integral>(arithmetic_value_extractor{value});
 }
 
 template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
-Floating from_json(type_t<Floating>, const json11::Json& json)
+Floating from_json(type_t<Floating>, const rapidjson::Value& value)
 {
-    if (!json.is_number())
-        throw deserialize_error{"type must be a float but is " +
-                                json_type_name(json)};
-    return static_cast<Floating>(json.number_value());
+    if (!value.IsNumber())
+        throw deserialize_error{"type must be a floating-point but is " +
+                                json_type_name(value)};
+
+    return static_cast<Floating>(arithmetic_value_extractor{value});
 }
 
-inline std::string from_json(type_t<std::string>, const json11::Json& json)
+inline bool from_json(type_t<bool>, const rapidjson::Value& value)
 {
-    if (!json.is_string())
-        throw deserialize_error{"type must be a string but is " +
-                                json_type_name(json)};
-    return json.string_value();
-}
-
-inline bool from_json(type_t<bool>, const json11::Json& json)
-{
-    if (!json.is_bool())
+    if (!value.IsBool())
         throw deserialize_error{"type must be a bool but is " +
-                                json_type_name(json)};
-    return json.bool_value();
+                                json_type_name(value)};
+    return value.GetBool();
 }
 
-template <typename HasFromJson, enable_if<has_from_json<HasFromJson>> = true>
-HasFromJson from_json(type_t<HasFromJson>, const json11::Json& json)
+inline std::string from_json(type_t<std::string>, const rapidjson::Value& value)
 {
-    return HasFromJson::from_json(json);
+    if (!value.IsString())
+        throw deserialize_error{"type must be a string but is " +
+                                json_type_name(value)};
+
+    return {value.GetString(),
+            static_cast<std::size_t>(value.GetStringLength())};
 }
 
 template <typename Map, enable_if<is_map_alike<Map>> = true>
-Map from_json(type_t<Map>, const json11::Json& json)
+Map from_json(type_t<Map>, const rapidjson::Value& value)
 {
-    static_assert(
-        std::is_constructible<std::string, typename Map::key_type>::value,
-        "Map's key type must be constructible from the std::string");
-
-    if (!json.is_object())
+    if (!value.IsObject())
         throw deserialize_error{"type must be an object but is " +
-                                json_type_name(json)};
+                                json_type_name(value)};
 
     Map ret{};
 
-    for (const auto& obj : json.object_items())
+    for (const auto& obj : value.GetObject())
     {
         try
         {
-            ret.emplace(obj.first, json::deserialize<typename Map::mapped_type>(
-                                       obj.second));
+            ret.emplace(
+                json::deserialize<typename Map::key_type>(obj.name),
+                json::deserialize<typename Map::mapped_type>(obj.value));
         }
         catch (deserialize_error& ex)
         {
-            std::string msg = "error when deserializing field " + obj.first;
+            std::string msg = "error when deserializing field " +
+                              json::deserialize<std::string>(obj.name);
             ex.add(msg.c_str());
             throw;
         }
@@ -315,16 +368,16 @@ void vector_reserve(Vector& vec, std::size_t size, std::true_type)
 
 template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
                                      is_vector_alike<Vector>> = true>
-Vector from_json(type_t<Vector>, const json11::Json& json)
+Vector from_json(type_t<Vector>, const rapidjson::Value& value)
 {
-    if (!json.is_array())
+    if (!value.IsArray())
         throw deserialize_error{"type must be an array but is " +
-                                json_type_name(json)};
+                                json_type_name(value)};
 
     Vector ret{};
-    vector_reserve(ret, json.array_items().size(), has_reserve<Vector>{});
+    vector_reserve(ret, value.Size(), has_reserve<Vector>{});
 
-    for (const auto& item : json.array_items())
+    for (const auto& item : value.GetArray())
     {
         try
         {
@@ -344,29 +397,29 @@ Vector from_json(type_t<Vector>, const json11::Json& json)
 
 // Safely gets the JSON from the array of JSON values. If provided index is
 // out-of-bounds we return a null value.
-inline const json11::Json safe_get_json(const json11::Json::array& json_array,
-                                        std::size_t idx)
+inline const rapidjson::Value&
+    safe_get_value(const rapidjson::Value::ConstArray& arr, std::size_t idx)
 {
-    static const auto null_value = json11::Json{};
-    return idx >= json_array.size() ? null_value : json_array[idx];
+    static const auto null_value = rapidjson::Value{};
+    return idx >= arr.Size() ? null_value : arr[idx];
 }
 
 template <typename Reflectable>
-Reflectable reflectable_from_json(const json11::Json& json)
+Reflectable reflectable_from_json(const rapidjson::Value& value)
 {
     Reflectable refl{};
 
-    if (json.is_object())
+    if (value.IsObject())
     {
-        const auto& obj = json.object_items();
+        const auto obj = value.GetObject();
         ctti::reflect(refl, [&obj](auto fi) {
             using field_type = typename decltype(fi)::type;
 
             try
             {
-                const auto it = obj.find(fi.name());
-                if (it != obj.cend())
-                    fi.get() = json::deserialize<field_type>(it->second);
+                const auto it = obj.FindMember(fi.name());
+                if (it != obj.end())
+                    fi.get() = json::deserialize<field_type>(it->value);
                 else
                     fi.get() = json::deserialize<field_type>({});
             }
@@ -379,21 +432,21 @@ Reflectable reflectable_from_json(const json11::Json& json)
             }
         });
     }
-    else if (json.is_array())
+    else if (value.IsArray())
     {
-        if (json.array_items().size() > ctti::total_num_fields<Reflectable>())
+        if (value.Size() > ctti::total_num_fields<Reflectable>())
         {
             throw deserialize_error{"array size is greater than "
                                     "declared struct's field "
                                     "count"};
         }
-        const auto& arr = json.array_items();
+        const auto arr = value.GetArray();
         ctti::reflect(refl, [&arr, index = 0U](auto fi) mutable {
             using field_type = typename decltype(fi)::type;
 
             try
             {
-                const auto& j = safe_get_json(arr, index);
+                const auto& j = safe_get_value(arr, index);
                 fi.get() = json::deserialize<field_type>(j);
                 ++index;
             }
@@ -409,21 +462,21 @@ Reflectable reflectable_from_json(const json11::Json& json)
     else
     {
         throw deserialize_error{"type must be an array or object but is " +
-                                json_type_name(json)};
+                                json_type_name(value)};
     }
 
     return refl;
 }
 
 template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
-Reflectable from_json(type_t<Reflectable>, const json11::Json& json)
+Reflectable from_json(type_t<Reflectable>, const rapidjson::Value& value)
 {
     static_assert(std::is_default_constructible<Reflectable>::value,
                   "Reflectable must be default constructible");
 
     try
     {
-        return reflectable_from_json<Reflectable>(json);
+        return reflectable_from_json<Reflectable>(value);
     }
     catch (deserialize_error& ex)
     {
@@ -435,76 +488,80 @@ Reflectable from_json(type_t<Reflectable>, const json11::Json& json)
 }
 
 template <typename Tuple, std::size_t... Is>
-static Tuple tuple_from_json(const json11::Json& json, index_sequence<Is...>)
+static Tuple tuple_from_json(const rapidjson::Value& value,
+                             index_sequence<Is...>)
 {
-    const auto& arr = json.array_items();
+    const auto arr = value.GetArray();
     return std::make_tuple(json::deserialize<std::tuple_element_t<Is, Tuple>>(
-        safe_get_json(arr, Is))...);
+        safe_get_value(arr, Is))...);
 }
 
 template <typename... Ts>
-std::tuple<Ts...> from_json(type_t<std::tuple<Ts...>>, const json11::Json& json)
+std::tuple<Ts...> from_json(type_t<std::tuple<Ts...>>,
+                            const rapidjson::Value& value)
 {
-    if (!json.is_array())
+    if (!value.IsArray())
         throw deserialize_error{"type must be an array but is " +
-                                json_type_name(json)};
+                                json_type_name(value)};
 
     return tuple_from_json<std::tuple<Ts...>>(
-        json, make_index_sequence<sizeof...(Ts)>{});
+        value, make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T>
 boost::optional<T> from_json(type_t<boost::optional<T>>,
-                             const json11::Json& json)
+                             const rapidjson::Value& value)
 {
-    if (json.is_null())
+    if (value.IsNull())
         return {};
-    return json::deserialize<T>(json);
+    return json::deserialize<T>(value);
 }
 
 template <typename Enum>
-Enum enum_from_json(const json11::Json& json,
+Enum enum_from_json(const rapidjson::Value& value,
                     std::false_type /*is_enum_reflectable*/)
 {
-    if (!json.is_number())
+    if (!value.IsNumber())
         throw deserialize_error{"type must be a number-enum but is " +
-                                json_type_name(json)};
-    return static_cast<Enum>(json.int_value());
+                                json_type_name(value)};
+    return static_cast<Enum>(value.GetInt());
 }
 
 template <typename Enum>
-Enum enum_from_json(const json11::Json& json,
+Enum enum_from_json(const rapidjson::Value& value,
                     std::true_type /*is_enum_reflectable*/)
 {
-    if (!json.is_string())
+    if (!value.IsString())
         throw deserialize_error{"type must be a string-enum but is " +
-                                json_type_name(json)};
-    if (auto enum_value =
-            enum_reflector<Enum>::from_string(json.string_value()))
+                                json_type_name(value)};
+    if (auto enum_value = enum_reflector<Enum>::from_string(
+            gsl::cstring_span<>(value.GetString(), value.GetStringLength())))
     {
         return enum_value.get();
     }
-    throw deserialize_error{"invalid enum value: " + json.string_value()};
+    throw deserialize_error{"invalid enum value: " +
+                            json::deserialize<std::string>(value)};
 }
 
 template <typename Enum, enable_if<std::is_enum<Enum>> = true>
-Enum from_json(type_t<Enum>, const json11::Json& json)
+Enum from_json(type_t<Enum>, const rapidjson::Value& value)
 {
-    return enum_from_json<Enum>(json, is_enum_reflectable<Enum>{});
+    return enum_from_json<Enum>(value, is_enum_reflectable<Enum>{});
 }
 
 template <typename Enum>
-enum_flags<Enum> from_json(type_t<enum_flags<Enum>>, const json11::Json& json)
+enum_flags<Enum> from_json(type_t<enum_flags<Enum>>,
+                           const rapidjson::Value& value)
 {
-    if (!json.is_array())
+    if (!value.IsArray())
         throw deserialize_error{"type must be an array but is " +
-                                json_type_name(json)};
+                                json_type_name(value)};
 
     enum_flags<Enum> ret{};
 
-    for (const auto& value : json.array_items())
+    for (const auto& v : value.GetArray())
     {
-        const auto e = json::deserialize<Enum>(value);
+        const auto e = json::deserialize<Enum>(v);
         ret |= e;
     }
 
@@ -512,7 +569,7 @@ enum_flags<Enum> from_json(type_t<enum_flags<Enum>>, const json11::Json& json)
 }
 
 template <typename T>
-json11::Json serialize(const T& obj, priority_tag<0>)
+rapidjson::Value serialize(const T&, rapidjson::Document&, priority_tag<0>)
 {
     static_assert(always_false<T>::value,
                   "Cannot serialize an instance of type T - no viable "
@@ -521,20 +578,21 @@ json11::Json serialize(const T& obj, priority_tag<0>)
 }
 
 template <typename T>
-auto serialize(const T& obj, priority_tag<1>) -> decltype(to_json(obj))
+auto serialize(const T& obj, rapidjson::Document& doc, priority_tag<1>)
+    -> decltype(to_json(obj, doc))
 {
-    return to_json(obj);
+    return to_json(obj, doc);
 }
 
 template <typename T>
-auto serialize(const T& obj, priority_tag<2>)
-    -> decltype(json::serializer<T>::to_json(obj))
+auto serialize(const T& obj, rapidjson::Document& doc, priority_tag<2>)
+    -> decltype(json::serializer<T>::to_json(obj, doc))
 {
-    return json::serializer<T>::to_json(obj);
+    return json::serializer<T>::to_json(obj, doc);
 }
 
 template <typename T>
-T deserialize(const json11::Json& json, priority_tag<0>)
+T deserialize(const rapidjson::Value&, priority_tag<0>)
 {
     static_assert(always_false<T>::value,
                   "Cannot deserialize an instance of type T - no viable "
@@ -543,43 +601,50 @@ T deserialize(const json11::Json& json, priority_tag<0>)
 }
 
 template <typename T>
-auto deserialize(const json11::Json& json, priority_tag<1>)
-    -> decltype(from_json(std::declval<type_t<T>>(), json))
+auto deserialize(const rapidjson::Value& value, priority_tag<1>)
+    -> decltype(from_json(std::declval<type_t<T>>(), value))
 {
     // TODO replace with variable template type<T>
-    return from_json(type_t<T>{}, json);
+    return from_json(type_t<T>{}, value);
 }
 
 template <typename T>
-auto deserialize(const json11::Json& json, priority_tag<2>)
-    -> decltype(json::serializer<T>::from_json(json))
+auto deserialize(const rapidjson::Value& value, priority_tag<2>)
+    -> decltype(json::serializer<T>::from_json(value))
 {
-    return json::serializer<T>::from_json(json);
+    return json::serializer<T>::from_json(value);
 }
 } // namespace detail
 
 // Top-level functions
 template <typename T>
-json11::Json serialize(const T& obj)
+rapidjson::Document serialize(const T& obj)
 {
-    // Dispatch method based on:
-    // https://quuxplusone.github.io/blog/2018/03/19/customization-points-for-functions/
-    return detail::serialize(obj, priority_tag<2>{});
+    rapidjson::Document doc;
+    rapidjson::Value& v = doc;
+    v = json::serialize(obj, doc);
+    return doc;
 }
 
 template <typename T>
-T deserialize(type_t<T>, const json11::Json& json)
+rapidjson::Value serialize(const T& obj, rapidjson::Document& doc)
 {
-    return detail::deserialize<T>(json, priority_tag<2>{});
+    return detail::serialize(obj, doc, priority_tag<2>{});
+}
+
+template <typename T>
+T deserialize(type_t<T>, const rapidjson::Value& value)
+{
+    return detail::deserialize<T>(value, priority_tag<2>{});
 }
 } // namespace json
 } // namespace kl
 
-inline json11::Json operator ""_json(const char* s, std::size_t)
+inline rapidjson::Document operator""_json(const char* s, std::size_t len)
 {
-    std::string err;
-    auto j = json11::Json::parse(s, err);
-    if (!err.empty())
-        throw kl::json::parse_error{std::move(err)};
-    return j;
+    rapidjson::Document doc;
+    rapidjson::ParseResult ok = doc.Parse(s, len);
+    if (!ok)
+        throw kl::json::parse_error{rapidjson::GetParseError_En(ok.Code())};
+    return doc;
 }

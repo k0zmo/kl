@@ -2,10 +2,9 @@ include(FetchContent)
 
 set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL ON)
 
-FetchContent_Declare(json11
-    GIT_REPOSITORY https://github.com/k0zmo/json11.git
-    GIT_TAG ac1a452c1f420b8e912a8291f867c3d71db657f0
-    GIT_SHALLOW ON
+FetchContent_Declare(rapidjson
+    URL https://github.com/Tencent/rapidjson/archive/v1.1.0.zip
+    URL_HASH SHA1=0fe7b4f7b83df4b3d517f4a202f3a383af7a0818
 )
 FetchContent_Declare(GSL
     URL https://github.com/Microsoft/GSL/archive/v1.0.0.zip
@@ -18,11 +17,14 @@ if(KL_TEST)
     )
 endif()
 
-FetchContent_GetProperties(json11)
-if(NOT json11_POPULATED)
-    FetchContent_Populate(json11)
-    add_subdirectory(${json11_SOURCE_DIR} ${json11_BINARY_DIR})
-    set_target_properties(json11 PROPERTIES FOLDER external)
+FetchContent_GetProperties(rapidjson)
+if(NOT rapidjson_POPULATED)
+    FetchContent_Populate(rapidjson)
+    # No point in add_subdirectory() - there's no target defined
+    add_library(rapidjson INTERFACE)
+    add_library(rapidjson::rapidjson ALIAS rapidjson)
+    target_include_directories(rapidjson INTERFACE ${rapidjson_SOURCE_DIR}/include)
+    target_compile_definitions(rapidjson INTERFACE RAPIDJSON_HAS_STDSTRING=1)
 endif()
 
 FetchContent_GetProperties(GSL)

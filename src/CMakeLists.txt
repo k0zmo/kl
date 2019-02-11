@@ -56,7 +56,7 @@ target_include_directories(kl
 target_link_libraries(kl
     PUBLIC
         Boost::boost
-        json11::json11
+        rapidjson::rapidjson
         GSL::gsl
         kl_cxx_flags
     PRIVATE
