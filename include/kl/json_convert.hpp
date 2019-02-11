@@ -11,6 +11,7 @@
 #include <json11.hpp>
 
 #include <exception>
+#include <string>
 
 KL_DEFINE_ENUM_REFLECTOR(json11, Json::Type,
                          (NUL, NUMBER, BOOL, STRING, ARRAY, OBJECT))
