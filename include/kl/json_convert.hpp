@@ -186,10 +186,10 @@ json11::Json to_json(const enum_flags<Enum>& flags)
                   "Only flags of reflectable enums are supported");
     json11::Json::array arr;
 
-    for (const auto possible_values : enum_reflector<Enum>::values())
+    for (const auto possible_value : enum_reflector<Enum>::values())
     {
-        if (flags.test(possible_values))
-            arr.push_back(enum_reflector<Enum>::to_string(possible_values));
+        if (flags.test(possible_value))
+            arr.push_back(enum_reflector<Enum>::to_string(possible_value));
     }
 
     return {arr};
