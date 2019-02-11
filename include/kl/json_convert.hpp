@@ -75,8 +75,7 @@ template <typename T>
 T deserialize(const json11::Json& j)
 {
     // TODO replace with variable template type<T>
-    constexpr static auto type = type_t<T>{};
-    return json::deserialize(type, j);
+    return json::deserialize(type_t<T>{}, j);
 }
 
 namespace detail {
@@ -548,8 +547,7 @@ auto deserialize(const json11::Json& json, priority_tag<1>)
     -> decltype(from_json(std::declval<type_t<T>>(), json))
 {
     // TODO replace with variable template type<T>
-    constexpr static auto type = type_t<T>{};
-    return from_json(type, json);
+    return from_json(type_t<T>{}, json);
 }
 
 template <typename T>
