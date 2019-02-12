@@ -63,7 +63,7 @@ struct test_t
     bool f = false;
     boost::optional<int> n;
     int i = 123;
-    double pi = 3.1416;
+    float pi = 3.1416f;
     std::vector<int> a = {1, 2, 3, 4};
     std::vector<std::vector<int>> ad = {std::vector<int>{1, 2},
                                         std::vector<int>{3, 4, 5}};
@@ -327,7 +327,7 @@ TEST_CASE("json_convert")
         REQUIRE(j["f"] == false);
         REQUIRE(!j.HasMember("n"));
         REQUIRE(j["i"] == 123);
-        REQUIRE(j["pi"] == 3.1416);
+        REQUIRE(j["pi"] == 3.1416f);
         REQUIRE(j["space"] == "lab");
 
         REQUIRE(j["a"].IsArray());
@@ -424,7 +424,7 @@ TEST_CASE("json_convert")
                     {"10", colour_space::xyz}, {"20", colour_space::lab}}));
         REQUIRE(obj.n);
         REQUIRE(*obj.n == 3);
-        REQUIRE(obj.pi == 3.1416);
+        REQUIRE(obj.pi == 3.1416f);
         REQUIRE(obj.space == colour_space::rgb);
         REQUIRE(obj.t == false);
         using namespace std::string_literals;
@@ -745,7 +745,11 @@ TEST_CASE("json_convert - enum_flags")
 
     SECTION("from json")
     {
-        auto j = R"([])"_json;
+        auto j = R"({"cpu": 1})"_json;
+        REQUIRE_THROWS_AS(kl::json::deserialize<device_flags>(j),
+                          kl::json::deserialize_error);
+
+        j = R"([])"_json;
         auto f = kl::json::deserialize<device_flags>(j);
         REQUIRE(f.underlying_value() == 0);
 
