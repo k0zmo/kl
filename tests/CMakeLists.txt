@@ -27,12 +27,15 @@ set(test_files
 )
 target_sources(kl-tests PRIVATE ${test_files})
 target_link_libraries(kl-tests PRIVATE
-                      kl::kl Catch2::Catch2)
+    kl::kl
+    Catch2::Catch2
+)
 
 get_target_property(sources_list kl-tests SOURCES)
 source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
-             PREFIX kl
-             FILES ${sources_list})
+    PREFIX kl
+    FILES ${sources_list}
+)
 
 foreach(test_file ${test_files})
     get_filename_component(no_ext ${test_file} NAME_WE)
@@ -43,7 +46,7 @@ foreach(test_file ${test_files})
 endforeach()
 
 # Add kl-coverage target for calculating test coverage
-include(CodeCoverage)
+include(kl/CodeCoverage)
 if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
     add_coverage_target_lcov(kl-coverage
         COMMAND kl-tests
@@ -66,7 +69,7 @@ elseif(KL_USE_OPENCPPCOVERAGE)
     )
 endif()
 
-include(PrecompileHeaders)
+include(kl/PrecompileHeaders)
 target_precompile_headers(kl-tests
     HEADERS
         string

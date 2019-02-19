@@ -13,7 +13,7 @@ if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
     return()
 endif()
 
-include(DefineBuildType)
+include(kl/DefineBuildType)
 
 define_build_type(ASan
     COMPILER_FLAGS "-O1 -g -fsanitize=address -fno-omit-frame-pointer -DNDEBUG"

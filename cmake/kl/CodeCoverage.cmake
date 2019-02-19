@@ -21,7 +21,7 @@
 #   # Executable under the coverage test
 #   add_executable(sample-tests all-tests.cpp)
 #   # ...
-#   include(CodeCoverage)
+#   include(kl/CodeCoverage)
 #   if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
 #       add_coverage_target_lcov(sample-coverage
 #           COMMAND sample-tests # Or ${CMAKE_CTEST_EXECUTABLE}
@@ -229,7 +229,7 @@ if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
    NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
     message(STATUS "No coverage build type for compiler: ${CMAKE_CXX_COMPILER_ID}")
 else()
-    include(DefineBuildType)
+    include(kl/DefineBuildType)
     define_build_type(Coverage
         BASE Debug
         COMPILER_FLAGS "--coverage"
