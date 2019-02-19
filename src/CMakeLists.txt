@@ -1,8 +1,10 @@
 add_library(kl_cxx_flags INTERFACE)
 target_compile_features(kl_cxx_flags INTERFACE cxx_std_14)
+
 if(KL_DEV_BUILD)
+    include(kl/DevFlags)
     target_link_libraries(kl_cxx_flags INTERFACE
-        $<BUILD_INTERFACE:kl_dev_cxx_flags>
+        $<BUILD_INTERFACE:kl::dev_flags>
     )
 endif()
 
@@ -65,23 +67,3 @@ get_target_property(sources_list kl SOURCES)
 source_group(TREE ${kl_SOURCE_DIR} FILES ${sources_list})
 
 add_library(kl::kl ALIAS kl)
-
-add_library(kl_dev_cxx_flags INTERFACE)
-if(MSVC)
-    target_compile_options(kl_dev_cxx_flags INTERFACE
-        /W4
-        /wd4127  # conditional expression in constant)
-        /wd4100  # unreferenced formal parameter
-    )
-    target_compile_definitions(kl_dev_cxx_flags INTERFACE
-        _SCL_SECURE_NO_WARNINGS
-    )
-elseif(CMAKE_COMPILER_IS_GNUCXX OR (CMAKE_CXX_COMPILER_ID STREQUAL "Clang"))
-    target_compile_options(kl_dev_cxx_flags INTERFACE
-        -Wall
-        -pedantic
-        -Wextra
-        -Wno-unused-parameter
-        $<$<CXX_COMPILER_ID:Clang>:-Wno-missing-braces>
-    )
-endif()
