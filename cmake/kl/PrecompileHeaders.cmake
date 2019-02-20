@@ -76,7 +76,7 @@ function(target_precompile_headers _target)
         __filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
         foreach(source_file IN ITEMS ${source_files})
             set_property(SOURCE ${source_file}
-                APPEND_STRING PROPERTY COMPILE_OPTIONS ${source_file_flags}
+                APPEND_STRING PROPERTY COMPILE_OPTIONS ";${source_file_flags};"
             )
             # OBJECT_DEPENDS is needed for Ninja generator, MSBuild simply ignores it
             set_property(SOURCE ${source_file}
@@ -153,7 +153,7 @@ function(target_precompile_headers _target)
         __filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
         foreach(source_file IN ITEMS ${source_files})
             set_property(SOURCE ${source_file}
-                APPEND_STRING PROPERTY COMPILE_OPTIONS "-include;${host_file_native};-Winvalid-pch"
+                APPEND_STRING PROPERTY COMPILE_OPTIONS ";-include;${host_file_native};-Winvalid-pch;"
             )
             set_property(SOURCE ${source_file}
                 APPEND PROPERTY OBJECT_DEPENDS ${prefix_file}
