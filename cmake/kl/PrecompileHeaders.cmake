@@ -55,11 +55,20 @@ function(target_precompile_headers _target)
 
     if(MSVC)
         set(host_file ${CMAKE_CURRENT_BINARY_DIR}/${_target}_pch.cpp)
-        set(pch_file ${CMAKE_CURRENT_BINARY_DIR}/${_target}_pch.pch)
+        if(CMAKE_CFG_INTDIR STREQUAL ".")
+            set(pch_file ${CMAKE_CURRENT_BINARY_DIR}/${_target}.pch)
+        else()
+            set(pch_file ${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_CFG_INTDIR}/${_target}.pch)
+        endif()
 
         file(TO_NATIVE_PATH ${host_file} host_file_native)
         file(TO_NATIVE_PATH ${pch_file} pch_file_native)
         file(TO_NATIVE_PATH ${prefix_file} prefix_file_native)
+
+        # This is required because of some really weird handling 
+        # of $(Configuration) in COMPILE_OPTIONS property (but not COMPILE_FLAGS!) 
+        # when a option with a path has native slashes.
+        string(REPLACE "$(" "\\$(" pch_file_native ${pch_file_native})
 
         set(host_file_flags
             "/Yc${prefix_file_native}"
