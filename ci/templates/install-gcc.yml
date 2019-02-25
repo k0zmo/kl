@@ -1,0 +1,11 @@
+parameters:
+  version: 7
+
+steps:
+  - bash: |
+      sudo add-apt-repository ppa:ubuntu-toolchain-r/test
+      sudo apt-get update -qq
+      sudo apt-get install g++-${{ parameters.version }} gcc-${{ parameters.version }}
+      sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-${{ parameters.version }} 90
+      sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-${{ parameters.version }} 90
+    displayName: 'Install GCC'
