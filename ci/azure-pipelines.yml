@@ -1,0 +1,96 @@
+jobs:
+  - job: ubuntu16_gcc5
+    pool:
+      vmImage: 'ubuntu-16.04'
+    strategy:
+      matrix:
+        Release: 
+          BuildType: Release
+        AddressSanitizer:
+          BuildType: ASan
+    steps:
+      - script: |
+          which g++ && g++ --version
+          cmake --version
+        displayName: 'Check environment'
+      - template: templates/install-boost.yml
+      - script: |
+          export LDFLAGS="-fuse-ld=gold"
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
+          cmake --build _build --parallel 4
+        displayName: 'Build kl'
+      - script: |
+          cd _build && ctest -VV --output-on-failure
+        displayName: 'Run CTest'
+
+  - job: ubuntu16_gcc7
+    pool:
+      vmImage: 'ubuntu-16.04'
+    strategy:
+      matrix:
+        Release: 
+          BuildType: Release
+        AddressSanitizer:
+          BuildType: ASan
+        UndefinedBehaviourSanitizer:
+          BuildType: UBSan
+    steps:
+      - template: templates/install-gcc.yml
+        parameters:
+          version: '7'
+      - script: |
+          which g++ && g++ --version
+          cmake --version
+        displayName: 'Check environment'
+      - template: templates/install-boost.yml
+      - script: |
+          export LDFLAGS="-fuse-ld=gold"
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
+          cmake --build _build --parallel 4
+        displayName: 'Build kl'
+      - script: |
+          cd _build && ctest -VV --output-on-failure
+        displayName: 'Run CTest'
+
+  - job: ubuntu16_gcc5_coverage
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - script: |
+          which g++ && g++ --version
+          cmake --version
+        displayName: 'Check environment'
+      - script: |
+          pip install --user codecov
+        displayName: 'Install codecov'
+      - template: templates/install-boost.yml
+      - template: templates/install-lcov.yml
+      - script: |
+          export LDFLAGS="-fuse-ld=gold"
+          export PATH=$(pwd)/_deps/lcov/bin:$PATH
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Coverage
+          cmake --build _build --parallel 4
+        displayName: 'Build kl'
+      - script: |
+          cd _build && cmake --build . --target kl-coverage
+          ~/.local/bin/codecov -X gcov
+        displayName: 'Send code coverage data'
+
+  - job: windows_vc2017
+    pool:
+      vmImage: 'vs2017-win2016'
+    strategy:
+      matrix:
+        Win32: 
+          Architecture: Win32
+        Win64:
+          Architecture: x64
+    steps:
+      - template: templates/install-boost.yml
+      - script: |
+          cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 15 2017" -A $(Architecture)
+          cmake.exe --build _build --parallel 4 --config Release
+        displayName: 'Build kl'
+      - script: |
+          cd _build && ctest --build-config Release -VV --output-on-failure
+        displayName: 'Run CTest'
