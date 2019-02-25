@@ -7,6 +7,14 @@ jobs:
   - job: ubuntu16_gcc5
     pool:
       vmImage: 'ubuntu-16.04'
+    strategy:
+      matrix:
+        Release: 
+          BuildType: Release
+        AddressSanitizer:
+          BuildType: ASan
+        UndefinedBehaviourSanitizer:
+          BuildType: UBSan
     steps:
       - script: |
           which g++ && g++ --version
@@ -14,7 +22,7 @@ jobs:
         displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
-          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
           cmake --build _build --parallel 4
         displayName: 'Build kl'
       - script: |
@@ -46,11 +54,16 @@ jobs:
   - job: windows_vc2017
     pool:
       vmImage: 'vs2017-win2016'
+    strategy:
+      matrix:
+        Win32: 
+          GeneratorName: Visual Studio 15 2017        
+        Win64:
+          GeneratorName: Visual Studio 15 2017 Win64
     steps:
       - template: templates/install-boost.yml
       - script: |
-          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
-          cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0
+          cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "$(GeneratorName)"
           cmake.exe --build _build --parallel 4 --config Release
         displayName: 'Build kl'
       - script: |
