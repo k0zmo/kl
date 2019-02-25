@@ -1,0 +1,20 @@
+steps:
+  - bash: |
+      mkdir -p _deps && cd _deps
+      curl -L https://dl.bintray.com/boostorg/release/1.67.0/source/boost_1_67_0.tar.gz -o boost.tar.gz
+      tar -xf boost.tar.gz
+    displayName: 'Download Boost'
+
+  # - script: |
+  #     cd boost_*
+  #     chmod +x bootstrap.sh && ./bootstrap.sh
+  #     sudo ./b2 -d0 -j4 toolset=gcc variant=release link=static --with-system install
+  #   displayName: 'Build Boost'
+  #   condition: ne(variables['Agent.OS'], 'Windows NT')
+
+  # - script: |
+  #     cd boost_*
+  #     call .\bootstrap.bat
+  #     .\b2 -d0 -j4 variant=release link=static --with-system install
+  #   displayName: 'Build Boost'
+  #   condition: eq(variables['Agent.OS'], 'Windows NT')

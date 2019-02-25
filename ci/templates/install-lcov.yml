@@ -1,0 +1,7 @@
+steps:
+  - bash: |
+      mkdir -p _deps && cd _deps
+      curl -L http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.13.orig.tar.gz -o lcov.tar.gz
+      tar -xf lcov.tar.gz
+      mv lcov-1.13 lcov
+    displayName: 'Install LCov'

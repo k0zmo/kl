@@ -1,0 +1,58 @@
+trigger:
+  branches:
+    include:
+      - azure # *
+
+jobs:
+  - job: ubuntu16_gcc5
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - script: |
+          which g++ && g++ --version
+          cmake --version
+        displayName: 'Check environment'
+      - template: templates/install-boost.yml
+      - script: |
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release
+          cmake --build _build --parallel 4
+        displayName: 'Build kl'
+      - script: |
+          cd _build && ctest -VV --output-on-failure
+        displayName: 'Run CTest'
+
+  - job: ubuntu16_gcc5_coverage
+    pool:
+      vmImage: 'ubuntu-16.04'
+    steps:
+      - script: |
+          which g++ && g++ --version
+          cmake --version
+        displayName: 'Check environment'
+      - script: |
+          pip install --user codecov
+        displayName: 'Install codecov'
+      - template: templates/install-boost.yml
+      - template: templates/install-lcov.yml
+      - script: |
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Coverage -DLCOV_EXECUTABLE=_deps/lcov/bin/lcov -DGENHTML_EXECUTABLE=_deps/lcov/bin/genhtml
+          cmake --build _build --parallel 4
+        displayName: 'Build kl'
+      - script: |
+          cd _build && cmake --build . --target kl-coverage
+          ~/.local/bin/codecov -X gcov
+        displayName: 'Send code coverage data'
+
+  - job: windows_vc2017
+    pool:
+      vmImage: 'vs2017-win2016'
+    steps:
+      - template: templates/install-boost.yml
+      - script: |
+          call "C:\Program Files (x86)\Microsoft Visual Studio\2017\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x86
+          cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0
+          cmake.exe --build _build --parallel 4 --config Release
+        displayName: 'Build kl'
+      - script: |
+          cd _build && ctest --build-config Release -VV --output-on-failure
+        displayName: 'Run CTest'
