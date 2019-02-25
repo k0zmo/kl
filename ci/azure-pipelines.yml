@@ -20,6 +20,7 @@ jobs:
         displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
+          export LDFLAGS="-fuse-ld=gold"
           cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
           cmake --build _build --parallel 4
         displayName: 'Build kl'
@@ -48,6 +49,7 @@ jobs:
         displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
+          export LDFLAGS="-fuse-ld=gold"
           cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
           cmake --build _build --parallel 4
         displayName: 'Build kl'
@@ -69,7 +71,9 @@ jobs:
       - template: templates/install-boost.yml
       - template: templates/install-lcov.yml
       - script: |
-          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Coverage -DLCOV_EXECUTABLE=_deps/lcov/bin/lcov -DGENHTML_EXECUTABLE=_deps/lcov/bin/genhtml
+          export LDFLAGS="-fuse-ld=gold"
+          export PATH=$(pwd)/_deps/lcov/bin:$PATH
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Coverage
           cmake --build _build --parallel 4
         displayName: 'Build kl'
       - script: |
