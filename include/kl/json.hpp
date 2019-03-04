@@ -8,8 +8,11 @@
 #include "kl/utility.hpp"
 
 #include <boost/optional.hpp>
+
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 #include <exception>
 #include <string>
@@ -63,6 +66,15 @@ private:
 };
 
 template <typename T>
+struct encoder;
+
+template <typename T>
+std::string dump(const T& obj);
+
+template <typename T, typename Writer>
+void dump(const T& obj, Writer& writer);
+
+template <typename T>
 struct serializer;
 
 template <typename T>
@@ -103,6 +115,164 @@ struct is_vector_alike
     : conjunction<
         has_value_type<T>,
         has_iterator<T>> {};
+
+template <typename Writer>
+void encode(std::nullptr_t, Writer& writer)
+{
+    writer.Null();
+}
+
+template <typename Writer>
+void encode(bool b, Writer& writer)
+{
+    writer.Bool(b);
+}
+
+template <typename Writer>
+void encode(int i, Writer& writer)
+{
+    writer.Int(i);
+}
+
+template <typename Writer>
+void encode(unsigned int u, Writer& writer)
+{
+    writer.Uint(u);
+}
+
+template <typename Writer>
+void encode(std::int64_t i64, Writer& writer)
+{
+    writer.Int64(i64);
+}
+
+template <typename Writer>
+void encode(std::uint64_t u64, Writer& writer)
+{
+    writer.Uint64(u64);
+}
+
+template <typename Writer>
+void encode(double d, Writer& writer)
+{
+    writer.Double(d);
+}
+
+template <typename Writer>
+void encode(const typename Writer::Ch* str, Writer& writer)
+{
+    writer.String(str);
+}
+
+template <typename Writer>
+void encode(const std::basic_string<typename Writer::Ch>& str, Writer& writer)
+{
+    writer.String(str);
+}
+
+template <typename Key, typename Writer>
+void encode_key(const Key& key, Writer& writer)
+{
+    writer.Key(key.c_str(), key.size());
+}
+
+template <typename Writer>
+void encode_key(const char* key, Writer& writer)
+{
+    writer.Key(key);
+}
+
+template <typename Map, typename Writer, enable_if<is_map_alike<Map>> = true>
+void encode(const Map& map, Writer& writer)
+{
+    writer.StartObject();
+    for (const auto& kv : map)
+    {
+        encode_key(kv.first, writer);
+        json::dump(kv.second, writer);
+    }
+    writer.EndObject();
+}
+
+template <
+    typename Vector, typename Writer,
+    enable_if<negation<is_map_alike<Vector>>, is_vector_alike<Vector>> = true>
+void encode(const Vector& vec, Writer& writer)
+{
+    writer.StartArray();
+    for (const auto& v : vec)
+        json::dump(v, writer);
+    writer.EndArray();
+}
+
+template <typename Reflectable, typename Writer,
+          enable_if<is_reflectable<Reflectable>> = true>
+void encode(const Reflectable& refl, Writer& writer)
+{
+    writer.StartObject();
+    ctti::reflect(refl, [&writer](auto fi) {
+        writer.Key(fi.name());
+        json::dump(fi.get(), writer);
+    });
+    writer.EndObject();
+}
+
+template <typename Enum, typename Writer>
+void encode_enum(Enum e, Writer& writer,
+                 std::false_type /*is_enum_reflectable*/)
+{
+    json::dump(underlying_cast(e), writer);
+}
+
+template <typename Enum, typename Writer>
+void encode_enum(Enum e, Writer& writer, std::true_type /*is_enum_reflectable*/)
+{
+    json::dump(enum_reflector<Enum>::to_string(e), writer);
+}
+
+template <typename Enum, typename Writer, enable_if<std::is_enum<Enum>> = true>
+void encode(Enum e, Writer& writer)
+{
+    encode_enum(e, writer, is_enum_reflectable<Enum>{});
+}
+
+template <typename Enum, typename Writer>
+void encode(const enum_flags<Enum>& flags, Writer& writer)
+{
+    static_assert(is_enum_reflectable<Enum>::value,
+                  "Only flags of reflectable enums are supported");
+    writer.StartArray();
+    for (const auto possible_value : enum_reflector<Enum>::values())
+    {
+        if (flags.test(possible_value))
+            json::dump(enum_reflector<Enum>::to_string(possible_value), writer);
+    }
+    writer.EndArray();
+}
+
+template <typename Tuple, std::size_t... Is, typename Writer>
+void encode_tuple(const Tuple& tuple, Writer& writer, index_sequence<Is...>)
+{
+    writer.StartArray();
+    using swallow = std::initializer_list<int>;
+    swallow{((json::dump(std::get<Is>(tuple), writer)), 0)...};
+    writer.EndArray();
+}
+
+template <typename... Ts, typename Writer>
+void encode(const std::tuple<Ts...>& tuple, Writer& writer)
+{
+    encode_tuple(tuple, writer, make_index_sequence<sizeof...(Ts)>{});
+}
+
+template <typename T, typename Writer>
+void encode(const boost::optional<T>& opt, Writer& writer)
+{
+    if (!opt)
+        writer.Null();
+    else
+        json::dump(*opt, writer);
+}
 
 // Checks if we can construct a Json object with given T
 template <typename T>
@@ -568,6 +738,28 @@ enum_flags<Enum> from_json(type_t<enum_flags<Enum>>,
     return ret;
 }
 
+template <typename T, typename Writer>
+void dump(const T&, Writer&, priority_tag<0>)
+{
+    static_assert(always_false<T>::value,
+                  "Cannot dump an instance of type T - no viable "
+                  "definition of encode provided");
+}
+
+template <typename T, typename Writer>
+auto dump(const T& obj, Writer& writer, priority_tag<1>)
+    -> decltype(encode(obj, writer), void())
+{
+    encode(obj, writer);
+}
+
+template <typename T, typename Writer>
+auto dump(const T& obj, Writer& writer, priority_tag<2>)
+    -> decltype(json::encoder<T>::encode(obj, writer), void())
+{
+    json::encoder<T>::encode(obj, writer);
+}
+
 template <typename T>
 rapidjson::Value serialize(const T&, rapidjson::Document&, priority_tag<0>)
 {
@@ -615,6 +807,21 @@ auto deserialize(const rapidjson::Value& value, priority_tag<2>)
     return json::serializer<T>::from_json(value);
 }
 } // namespace detail
+
+template <typename T>
+std::string dump(const T& obj)
+{
+    rapidjson::StringBuffer sb;
+    rapidjson::Writer<rapidjson::StringBuffer> writer{sb};
+    json::dump(obj, writer);
+    return {sb.GetString()};
+}
+
+template <typename T, typename Writer>
+void dump(const T& obj, Writer& writer)
+{
+    detail::dump(obj, writer, priority_tag<2>{});
+}
 
 // Top-level functions
 template <typename T>

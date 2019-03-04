@@ -205,7 +205,7 @@ TEST_CASE("json")
     SECTION("deserialize tuple")
     {
         auto t = std::make_tuple(13, 3.14, colour_space::lab, false);
-        auto j = kl::json::serialize(t);
+        auto j = json::serialize(t);
 
         auto obj = json::deserialize<decltype(t)>(j);
         REQUIRE(std::get<0>(obj) == 13);
@@ -695,7 +695,7 @@ struct aggregate
     my::value_wrapper<int> w;
     struct_in_anonymous_ns a;
 };
-KL_DEFINE_REFLECTABLE(aggregate, (g, /*n,*/ w, a))
+KL_DEFINE_REFLECTABLE(aggregate, (g, n, w, a))
 
 TEST_CASE("json - overloading")
 {
@@ -760,4 +760,149 @@ TEST_CASE("json - enum_flags")
                 (kl::underlying_cast(device_type::cpu) |
                  kl::underlying_cast(device_type::gpu)));
     }
+}
+
+TEST_CASE("json dump")
+{
+    using namespace kl;
+
+    SECTION("basic types")
+    {
+        CHECK(json::dump('a') == "97");
+        CHECK(json::dump(1) == "1");
+        CHECK(json::dump(1U) == "1");
+        CHECK(json::dump(1ULL) == "1");
+        CHECK(json::dump(true) == "true");
+        CHECK(json::dump(nullptr) == "null");
+        CHECK(json::dump("qwe") == "\"qwe\"");
+        CHECK(json::dump(std::string{"qwe"}) == "\"qwe\"");
+        CHECK(json::dump(13.11) == "13.11");
+        CHECK(json::dump(ordinary_enum::oe_one) == "0");
+    }
+
+    SECTION("inner_t")
+    {
+        CHECK(json::dump(inner_t{}) == R"({"r":1337,"d":3.1459259999999999})");
+    }
+
+    SECTION("different types and 'modes' for enums")
+    {
+        CHECK(json::dump(enums{}) ==
+              R"({"e0":0,"e1":0,"e2":"oe_one_ref","e3":"one"})");
+    }
+
+    SECTION("enum_flags")
+    {
+        auto f = make_flags(device_type::cpu) | device_type::gpu |
+                 device_type::accelerator;
+        auto res = json::dump(f);
+        CHECK(res == R"(["cpu","gpu","accelerator"])");
+
+        f &= ~kl::make_flags(device_type::accelerator);
+        res = json::dump(f);
+        CHECK(res == R"(["cpu","gpu"])");
+    }
+
+    SECTION("tuple")
+    {
+        auto t = std::make_tuple(13, 3.14, colour_space::lab, true);
+        auto res = json::dump(t);
+        CHECK(res == R"([13,3.14,"lab",true])");
+    }
+
+    SECTION("complex structure with std/boost containers")
+    {
+        auto res = json::dump(test_t{});
+        CHECK(
+            res ==
+            R"({"hello":"world","t":true,"f":false,"n":null,"i":123,)"
+            R"("pi":3.1415998935699465,"a":[1,2,3,4],"ad":[[1,2],[3,4,5]],)"
+            R"("space":"lab","tup":[1,3.140000104904175,"QWE"],"map":{"1":"hls","2":"rgb"},)"
+            R"("inner":{"r":1337,"d":3.1459259999999999}})");
+    }
+
+    SECTION("unsigned: check value greater than 0x7FFFFFFU")
+    {
+        REQUIRE(json::dump(2147483648U) == "2147483648");
+    }
+
+    SECTION("std containers")
+    {
+        auto j1 = json::dump(std::vector<inner_t>{inner_t{}});
+        CHECK(j1 == R"([{"r":1337,"d":3.1459259999999999}])");
+
+        auto j2 = json::dump(std::list<inner_t>{inner_t{}});
+        CHECK(j2 == R"([{"r":1337,"d":3.1459259999999999}])");
+
+        auto j3 = json::dump(std::deque<inner_t>{inner_t{}});
+        CHECK(j3 == R"([{"r":1337,"d":3.1459259999999999}])");
+
+        auto j4 =
+            json::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
+        CHECK(j4 == R"({"inner1":{"r":1337,"d":3.1459259999999999}})");
+
+        auto j5 = json::dump(
+            std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
+        CHECK(j5 == R"({"inner2":{"r":1337,"d":3.1459259999999999}})");
+    }
+}
+
+namespace kl {
+namespace json {
+
+template <>
+struct encoder<std::chrono::seconds>
+{
+    template <typename Writer>
+    static void encode(const std::chrono::seconds& s, Writer& writer)
+    {
+        json::dump(s.count(), writer);
+    }
+};
+} // namespace json
+} // namespace kl
+
+TEST_CASE("json dump - extended")
+{
+    using namespace std::chrono;
+    chrono_test t{2, seconds{10}, {seconds{6}, seconds{12}}};
+    const auto res = kl::json::dump(t);
+    CHECK(res == R"({"t":2,"sec":10,"secs":[6,12]})");
+}
+
+template <typename Writer>
+void encode(global_struct, Writer& writer)
+{
+    kl::json::dump("global_struct", writer);
+}
+
+namespace {
+
+template <typename Writer>
+void encode(struct_in_anonymous_ns, Writer& writer)
+{
+    kl::json::dump(1, writer);
+}
+} // namespace
+
+namespace my {
+
+template <typename Writer>
+void encode(none_t, Writer& writer)
+{
+    kl::json::dump(nullptr, writer);
+}
+
+template <typename T, typename Writer>
+void encode(const value_wrapper<T>& t, Writer& writer)
+{
+    kl::json::dump(t.value, writer);
+}
+} // namespace my
+
+TEST_CASE("json dump - overloading")
+{
+    aggregate a{{}, {}, {31}, {}};
+    auto res = kl::json::dump(a);
+    CHECK(res == R"({"g":"global_struct","n":null,"w":31,"a":1})");
 }
