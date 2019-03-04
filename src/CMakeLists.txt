@@ -22,7 +22,6 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/file_view.hpp
     ${kl_SOURCE_DIR}/include/kl/hash.hpp
     ${kl_SOURCE_DIR}/include/kl/json_convert.hpp
-    ${kl_SOURCE_DIR}/include/kl/json_print.hpp
     ${kl_SOURCE_DIR}/include/kl/match.hpp
     ${kl_SOURCE_DIR}/include/kl/meta.hpp
     ${kl_SOURCE_DIR}/include/kl/signal.hpp
@@ -30,7 +29,6 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/stream_join.hpp
     ${kl_SOURCE_DIR}/include/kl/tuple.hpp
     ${kl_SOURCE_DIR}/include/kl/type_traits.hpp
-    ${kl_SOURCE_DIR}/include/kl/type_class.hpp
     ${kl_SOURCE_DIR}/include/kl/utility.hpp
     ${kl_SOURCE_DIR}/include/kl/zip.hpp
     # binary_rw (WIP)
