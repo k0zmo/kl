@@ -1,4 +1,4 @@
-#include "kl/json_convert.hpp"
+#include "kl/json.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_flags.hpp"
 
@@ -104,7 +104,7 @@ std::string to_string(const rapidjson::Document& doc)
     return std::string(buffer.GetString());
 }
 
-TEST_CASE("json_convert")
+TEST_CASE("json")
 {
     using namespace kl;
 
@@ -616,7 +616,7 @@ struct serializer<std::chrono::seconds>
 } // namespace json
 } // namespace kl
 
-TEST_CASE("json_convert - extended")
+TEST_CASE("json - extended")
 {
     using namespace std::chrono;
     chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}};
@@ -697,7 +697,7 @@ struct aggregate
 };
 KL_DEFINE_REFLECTABLE(aggregate, (g, /*n,*/ w, a))
 
-TEST_CASE("json_convert - overloading")
+TEST_CASE("json - overloading")
 {
     aggregate a{{}, {}, {31}, {}};
     auto j = kl::json::serialize(a);
@@ -721,7 +721,7 @@ using device_flags = kl::enum_flags<device_type>;
 KL_DEFINE_ENUM_REFLECTOR(device_type,
                          ((default_, default), cpu, gpu, accelerator, custom))
 
-TEST_CASE("json_convert - enum_flags")
+TEST_CASE("json - enum_flags")
 {
     SECTION("to json")
     {

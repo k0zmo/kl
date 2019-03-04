@@ -12,7 +12,7 @@ set(test_files
     enum_traits_test.cpp
     file_view_test.cpp
     hash_test.cpp
-    json_convert_test.cpp
+    json_test.cpp
     match_test.cpp
     meta_test.cpp
     signal_test.cpp

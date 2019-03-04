@@ -21,7 +21,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/enum_traits.hpp
     ${kl_SOURCE_DIR}/include/kl/file_view.hpp
     ${kl_SOURCE_DIR}/include/kl/hash.hpp
-    ${kl_SOURCE_DIR}/include/kl/json_convert.hpp
+    ${kl_SOURCE_DIR}/include/kl/json.hpp
     ${kl_SOURCE_DIR}/include/kl/match.hpp
     ${kl_SOURCE_DIR}/include/kl/meta.hpp
     ${kl_SOURCE_DIR}/include/kl/signal.hpp
