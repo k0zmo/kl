@@ -24,6 +24,36 @@ KL_DEFINE_ENUM_REFLECTOR(rapidjson, Type,
 namespace kl {
 namespace json {
 
+template <typename T>
+struct encoder;
+
+template <typename T>
+std::string dump(const T& obj);
+
+template <typename T, typename Writer>
+void dump(const T& obj, Writer& writer);
+
+template <typename T>
+struct serializer;
+
+template <typename T>
+rapidjson::Document serialize(const T& obj);
+
+template <typename T>
+rapidjson::Value serialize(const T& obj, rapidjson::Document& doc);
+
+template <typename T>
+T deserialize(type_t<T>, const rapidjson::Value& value);
+
+// Shorter version of from which can't be overloaded. Only use to invoke
+// the from() without providing a bit weird first parameter.
+template <typename T>
+T deserialize(const rapidjson::Value& value)
+{
+    // TODO replace with variable template type<T>
+    return json::deserialize(type_t<T>{}, value);
+}
+
 struct deserialize_error : std::exception
 {
     explicit deserialize_error(const char* message)
@@ -64,36 +94,6 @@ struct parse_error : std::exception
 private:
     std::string message_;
 };
-
-template <typename T>
-struct encoder;
-
-template <typename T>
-std::string dump(const T& obj);
-
-template <typename T, typename Writer>
-void dump(const T& obj, Writer& writer);
-
-template <typename T>
-struct serializer;
-
-template <typename T>
-rapidjson::Document serialize(const T& obj);
-
-template <typename T>
-rapidjson::Value serialize(const T& obj, rapidjson::Document& doc);
-
-template <typename T>
-T deserialize(type_t<T>, const rapidjson::Value& value);
-
-// Shorter version of from which can't be overloaded. Only use to invoke
-// the from() without providing a bit weird first parameter.
-template <typename T>
-T deserialize(const rapidjson::Value& value)
-{
-    // TODO replace with variable template type<T>
-    return json::deserialize(type_t<T>{}, value);
-}
 
 namespace detail {
 
