@@ -81,9 +81,8 @@ struct unsigned_test
     unsigned char u8{128};
     unsigned short u16{32768};
     unsigned int u32{std::numeric_limits<unsigned int>::max()};
-    // unsigned long long u64{0}; // can't represent losslessly u64 in double
+    std::uint64_t u64{std::numeric_limits<std::uint64_t>::max()};
 };
-
 } // namespace
 
 KL_DEFINE_REFLECTABLE(optional_test, (non_opt, opt))
@@ -94,7 +93,7 @@ KL_DEFINE_ENUM_REFLECTOR(scope_enum_reflectable, (one))
 KL_DEFINE_REFLECTABLE(enums, (e0, e1, e2, e3))
 KL_DEFINE_REFLECTABLE(test_t,
                       (hello, t, f, n, i, pi, a, ad, space, tup, map, inner))
-KL_DEFINE_REFLECTABLE(unsigned_test, (u8, u16, u32))
+KL_DEFINE_REFLECTABLE(unsigned_test, (u8, u16, u32, u64))
 
 std::string to_string(const rapidjson::Document& doc)
 {
@@ -454,11 +453,13 @@ TEST_CASE("json")
         REQUIRE(j["u8"] == t.u8);
         REQUIRE(j["u16"] == t.u16);
         REQUIRE(j["u32"] == t.u32);
+        REQUIRE(j["u64"] == t.u64);
 
         auto obj = json::deserialize<unsigned_test>(j);
         REQUIRE(obj.u8 == t.u8);
         REQUIRE(obj.u16 == t.u16);
         REQUIRE(obj.u32 == t.u32);
+        REQUIRE(obj.u64 == t.u64);
     }
 
     SECTION("deserialize to struct from an array")
@@ -805,6 +806,14 @@ TEST_CASE("json dump")
     {
         CHECK(json::dump(enums{}) ==
               R"({"e0":0,"e1":0,"e2":"oe_one_ref","e3":"one"})");
+    }
+
+    SECTION("test unsigned types")
+    {
+        auto res = json::dump(unsigned_test{});
+        CHECK(
+            res ==
+            R"({"u8":128,"u16":32768,"u32":4294967295,"u64":18446744073709551615})");
     }
 
     SECTION("enum_flags")
