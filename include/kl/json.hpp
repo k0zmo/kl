@@ -298,6 +298,14 @@ rapidjson::Value to_json(const std::basic_string<Ch>& str,
     return rapidjson::Value{str, doc.GetAllocator()};
 }
 
+// For string literals
+template <std::size_t N>
+rapidjson::Value to_json(const char (&str)[N], rapidjson::Document&)
+{
+    // No need for allocator
+    return rapidjson::Value{str, N};
+}
+
 // For all T's that quacks like a std::map
 template <typename Map, enable_if<negation<is_json_constructible<Map>>,
                                   is_map_alike<Map>> = true>

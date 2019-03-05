@@ -115,8 +115,7 @@ TEST_CASE("json")
         CHECK(json::serialize(std::int64_t{-1}).IsInt64());
         CHECK(json::serialize(std::uint64_t{1}).IsUint64());
         CHECK(json::serialize(true).IsBool());
-        //CHECK(json::serialize(nullptr).IsNull());
-        //CHECK(json::serialize("qwe").IsString());
+        CHECK(json::serialize("qwe").IsString());
         CHECK(json::serialize(std::string{ "qwe" }).IsString());
         CHECK(json::serialize(13.11).IsDouble());
         CHECK(json::serialize(ordinary_enum::oe_one).IsInt());
