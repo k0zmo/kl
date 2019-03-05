@@ -576,7 +576,8 @@ Vector from_json(type_t<Vector>, const rapidjson::Value& value)
 // Safely gets the JSON from the array of JSON values. If provided index is
 // out-of-bounds we return a null value.
 inline const rapidjson::Value&
-    safe_get_value(const rapidjson::Value::ConstArray& arr, std::size_t idx)
+    safe_get_value(const rapidjson::Value::ConstArray& arr,
+                   rapidjson::SizeType idx)
 {
     static const auto null_value = rapidjson::Value{};
     return idx >= arr.Size() ? null_value : arr[idx];
