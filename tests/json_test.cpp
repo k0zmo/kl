@@ -108,6 +108,21 @@ TEST_CASE("json")
 {
     using namespace kl;
 
+    SECTION("basic types")
+    {
+        CHECK(json::serialize('a').IsInt());
+        CHECK(json::serialize(1).IsInt());
+        CHECK(json::serialize(3U).IsInt());
+        CHECK(json::serialize(std::int64_t{-1}).IsInt64());
+        CHECK(json::serialize(std::uint64_t{1}).IsUint64());
+        CHECK(json::serialize(true).IsBool());
+        //CHECK(json::serialize(nullptr).IsNull());
+        //CHECK(json::serialize("qwe").IsString());
+        CHECK(json::serialize(std::string{ "qwe" }).IsString());
+        CHECK(json::serialize(13.11).IsDouble());
+        CHECK(json::serialize(ordinary_enum::oe_one).IsInt());
+    }
+
     SECTION("parse error")
     {
         REQUIRE_NOTHROW(R"([])"_json);
@@ -770,8 +785,9 @@ TEST_CASE("json dump")
     {
         CHECK(json::dump('a') == "97");
         CHECK(json::dump(1) == "1");
-        CHECK(json::dump(1U) == "1");
-        CHECK(json::dump(1ULL) == "1");
+        CHECK(json::dump(3U) == "3");
+        CHECK(json::dump(std::int64_t{-1}) == "-1");
+        CHECK(json::dump(std::uint64_t{1}) == "1");
         CHECK(json::dump(true) == "true");
         CHECK(json::dump(nullptr) == "null");
         CHECK(json::dump("qwe") == "\"qwe\"");
