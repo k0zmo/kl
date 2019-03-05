@@ -255,7 +255,7 @@ void encode_tuple(const Tuple& tuple, Writer& writer, index_sequence<Is...>)
 {
     writer.StartArray();
     using swallow = std::initializer_list<int>;
-    swallow{((json::dump(std::get<Is>(tuple), writer)), 0)...};
+    (void)swallow{((json::dump(std::get<Is>(tuple), writer)), 0)...};
     writer.EndArray();
 }
 
@@ -385,9 +385,9 @@ rapidjson::Value tuple_to_json(const Tuple& tuple, rapidjson::Document& doc,
 {
     rapidjson::Value arr{rapidjson::kArrayType};
     using swallow = std::initializer_list<int>;
-    swallow{(arr.PushBack(json::serialize(std::get<Is>(tuple), doc),
-                          doc.GetAllocator()),
-             0)...};
+    (void)swallow{(arr.PushBack(json::serialize(std::get<Is>(tuple), doc),
+                                doc.GetAllocator()),
+                   0)...};
     return arr;
 }
 
