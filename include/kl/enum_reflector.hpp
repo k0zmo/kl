@@ -134,6 +134,18 @@ constexpr enum_reflector<Enum> reflect()
                   "KL_DEFINE_ENUM_REFLECTOR macro");
     return {};
 }
+
+template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
+const char* to_string(Enum e)
+{
+    return enum_reflector<Enum>::to_string(e);
+}
+
+template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
+boost::optional<Enum> from_string(gsl::cstring_span<> str)
+{
+    return enum_reflector<Enum>::from_string(str);
+}
 } // namespace kl
 
 #define KL_DEFINE_ENUM_REFLECTOR(...) KL_ENUM_REFLECTOR_IMPL(__VA_ARGS__)

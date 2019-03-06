@@ -166,4 +166,16 @@ TEST_CASE("enum_reflector")
         REQUIRE(*it++ == prefix_two);
         REQUIRE(it == values.end());
     }
+
+    SECTION("global to_string and from_string")
+    {
+        using namespace std::string_literals;
+
+        CHECK(kl::to_string(prefix_one) == "prefix_one"s);
+        CHECK(kl::to_string(ns::inner::colour_space::rgb) == "rgb"s);
+
+        REQUIRE(!!kl::from_string<access_mode>("read_write"));
+        CHECK(kl::from_string<access_mode>("read_write").get() ==
+              access_mode::read_write);
+    }
 }

@@ -288,7 +288,7 @@ void encode_enum(Enum e, Context& ctx, std::false_type /*is_enum_reflectable*/)
 template <typename Enum, typename Context>
 void encode_enum(Enum e, Context& ctx, std::true_type /*is_enum_reflectable*/)
 {
-    json::dump(enum_reflector<Enum>::to_string(e), ctx);
+    json::dump(kl::to_string(e), ctx);
 }
 
 template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
@@ -306,7 +306,7 @@ void encode(const enum_flags<Enum>& flags, Context& ctx)
     for (const auto possible_value : enum_reflector<Enum>::values())
     {
         if (flags.test(possible_value))
-            json::dump(enum_reflector<Enum>::to_string(possible_value), ctx);
+            json::dump(kl::to_string(possible_value), ctx);
     }
     ctx.writer().EndArray();
 }
