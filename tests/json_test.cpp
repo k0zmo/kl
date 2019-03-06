@@ -288,6 +288,26 @@ TEST_CASE("json")
         REQUIRE(json::serialize(t)["opt"] == 78);
     }
 
+    SECTION("don't skip optional fields if requested")
+    {
+        optional_test t;
+        t.non_opt = 23;
+
+        rapidjson::Document doc;
+        kl::json::serialize_context ctx{doc, false};
+
+        REQUIRE(json::serialize(t, ctx).IsObject());
+        REQUIRE(json::serialize(t, ctx).MemberCount() == 2);
+        REQUIRE(json::serialize(t, ctx)["non_opt"] == 23);
+        REQUIRE(json::serialize(t, ctx)["opt"].IsNull());
+
+        t.opt = 78;
+        REQUIRE(json::serialize(t, ctx).IsObject());
+        REQUIRE(json::serialize(t, ctx).MemberCount() == 2);
+        REQUIRE(json::serialize(t, ctx)["non_opt"] == 23);
+        REQUIRE(json::serialize(t, ctx)["opt"] == 78);
+    }
+
     SECTION("deserialize fields with null")
     {
         auto j = R"({"opt": null, "non_opt": 3})"_json;
@@ -721,6 +741,8 @@ TEST_CASE("json - overloading")
 {
     aggregate a{{}, {}, {31}, {}};
     auto j = kl::json::serialize(a);
+    REQUIRE(j.FindMember("n") != j.MemberEnd());
+    CHECK(j["n"].IsNull());
     auto obj = kl::json::deserialize<aggregate>(j);
     REQUIRE(obj.w.value == 31);
 }
@@ -839,12 +861,47 @@ TEST_CASE("json dump")
         CHECK(res == R"([13,3.14,"lab",true])");
     }
 
+    SECTION("skip serializing optional fields")
+    {
+        optional_test t;
+        t.non_opt = 23;
+
+        CHECK(json::dump(t) == R"({"non_opt":23})");
+
+        t.opt = 78;
+        CHECK(json::dump(t) == R"({"non_opt":23,"opt":78})");
+    }
+
+    SECTION("don't skip optional fields if requested")
+    {
+        optional_test t;
+        t.non_opt = 23;
+
+        using namespace rapidjson;
+
+        StringBuffer sb;
+        Writer<StringBuffer> writer{sb};
+        kl::json::dump_context<Writer<StringBuffer>> ctx{writer, false};
+
+        json::dump(t, ctx);
+        std::string res = sb.GetString();
+        CHECK(res == R"({"non_opt":23,"opt":null})");
+
+        sb.Clear();
+        writer.Reset(sb);
+
+        t.opt = 78;
+        json::dump(t, ctx);
+        res = sb.GetString();
+        CHECK(res == R"({"non_opt":23,"opt":78})");
+    }
+
     SECTION("complex structure with std/boost containers")
     {
         auto res = json::dump(test_t{});
         CHECK(
             res ==
-            R"({"hello":"world","t":true,"f":false,"n":null,"i":123,)"
+            R"({"hello":"world","t":true,"f":false,"i":123,)"
             R"("pi":3.1415998935699465,"a":[1,2,3,4],"ad":[[1,2],[3,4,5]],)"
             R"("space":"lab","tup":[1,3.140000104904175,"QWE"],"map":{"1":"hls","2":"rgb"},)"
             R"("inner":{"r":1337,"d":3.1459259999999999}})");

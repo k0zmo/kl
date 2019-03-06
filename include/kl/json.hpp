@@ -33,15 +33,17 @@ class dump_context
 public:
     using writer_type = Writer;
 
-    explicit dump_context(Writer& writer)
-        : writer_{writer}
+    explicit dump_context(Writer& writer, bool skip_null_fields = true)
+        : writer_{writer}, skip_null_fields_{skip_null_fields}
     {
     }
 
     Writer& writer() const { return writer_; }
+    bool skip_null_fields() const { return skip_null_fields_; }
 
 private:
     Writer& writer_;
+    bool skip_null_fields_;
 };
 
 template <typename T>
@@ -56,16 +58,37 @@ struct serializer;
 class serialize_context
 {
 public:
-    explicit serialize_context(rapidjson::Document& doc) : doc_{doc} {}
+    explicit serialize_context(rapidjson::Document& doc,
+                               bool skip_null_fields = true)
+        : doc_{doc}, skip_null_fields_{skip_null_fields}
+    {
+    }
 
     rapidjson::Document& document() { return doc_; }
     rapidjson::MemoryPoolAllocator<>& allocator()
     {
         return doc_.GetAllocator();
     }
+    bool skip_null_fields() const { return skip_null_fields_; }
 
 private:
     rapidjson::Document& doc_;
+    bool skip_null_fields_;
+};
+
+template <typename Optional>
+struct optional_traits
+{
+    constexpr static bool is_null_value(const Optional&) { return false; }
+};
+
+template <typename T>
+struct optional_traits<boost::optional<T>>
+{
+    constexpr static bool is_null_value(const boost::optional<T>& opt)
+    {
+        return !opt;
+    }
 };
 
 template <typename T>
@@ -244,15 +267,20 @@ void encode(const Reflectable& refl, Context& ctx)
 {
     ctx.writer().StartObject();
     ctti::reflect(refl, [&ctx](auto fi) {
-        ctx.writer().Key(fi.name());
-        json::dump(fi.get(), ctx);
+        using field_type =
+            std::remove_cv_t<typename decltype(fi)::original_type>;
+        if (!ctx.skip_null_fields() ||
+            !optional_traits<field_type>::is_null_value(fi.get()))
+        {
+            ctx.writer().Key(fi.name());
+            json::dump(fi.get(), ctx);
+        }
     });
     ctx.writer().EndObject();
 }
 
 template <typename Enum, typename Context>
-void encode_enum(Enum e, Context& ctx,
-                 std::false_type /*is_enum_reflectable*/)
+void encode_enum(Enum e, Context& ctx, std::false_type /*is_enum_reflectable*/)
 {
     json::dump(underlying_cast(e), ctx);
 }
@@ -375,10 +403,16 @@ rapidjson::Value to_json(const Reflectable& refl, Context& ctx)
 {
     rapidjson::Value obj{rapidjson::kObjectType};
     ctti::reflect(refl, [&obj, &ctx](auto fi) {
-        auto json = json::serialize(fi.get(), ctx);
-        if (!json.IsNull())
+        using field_type =
+            std::remove_cv_t<typename decltype(fi)::original_type>;
+
+        if (!ctx.skip_null_fields() ||
+            !optional_traits<field_type>::is_null_value(fi.get()))
+        {
+            auto json = json::serialize(fi.get(), ctx);
             obj.AddMember(rapidjson::StringRef(fi.name()), std::move(json),
                           ctx.allocator());
+        }
     });
     return obj;
 }
@@ -406,8 +440,7 @@ rapidjson::Value to_json(Enum e, Context& ctx)
 }
 
 template <typename Enum, typename Context>
-rapidjson::Value to_json(const enum_flags<Enum>& flags,
-                         Context& ctx)
+rapidjson::Value to_json(const enum_flags<Enum>& flags, Context& ctx)
 {
     static_assert(is_enum_reflectable<Enum>::value,
                   "Only flags of reflectable enums are supported");
