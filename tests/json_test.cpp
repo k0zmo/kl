@@ -877,10 +877,10 @@ namespace json {
 template <>
 struct encoder<std::chrono::seconds>
 {
-    template <typename Writer>
-    static void encode(const std::chrono::seconds& s, Writer& writer)
+    template <typename Context>
+    static void encode(const std::chrono::seconds& s, Context& ctx)
     {
-        json::dump(s.count(), writer);
+        json::dump(s.count(), ctx);
     }
 };
 } // namespace json
@@ -894,33 +894,33 @@ TEST_CASE("json dump - extended")
     CHECK(res == R"({"t":2,"sec":10,"secs":[6,12]})");
 }
 
-template <typename Writer>
-void encode(global_struct, Writer& writer)
+template <typename Context>
+void encode(global_struct, Context& ctx)
 {
-    kl::json::dump("global_struct", writer);
+    kl::json::dump("global_struct", ctx);
 }
 
 namespace {
 
-template <typename Writer>
-void encode(struct_in_anonymous_ns, Writer& writer)
+template <typename Context>
+void encode(struct_in_anonymous_ns, Context& ctx)
 {
-    kl::json::dump(1, writer);
+    kl::json::dump(1, ctx);
 }
 } // namespace
 
 namespace my {
 
-template <typename Writer>
-void encode(none_t, Writer& writer)
+template <typename Context>
+void encode(none_t, Context& ctx)
 {
-    kl::json::dump(nullptr, writer);
+    kl::json::dump(nullptr, ctx);
 }
 
-template <typename T, typename Writer>
-void encode(const value_wrapper<T>& t, Writer& writer)
+template <typename T, typename Context>
+void encode(const value_wrapper<T>& t, Context& ctx)
 {
-    kl::json::dump(t.value, writer);
+    kl::json::dump(t.value, ctx);
 }
 } // namespace my
 

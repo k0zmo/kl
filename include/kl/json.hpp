@@ -27,11 +27,28 @@ namespace json {
 template <typename T>
 struct encoder;
 
+template <typename Writer>
+class dump_context
+{
+public:
+    using writer_type = Writer;
+
+    explicit dump_context(Writer& writer)
+        : writer_{writer}
+    {
+    }
+
+    Writer& writer() const { return writer_; }
+
+private:
+    Writer& writer_;
+};
+
 template <typename T>
 std::string dump(const T& obj);
 
-template <typename T, typename Writer>
-void dump(const T& obj, Writer& writer);
+template <typename T, typename Context>
+void dump(const T& obj, Context& ctx);
 
 template <typename T>
 struct serializer;
@@ -116,162 +133,163 @@ struct is_vector_alike
         has_value_type<T>,
         has_iterator<T>> {};
 
-template <typename Writer>
-void encode(std::nullptr_t, Writer& writer)
+template <typename Context>
+void encode(std::nullptr_t, Context& ctx)
 {
-    writer.Null();
+    ctx.writer().Null();
 }
 
-template <typename Writer>
-void encode(bool b, Writer& writer)
+template <typename Context>
+void encode(bool b, Context& ctx)
 {
-    writer.Bool(b);
+    ctx.writer().Bool(b);
 }
 
-template <typename Writer>
-void encode(int i, Writer& writer)
+template <typename Context>
+void encode(int i, Context& ctx)
 {
-    writer.Int(i);
+    ctx.writer().Int(i);
 }
 
-template <typename Writer>
-void encode(unsigned int u, Writer& writer)
+template <typename Context>
+void encode(unsigned int u, Context& ctx)
 {
-    writer.Uint(u);
+    ctx.writer().Uint(u);
 }
 
-template <typename Writer>
-void encode(std::int64_t i64, Writer& writer)
+template <typename Context>
+void encode(std::int64_t i64, Context& ctx)
 {
-    writer.Int64(i64);
+    ctx.writer().Int64(i64);
 }
 
-template <typename Writer>
-void encode(std::uint64_t u64, Writer& writer)
+template <typename Context>
+void encode(std::uint64_t u64, Context& ctx)
 {
-    writer.Uint64(u64);
+    ctx.writer().Uint64(u64);
 }
 
-template <typename Writer>
-void encode(double d, Writer& writer)
+template <typename Context>
+void encode(double d, Context& ctx)
 {
-    writer.Double(d);
+    ctx.writer().Double(d);
 }
 
-template <typename Writer>
-void encode(const typename Writer::Ch* str, Writer& writer)
+template <typename Context>
+void encode(const typename Context::writer_type::Ch* str, Context& ctx)
 {
-    writer.String(str);
+    ctx.writer().String(str);
 }
 
-template <typename Writer>
-void encode(const std::basic_string<typename Writer::Ch>& str, Writer& writer)
+template <typename Context>
+void encode(const std::basic_string<typename Context::writer_type::Ch>& str,
+            Context& ctx)
 {
-    writer.String(str);
+    ctx.writer().String(str);
 }
 
-template <typename Key, typename Writer>
-void encode_key(const Key& key, Writer& writer)
+template <typename Key, typename Context>
+void encode_key(const Key& key, Context& ctx)
 {
-    writer.Key(key.c_str(), key.size());
+    ctx.writer().Key(key.c_str(), key.size());
 }
 
-template <typename Writer>
-void encode_key(const char* key, Writer& writer)
+template <typename Context>
+void encode_key(const char* key, Context& ctx)
 {
-    writer.Key(key);
+    ctx.writer().Key(key);
 }
 
-template <typename Map, typename Writer, enable_if<is_map_alike<Map>> = true>
-void encode(const Map& map, Writer& writer)
+template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
+void encode(const Map& map, Context& ctx)
 {
-    writer.StartObject();
+    ctx.writer().StartObject();
     for (const auto& kv : map)
     {
-        encode_key(kv.first, writer);
-        json::dump(kv.second, writer);
+        encode_key(kv.first, ctx);
+        json::dump(kv.second, ctx);
     }
-    writer.EndObject();
+    ctx.writer().EndObject();
 }
 
 template <
-    typename Vector, typename Writer,
+    typename Vector, typename Context,
     enable_if<negation<is_map_alike<Vector>>, is_vector_alike<Vector>> = true>
-void encode(const Vector& vec, Writer& writer)
+void encode(const Vector& vec, Context& ctx)
 {
-    writer.StartArray();
+    ctx.writer().StartArray();
     for (const auto& v : vec)
-        json::dump(v, writer);
-    writer.EndArray();
+        json::dump(v, ctx);
+    ctx.writer().EndArray();
 }
 
-template <typename Reflectable, typename Writer,
+template <typename Reflectable, typename Context,
           enable_if<is_reflectable<Reflectable>> = true>
-void encode(const Reflectable& refl, Writer& writer)
+void encode(const Reflectable& refl, Context& ctx)
 {
-    writer.StartObject();
-    ctti::reflect(refl, [&writer](auto fi) {
-        writer.Key(fi.name());
-        json::dump(fi.get(), writer);
+    ctx.writer().StartObject();
+    ctti::reflect(refl, [&ctx](auto fi) {
+        ctx.writer().Key(fi.name());
+        json::dump(fi.get(), ctx);
     });
-    writer.EndObject();
+    ctx.writer().EndObject();
 }
 
-template <typename Enum, typename Writer>
-void encode_enum(Enum e, Writer& writer,
+template <typename Enum, typename Context>
+void encode_enum(Enum e, Context& ctx,
                  std::false_type /*is_enum_reflectable*/)
 {
-    json::dump(underlying_cast(e), writer);
+    json::dump(underlying_cast(e), ctx);
 }
 
-template <typename Enum, typename Writer>
-void encode_enum(Enum e, Writer& writer, std::true_type /*is_enum_reflectable*/)
+template <typename Enum, typename Context>
+void encode_enum(Enum e, Context& ctx, std::true_type /*is_enum_reflectable*/)
 {
-    json::dump(enum_reflector<Enum>::to_string(e), writer);
+    json::dump(enum_reflector<Enum>::to_string(e), ctx);
 }
 
-template <typename Enum, typename Writer, enable_if<std::is_enum<Enum>> = true>
-void encode(Enum e, Writer& writer)
+template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
+void encode(Enum e, Context& ctx)
 {
-    encode_enum(e, writer, is_enum_reflectable<Enum>{});
+    encode_enum(e, ctx, is_enum_reflectable<Enum>{});
 }
 
-template <typename Enum, typename Writer>
-void encode(const enum_flags<Enum>& flags, Writer& writer)
+template <typename Enum, typename Context>
+void encode(const enum_flags<Enum>& flags, Context& ctx)
 {
     static_assert(is_enum_reflectable<Enum>::value,
                   "Only flags of reflectable enums are supported");
-    writer.StartArray();
+    ctx.writer().StartArray();
     for (const auto possible_value : enum_reflector<Enum>::values())
     {
         if (flags.test(possible_value))
-            json::dump(enum_reflector<Enum>::to_string(possible_value), writer);
+            json::dump(enum_reflector<Enum>::to_string(possible_value), ctx);
     }
-    writer.EndArray();
+    ctx.writer().EndArray();
 }
 
-template <typename Tuple, std::size_t... Is, typename Writer>
-void encode_tuple(const Tuple& tuple, Writer& writer, index_sequence<Is...>)
+template <typename Tuple, std::size_t... Is, typename Context>
+void encode_tuple(const Tuple& tuple, Context& ctx, index_sequence<Is...>)
 {
-    writer.StartArray();
+    ctx.writer().StartArray();
     using swallow = std::initializer_list<int>;
-    (void)swallow{((json::dump(std::get<Is>(tuple), writer)), 0)...};
-    writer.EndArray();
+    (void)swallow{((json::dump(std::get<Is>(tuple), ctx)), 0)...};
+    ctx.writer().EndArray();
 }
 
-template <typename... Ts, typename Writer>
-void encode(const std::tuple<Ts...>& tuple, Writer& writer)
+template <typename... Ts, typename Context>
+void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    encode_tuple(tuple, writer, make_index_sequence<sizeof...(Ts)>{});
+    encode_tuple(tuple, ctx, make_index_sequence<sizeof...(Ts)>{});
 }
 
-template <typename T, typename Writer>
-void encode(const boost::optional<T>& opt, Writer& writer)
+template <typename T, typename Context>
+void encode(const boost::optional<T>& opt, Context& ctx)
 {
     if (!opt)
-        writer.Null();
+        ctx.writer().Null();
     else
-        json::dump(*opt, writer);
+        json::dump(*opt, ctx);
 }
 
 // Checks if we can construct a Json object with given T
@@ -747,26 +765,26 @@ enum_flags<Enum> from_json(type_t<enum_flags<Enum>>,
     return ret;
 }
 
-template <typename T, typename Writer>
-void dump(const T&, Writer&, priority_tag<0>)
+template <typename T, typename Context>
+void dump(const T&, Context&, priority_tag<0>)
 {
     static_assert(always_false<T>::value,
                   "Cannot dump an instance of type T - no viable "
                   "definition of encode provided");
 }
 
-template <typename T, typename Writer>
-auto dump(const T& obj, Writer& writer, priority_tag<1>)
-    -> decltype(encode(obj, writer), void())
+template <typename T, typename Context>
+auto dump(const T& obj, Context& ctx, priority_tag<1>)
+    -> decltype(encode(obj, ctx), void())
 {
-    encode(obj, writer);
+    encode(obj, ctx);
 }
 
-template <typename T, typename Writer>
-auto dump(const T& obj, Writer& writer, priority_tag<2>)
-    -> decltype(json::encoder<T>::encode(obj, writer), void())
+template <typename T, typename Context>
+auto dump(const T& obj, Context& ctx, priority_tag<2>)
+    -> decltype(json::encoder<T>::encode(obj, ctx), void())
 {
-    json::encoder<T>::encode(obj, writer);
+    json::encoder<T>::encode(obj, ctx);
 }
 
 template <typename T>
@@ -820,16 +838,19 @@ auto deserialize(const rapidjson::Value& value, priority_tag<2>)
 template <typename T>
 std::string dump(const T& obj)
 {
-    rapidjson::StringBuffer sb;
-    rapidjson::Writer<rapidjson::StringBuffer> writer{sb};
-    json::dump(obj, writer);
-    return {sb.GetString()};
+    using namespace rapidjson;
+    StringBuffer buf{};
+    Writer<StringBuffer> wrt{buf};
+    dump_context<Writer<StringBuffer>> ctx{wrt};
+
+    json::dump(obj, ctx);
+    return {buf.GetString()};
 }
 
-template <typename T, typename Writer>
-void dump(const T& obj, Writer& writer)
+template <typename T, typename Context>
+void dump(const T& obj, Context& ctx)
 {
-    detail::dump(obj, writer, priority_tag<2>{});
+    detail::dump(obj, ctx, priority_tag<2>{});
 }
 
 // Top-level functions
