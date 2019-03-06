@@ -23,7 +23,7 @@ if(NOT rapidjson_POPULATED)
     # No point in add_subdirectory() - there's no target defined
     add_library(rapidjson INTERFACE)
     add_library(rapidjson::rapidjson ALIAS rapidjson)
-    target_include_directories(rapidjson INTERFACE ${rapidjson_SOURCE_DIR}/include)
+    target_include_directories(rapidjson SYSTEM INTERFACE ${rapidjson_SOURCE_DIR}/include)
     target_compile_definitions(rapidjson INTERFACE RAPIDJSON_HAS_STDSTRING=1)
 endif()
 
