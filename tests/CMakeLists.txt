@@ -12,8 +12,7 @@ set(test_files
     enum_traits_test.cpp
     file_view_test.cpp
     hash_test.cpp
-    json_convert_test.cpp
-    json_print_test.cpp
+    json_test.cpp
     match_test.cpp
     meta_test.cpp
     signal_test.cpp
@@ -21,7 +20,6 @@ set(test_files
     stream_join_test.cpp
     tuple_test.cpp
     type_traits_test.cpp
-    type_class_test.cpp
     utility_test.cpp
     zip_test.cpp
 )

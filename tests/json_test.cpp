@@ -1,9 +1,12 @@
-#include "kl/json_convert.hpp"
+#include "kl/json.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_flags.hpp"
 
 #include <catch2/catch.hpp>
 #include <boost/optional/optional_io.hpp>
+
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
 
 #include <string>
 #include <vector>
@@ -12,20 +15,21 @@
 #include <tuple>
 #include <deque>
 #include <list>
+#include <map>
+
+namespace {
 
 struct optional_test
 {
     int non_opt;
     boost::optional<int> opt;
 };
-KL_DEFINE_REFLECTABLE(optional_test, (non_opt, opt))
 
 struct inner_t
 {
     int r = 1337;
     double d = 3.145926;
 };
-KL_DEFINE_REFLECTABLE(inner_t, (r, d))
 
 enum class colour_space
 {
@@ -37,15 +41,12 @@ enum class colour_space
     hls,
     luv
 };
-KL_DEFINE_ENUM_REFLECTOR(colour_space, (rgb, xyz, ycrcb, hsv, lab, hls, luv))
 
 // on GCC underlying_type(ordinary_enum) => unsigned
 enum ordinary_enum : int { oe_one };
 enum class scope_enum { one };
 enum ordinary_enum_reflectable { oe_one_ref };
 enum class scope_enum_reflectable { one };
-KL_DEFINE_ENUM_REFLECTOR(ordinary_enum_reflectable, (oe_one_ref))
-KL_DEFINE_ENUM_REFLECTOR(scope_enum_reflectable, (one))
 
 struct enums
 {
@@ -54,7 +55,6 @@ struct enums
     ordinary_enum_reflectable e2 = ordinary_enum_reflectable::oe_one_ref;
     scope_enum_reflectable e3 = scope_enum_reflectable::one;
 };
-KL_DEFINE_REFLECTABLE(enums, (e0, e1, e2, e3))
 
 struct test_t
 {
@@ -63,7 +63,7 @@ struct test_t
     bool f = false;
     boost::optional<int> n;
     int i = 123;
-    double pi = 3.1416;
+    float pi = 3.1416f;
     std::vector<int> a = {1, 2, 3, 4};
     std::vector<std::vector<int>> ad = {std::vector<int>{1, 2},
                                         std::vector<int>{3, 4, 5}};
@@ -76,21 +76,50 @@ struct test_t
     inner_t inner;
 };
 
-KL_DEFINE_REFLECTABLE(test_t,
-                      (hello, t, f, n, i, pi, a, ad, space, tup, map, inner))
-
 struct unsigned_test
 {
     unsigned char u8{128};
     unsigned short u16{32768};
     unsigned int u32{std::numeric_limits<unsigned int>::max()};
-    // unsigned long long u64{0}; // can't represent losslessly u64 in double
+    std::uint64_t u64{std::numeric_limits<std::uint64_t>::max()};
 };
-KL_DEFINE_REFLECTABLE(unsigned_test, (u8, u16, u32))
+} // namespace
 
-TEST_CASE("json_convert")
+KL_DEFINE_REFLECTABLE(optional_test, (non_opt, opt))
+KL_DEFINE_REFLECTABLE(inner_t, (r, d))
+KL_DEFINE_ENUM_REFLECTOR(colour_space, (rgb, xyz, ycrcb, hsv, lab, hls, luv))
+KL_DEFINE_ENUM_REFLECTOR(ordinary_enum_reflectable, (oe_one_ref))
+KL_DEFINE_ENUM_REFLECTOR(scope_enum_reflectable, (one))
+KL_DEFINE_REFLECTABLE(enums, (e0, e1, e2, e3))
+KL_DEFINE_REFLECTABLE(test_t,
+                      (hello, t, f, n, i, pi, a, ad, space, tup, map, inner))
+KL_DEFINE_REFLECTABLE(unsigned_test, (u8, u16, u32, u64))
+
+std::string to_string(const rapidjson::Document& doc)
+{
+    rapidjson::StringBuffer buffer;
+    rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+    doc.Accept(writer);
+    return std::string(buffer.GetString());
+}
+
+TEST_CASE("json")
 {
     using namespace kl;
+
+    SECTION("basic types")
+    {
+        CHECK(json::serialize('a').IsInt());
+        CHECK(json::serialize(1).IsInt());
+        CHECK(json::serialize(3U).IsInt());
+        CHECK(json::serialize(std::int64_t{-1}).IsInt64());
+        CHECK(json::serialize(std::uint64_t{1}).IsUint64());
+        CHECK(json::serialize(true).IsBool());
+        CHECK(json::serialize("qwe").IsString());
+        CHECK(json::serialize(std::string{ "qwe" }).IsString());
+        CHECK(json::serialize(13.11).IsDouble());
+        CHECK(json::serialize(ordinary_enum::oe_one).IsInt());
+    }
 
     SECTION("parse error")
     {
@@ -101,13 +130,15 @@ TEST_CASE("json_convert")
     SECTION("serialize inner_t")
     {
         auto j = json::serialize(inner_t{});
-        REQUIRE(j.is_object());
+        REQUIRE(j.IsObject());
 
-        std::string err;
-        REQUIRE(j.has_shape(
-            {{"r", json11::Json::NUMBER}, {"d", json11::Json::NUMBER}}, err));
-        REQUIRE(j["r"] == 1337);
-        REQUIRE(j["d"] == 3.145926);
+        auto obj = j.GetObject();
+        auto it = obj.FindMember("r");
+        REQUIRE(it != obj.end());
+        REQUIRE(it->value.GetInt() == 1337);
+        it = obj.FindMember("d");
+        REQUIRE(it != obj.end());
+        REQUIRE(it->value.GetDouble() == Approx(3.145926));
     }
 
     SECTION("deserialize inner_t - empty json")
@@ -141,19 +172,22 @@ TEST_CASE("json_convert")
 
     SECTION("serialize tuple")
     {
-        auto t = std::make_tuple(13, 3.14, colour_space::lab, false);
+        auto t = std::make_tuple(13, 3.14, colour_space::lab, true);
         auto j = json::serialize(t);
-        REQUIRE(j.is_array());
-        REQUIRE(j.array_items().size() == 4);
-        REQUIRE(j.array_items()[0] == 13);
-        REQUIRE(j.array_items()[1] == 3.14);
-        REQUIRE(j.array_items()[2] == "lab");
-        REQUIRE(j.array_items()[3] == false);
+
+        REQUIRE(j.IsArray());
+        auto arr = j.GetArray();
+
+        REQUIRE(arr.Size() == 4);
+        REQUIRE(arr[0] == 13);
+        REQUIRE(arr[1].GetDouble() == Approx(3.14));
+        REQUIRE(arr[2] == "lab");
+        REQUIRE(arr[3] == true);
     }
 
     SECTION("deserialize simple - wrong types")
     {
-        json11::Json null;
+        rapidjson::Value null{};
         REQUIRE_THROWS_AS(json::deserialize<int>(null),
                           json::deserialize_error);
         REQUIRE_THROWS_AS(json::deserialize<bool>(null),
@@ -169,11 +203,14 @@ TEST_CASE("json_convert")
         REQUIRE_THROWS_AS((json::deserialize<std::map<std::string, int>>(null)),
                           json::deserialize_error);
 
-        json11::Json arr{json11::Json::array{3, true}};
+        rapidjson::Document arr{rapidjson::kArrayType};
+        arr.PushBack(true, arr.GetAllocator());
         REQUIRE_THROWS_AS(json::deserialize<std::vector<int>>(arr),
                           json::deserialize_error);
 
-        json11::Json obj{json11::Json::object{{"key0", 3}, {"key2", true}}};
+        rapidjson::Document obj{rapidjson::kObjectType};
+        obj.AddMember("key0", rapidjson::Value{3}, obj.GetAllocator());
+        obj.AddMember("key2", rapidjson::Value{true}, obj.GetAllocator());
         REQUIRE_THROWS_AS((json::deserialize<std::map<std::string, int>>(obj)),
                           json::deserialize_error);
     }
@@ -181,7 +218,7 @@ TEST_CASE("json_convert")
     SECTION("deserialize tuple")
     {
         auto t = std::make_tuple(13, 3.14, colour_space::lab, false);
-        auto j = kl::json::serialize(t);
+        auto j = json::serialize(t);
 
         auto obj = json::deserialize<decltype(t)>(j);
         REQUIRE(std::get<0>(obj) == 13);
@@ -228,16 +265,13 @@ TEST_CASE("json_convert")
     SECTION("deserialize different types and 'modes' for enums - fail")
     {
         auto j = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref", "e3": 0})"_json;
-        REQUIRE_THROWS_AS(json::deserialize<enums>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_AS(json::deserialize<enums>(j), json::deserialize_error);
 
         j = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref2", "e3": 0})"_json;
-        REQUIRE_THROWS_AS(json::deserialize<enums>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_AS(json::deserialize<enums>(j), json::deserialize_error);
 
         j = R"({"e0": 0, "e1": true, "e2": "oe_one_ref", "e3": "one"})"_json;
-        REQUIRE_THROWS_AS(json::deserialize<enums>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_AS(json::deserialize<enums>(j), json::deserialize_error);
     }
 
     SECTION("skip serializing optional fields")
@@ -245,13 +279,33 @@ TEST_CASE("json_convert")
         optional_test t;
         t.non_opt = 23;
 
-        REQUIRE(json::serialize(t).is_object());
-        REQUIRE(json::serialize(t).object_items().size() == 1);
+        REQUIRE(json::serialize(t).IsObject());
+        REQUIRE(json::serialize(t).MemberCount() == 1);
         REQUIRE(json::serialize(t)["non_opt"] == 23);
 
         t.opt = 78;
         REQUIRE(json::serialize(t)["non_opt"] == 23);
         REQUIRE(json::serialize(t)["opt"] == 78);
+    }
+
+    SECTION("don't skip optional fields if requested")
+    {
+        optional_test t;
+        t.non_opt = 23;
+
+        rapidjson::Document doc;
+        kl::json::serialize_context ctx{doc, false};
+
+        REQUIRE(json::serialize(t, ctx).IsObject());
+        REQUIRE(json::serialize(t, ctx).MemberCount() == 2);
+        REQUIRE(json::serialize(t, ctx)["non_opt"] == 23);
+        REQUIRE(json::serialize(t, ctx)["opt"].IsNull());
+
+        t.opt = 78;
+        REQUIRE(json::serialize(t, ctx).IsObject());
+        REQUIRE(json::serialize(t, ctx).MemberCount() == 2);
+        REQUIRE(json::serialize(t, ctx)["non_opt"] == 23);
+        REQUIRE(json::serialize(t, ctx)["opt"] == 78);
     }
 
     SECTION("deserialize fields with null")
@@ -287,7 +341,7 @@ TEST_CASE("json_convert")
         catch (std::exception& ex)
         {
             REQUIRE(!strcmp(ex.what(),
-                            "type must be an integral but is STRING\n"
+                            "type must be an integral but is kStringType\n"
                             "error when deserializing field opt\n"
                             "error when deserializing type optional_test"));
         }
@@ -300,46 +354,46 @@ TEST_CASE("json_convert")
     {
         test_t t;
         auto j = json::serialize(t);
-        REQUIRE(j.is_object());
+        REQUIRE(j.IsObject());
         REQUIRE(j["hello"] == "world");
         REQUIRE(j["t"] == true);
         REQUIRE(j["f"] == false);
-        REQUIRE(j["n"] == nullptr);
+        REQUIRE(!j.HasMember("n"));
         REQUIRE(j["i"] == 123);
-        REQUIRE(j["pi"] == 3.1416);
+        REQUIRE(j["pi"] == 3.1416f);
         REQUIRE(j["space"] == "lab");
 
-        REQUIRE(j["a"].is_array());
-        auto a = j["a"].array_items();
-        REQUIRE(a.size() == 4);
+        REQUIRE(j["a"].IsArray());
+        auto a = j["a"].GetArray();
+        REQUIRE(a.Size() == 4);
         REQUIRE(a[0] == 1);
         REQUIRE(a[3] == 4);
 
-        REQUIRE(j["ad"].is_array());
-        auto ad = j["ad"].array_items();
-        REQUIRE(ad.size() == 2);
-        REQUIRE(ad[0].is_array());
-        REQUIRE(ad[1].is_array());
-        REQUIRE(ad[0].array_items().size() == 2);
-        REQUIRE(ad[0].array_items()[0] == 1);
-        REQUIRE(ad[0].array_items()[1] == 2);
-        REQUIRE(ad[1].array_items().size() == 3);
-        REQUIRE(ad[1].array_items()[0] == 3);
-        REQUIRE(ad[1].array_items()[1] == 4);
-        REQUIRE(ad[1].array_items()[2] == 5);
+        REQUIRE(j["ad"].IsArray());
+        auto ad = j["ad"].GetArray();
+        REQUIRE(ad.Size() == 2);
+        REQUIRE(ad[0].IsArray());
+        REQUIRE(ad[1].IsArray());
+        REQUIRE(ad[0].Size() == 2);
+        REQUIRE(ad[0][0] == 1);
+        REQUIRE(ad[0][1] == 2);
+        REQUIRE(ad[1].Size() == 3);
+        REQUIRE(ad[1][0] == 3);
+        REQUIRE(ad[1][1] == 4);
+        REQUIRE(ad[1][2] == 5);
 
-        REQUIRE(j["tup"].is_array());
-        REQUIRE(j["tup"].array_items().size() == 3);
-        REQUIRE(j["tup"].array_items()[0] == 1);
-        REQUIRE(j["tup"].array_items()[1] == 3.14f);
-        REQUIRE(j["tup"].array_items()[2] == "QWE");
+        REQUIRE(j["tup"].IsArray());
+        REQUIRE(j["tup"].Size() == 3);
+        REQUIRE(j["tup"][0] == 1);
+        REQUIRE(j["tup"][1] == 3.14f);
+        REQUIRE(j["tup"][2] == "QWE");
 
-        REQUIRE(j["map"].is_object());
-        REQUIRE(j["map"].object_items().find("1")->second == "hls");
-        REQUIRE(j["map"].object_items().find("2")->second == "rgb");
+        REQUIRE(j["map"].IsObject());
+        REQUIRE(j["map"]["1"] == "hls");
+        REQUIRE(j["map"]["2"] == "rgb");
 
-        REQUIRE(j["inner"].is_object());
-        auto inner = j["inner"].object_items();
+        REQUIRE(j["inner"].IsObject());
+        auto inner = j["inner"].GetObject();
         REQUIRE(inner["r"] == inner_t{}.r);
         REQUIRE(inner["d"] == inner_t{}.d);
     }
@@ -403,7 +457,7 @@ TEST_CASE("json_convert")
                     {"10", colour_space::xyz}, {"20", colour_space::lab}}));
         REQUIRE(obj.n);
         REQUIRE(*obj.n == 3);
-        REQUIRE(obj.pi == 3.1416);
+        REQUIRE(obj.pi == 3.1416f);
         REQUIRE(obj.space == colour_space::rgb);
         REQUIRE(obj.t == false);
         using namespace std::string_literals;
@@ -415,14 +469,16 @@ TEST_CASE("json_convert")
         unsigned_test t;
         auto j = json::serialize(t);
 
-        REQUIRE(j["u8"].number_value() == t.u8);
-        REQUIRE(j["u16"].number_value() == t.u16);
-        REQUIRE(j["u32"].number_value() == t.u32);
+        REQUIRE(j["u8"] == t.u8);
+        REQUIRE(j["u16"] == t.u16);
+        REQUIRE(j["u32"] == t.u32);
+        REQUIRE(j["u64"] == t.u64);
 
         auto obj = json::deserialize<unsigned_test>(j);
         REQUIRE(obj.u8 == t.u8);
         REQUIRE(obj.u16 == t.u16);
         REQUIRE(obj.u32 == t.u32);
+        REQUIRE(obj.u64 == t.u64);
     }
 
     SECTION("deserialize to struct from an array")
@@ -493,44 +549,42 @@ TEST_CASE("json_convert")
     SECTION("unsigned: check 32")
     {
         auto j = json::serialize(unsigned(32));
-        REQUIRE(j.number_value() == 32.0);
-        REQUIRE(j.int_value() == 32);
-        auto str = j.pretty_print();
-        REQUIRE(str == "32");
+        REQUIRE(j.GetDouble() == 32.0);
+        REQUIRE(j.GetInt() == 32);
+        REQUIRE(to_string(j) == "32");
     }
 
     SECTION("unsigned: check value greater than 0x7FFFFFFU")
     {
         auto j = json::serialize(2147483648U);
-        REQUIRE(j.number_value() == 2147483648.0);
-        REQUIRE(j.int_value() == -2147483648LL);
-        auto str = j.pretty_print();
-        REQUIRE(str == "2147483648");
+        REQUIRE(j.GetDouble() == 2147483648.0);
+        REQUIRE(j.GetUint64() == 2147483648U);
+        REQUIRE(to_string(j) == "2147483648");
     }
 
     SECTION("to std containers")
     {
         auto j1 = json::serialize(std::vector<inner_t>{inner_t{}});
-        REQUIRE(j1.type() == json11::Json::ARRAY);
-        REQUIRE(j1.array_items().size() == 1);
+        REQUIRE(j1.IsArray());
+        REQUIRE(j1.Size() == 1);
 
         auto j2 = json::serialize(std::list<inner_t>{inner_t{}});
-        REQUIRE(j2.type() == json11::Json::ARRAY);
-        REQUIRE(j2.array_items().size() == 1);
+        REQUIRE(j2.IsArray());
+        REQUIRE(j2.Size() == 1);
 
         auto j3 = json::serialize(std::deque<inner_t>{inner_t{}});
-        REQUIRE(j3.type() == json11::Json::ARRAY);
-        REQUIRE(j3.array_items().size() == 1);
+        REQUIRE(j3.IsArray());
+        REQUIRE(j3.Size() == 1);
 
         auto j4 = json::serialize(
             std::map<std::string, inner_t>{{"inner", inner_t{}}});
-        REQUIRE(j4.type() == json11::Json::OBJECT);
-        REQUIRE(j4.object_items().size() == 1);
+        REQUIRE(j4.IsObject());
+        REQUIRE(j4.MemberCount() == 1);
 
         auto j5 = json::serialize(
             std::unordered_map<std::string, inner_t>{{"inner", inner_t{}}});
-        REQUIRE(j5.type() == json11::Json::OBJECT);
-        REQUIRE(j5.object_items().size() == 1);
+        REQUIRE(j5.IsObject());
+        REQUIRE(j5.MemberCount() == 1);
     }
 
     SECTION("from std containers")
@@ -569,45 +623,13 @@ TEST_CASE("json_convert")
 
 #include <chrono>
 
-class our_type
-{
-public:
-    our_type() = default;
-
-    // These two functions must be present in order to json_convert to work with
-    // them without KL_DEFINE_REFLECTABLE macro
-    static our_type from_json(const json11::Json& json)
-    {
-        return our_type(kl::json::deserialize<int>(json["i"]),
-                        kl::json::deserialize<double>(json["d"]),
-                        kl::json::deserialize<std::string>(json["str"]));
-    }
-
-    json11::Json to_json() const
-    {
-        return json11::Json::object{{"i", i}, {"d", d}, {"str", str}};
-    }
-
-private:
-    our_type(int i, double d, std::string str)
-        : i(i), d(d), str(std::move(str))
-    {
-    }
-
-private:
-    int i{10};
-    double d{3.14};
-    std::string str = "zxc";
-};
-
 struct chrono_test
 {
     int t;
     std::chrono::seconds sec;
     std::vector<std::chrono::seconds> secs;
-    our_type o;
 };
-KL_DEFINE_REFLECTABLE(chrono_test, (t, sec, secs, o))
+KL_DEFINE_REFLECTABLE(chrono_test, (t, sec, secs))
 
 namespace kl {
 namespace json {
@@ -615,50 +637,55 @@ namespace json {
 template <>
 struct serializer<std::chrono::seconds>
 {
-    static json11::Json to_json(const std::chrono::seconds& t)
+    template <typename Context>
+    static rapidjson::Value to_json(const std::chrono::seconds& t, Context& ctx)
     {
-        return {static_cast<double>(t.count())};
+        return json::serialize(t.count(), ctx);
     }
 
-    static std::chrono::seconds from_json(const json11::Json& json)
+    static std::chrono::seconds from_json(const rapidjson::Value& value)
     {
-        return std::chrono::seconds{json::deserialize<unsigned>(json)};
+        return std::chrono::seconds{json::deserialize<long long>(value)};
     }
 };
 } // namespace json
 } // namespace kl
 
-TEST_CASE("json_convert - extended")
+TEST_CASE("json - extended")
 {
     using namespace std::chrono;
-    chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}, our_type{}};
+    chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}};
     auto j = kl::json::serialize(t);
     auto obj = kl::json::deserialize<chrono_test>(j);
 }
 
 struct global_struct {};
-json11::Json to_json(global_struct)
+
+template <typename Context>
+rapidjson::Value to_json(global_struct, Context& ctx)
 {
-    return {"global_struct"};
+    return kl::json::serialize("global_struct", ctx);
 }
 
-global_struct from_json(kl::type_t<global_struct>, const json11::Json& json)
+global_struct from_json(kl::type_t<global_struct>,
+                        const rapidjson::Value& value)
 {
-    return json.string_value() == "global_struct"
-               ? global_struct{}
-               : throw kl::json::deserialize_error{""};
+    return value == "global_struct" ? global_struct{}
+                                    : throw kl::json::deserialize_error{""};
 }
 
 namespace {
 
 struct struct_in_anonymous_ns{};
-json11::Json to_json(struct_in_anonymous_ns)
+
+template <typename Context>
+rapidjson::Value to_json(struct_in_anonymous_ns, Context&)
 {
-    return {1};
+    return rapidjson::Value{1};
 }
 
 struct_in_anonymous_ns from_json(kl::type_t<struct_in_anonymous_ns>,
-                                 const json11::Json&)
+                                 const rapidjson::Value&)
 {
     return {};
 }
@@ -668,14 +695,15 @@ namespace my {
 
 struct none_t {};
 
-json11::Json to_json(none_t)
+template <typename Context>
+rapidjson::Value to_json(none_t, Context&)
 {
-    return {nullptr};
+    return rapidjson::Value{};
 }
 
-none_t from_json(kl::type_t<none_t>, const json11::Json& json)
+none_t from_json(kl::type_t<none_t>, const rapidjson::Value& value)
 {
-    return json.is_null() ? none_t{} : throw kl::json::deserialize_error{""};
+    return value.IsNull() ? none_t{} : throw kl::json::deserialize_error{""};
 }
 
 template <typename T>
@@ -686,17 +714,17 @@ struct value_wrapper
 
 // Defining such function with specializaton would not be possible as there's no
 // way to partially specialize a function template.
-template <typename T>
-json11::Json to_json(const value_wrapper<T>& t)
+template <typename T, typename Context>
+rapidjson::Value to_json(const value_wrapper<T>& t, Context& ctx)
 {
-    return {static_cast<double>(t.value)};
+    return kl::json::serialize(t.value, ctx);
 }
 
 template <typename T>
 value_wrapper<T> from_json(kl::type_t<value_wrapper<T>>,
-                           const json11::Json& json)
+                           const rapidjson::Value& value)
 {
-    return value_wrapper<T>{kl::json::deserialize<T>(json)};
+    return value_wrapper<T>{kl::json::deserialize<T>(value)};
 }
 } // namespace my
 
@@ -707,12 +735,14 @@ struct aggregate
     my::value_wrapper<int> w;
     struct_in_anonymous_ns a;
 };
-KL_DEFINE_REFLECTABLE(aggregate, (g, /*n,*/ w, a))
+KL_DEFINE_REFLECTABLE(aggregate, (g, n, w, a))
 
-TEST_CASE("json_convert - overloading")
+TEST_CASE("json - overloading")
 {
     aggregate a{{}, {}, {31}, {}};
     auto j = kl::json::serialize(a);
+    REQUIRE(j.FindMember("n") != j.MemberEnd());
+    CHECK(j["n"].IsNull());
     auto obj = kl::json::deserialize<aggregate>(j);
     REQUIRE(obj.w.value == 31);
 }
@@ -730,39 +760,38 @@ enum class device_type
 using device_flags = kl::enum_flags<device_type>;
 } // namespace
 
-KL_DEFINE_ENUM_REFLECTOR(device_type, (
-    (default_, default),
-    cpu,
-    gpu,
-    accelerator,
-    custom
-))
+KL_DEFINE_ENUM_REFLECTOR(device_type,
+                         ((default_, default), cpu, gpu, accelerator, custom))
 
-TEST_CASE("json_convert - enum_flags")
+TEST_CASE("json - enum_flags")
 {
     SECTION("to json")
     {
         auto f = kl::make_flags(device_type::cpu) | device_type::gpu |
                  device_type::accelerator;
         auto j = kl::json::serialize(f);
-        REQUIRE(j.is_array());
-        REQUIRE(j.array_items().size() == 3);
-        REQUIRE(j.array_items()[0] == "cpu");
-        REQUIRE(j.array_items()[1] == "gpu");
-        REQUIRE(j.array_items()[2] == "accelerator");
+        REQUIRE(j.IsArray());
+        REQUIRE(j.Size() == 3);
+        REQUIRE(j[0] == "cpu");
+        REQUIRE(j[1] == "gpu");
+        REQUIRE(j[2] == "accelerator");
 
         f &= ~kl::make_flags(device_type::accelerator);
 
         j = kl::json::serialize(f);
-        REQUIRE(j.is_array());
-        REQUIRE(j.array_items().size() == 2);
-        REQUIRE(j.array_items()[0] == "cpu");
-        REQUIRE(j.array_items()[1] == "gpu");
+        REQUIRE(j.IsArray());
+        REQUIRE(j.Size() == 2);
+        REQUIRE(j[0] == "cpu");
+        REQUIRE(j[1] == "gpu");
     }
 
     SECTION("from json")
     {
-        auto j = R"([])"_json;
+        auto j = R"({"cpu": 1})"_json;
+        REQUIRE_THROWS_AS(kl::json::deserialize<device_flags>(j),
+                          kl::json::deserialize_error);
+
+        j = R"([])"_json;
         auto f = kl::json::deserialize<device_flags>(j);
         REQUIRE(f.underlying_value() == 0);
 
@@ -773,4 +802,193 @@ TEST_CASE("json_convert - enum_flags")
                 (kl::underlying_cast(device_type::cpu) |
                  kl::underlying_cast(device_type::gpu)));
     }
+}
+
+TEST_CASE("json dump")
+{
+    using namespace kl;
+
+    SECTION("basic types")
+    {
+        CHECK(json::dump('a') == "97");
+        CHECK(json::dump(1) == "1");
+        CHECK(json::dump(3U) == "3");
+        CHECK(json::dump(std::int64_t{-1}) == "-1");
+        CHECK(json::dump(std::uint64_t{1}) == "1");
+        CHECK(json::dump(true) == "true");
+        CHECK(json::dump(nullptr) == "null");
+        CHECK(json::dump("qwe") == "\"qwe\"");
+        CHECK(json::dump(std::string{"qwe"}) == "\"qwe\"");
+        CHECK(json::dump(13.11) == "13.11");
+        CHECK(json::dump(ordinary_enum::oe_one) == "0");
+    }
+
+    SECTION("inner_t")
+    {
+        CHECK(json::dump(inner_t{}) == R"({"r":1337,"d":3.1459259999999999})");
+    }
+
+    SECTION("different types and 'modes' for enums")
+    {
+        CHECK(json::dump(enums{}) ==
+              R"({"e0":0,"e1":0,"e2":"oe_one_ref","e3":"one"})");
+    }
+
+    SECTION("test unsigned types")
+    {
+        auto res = json::dump(unsigned_test{});
+        CHECK(
+            res ==
+            R"({"u8":128,"u16":32768,"u32":4294967295,"u64":18446744073709551615})");
+    }
+
+    SECTION("enum_flags")
+    {
+        auto f = make_flags(device_type::cpu) | device_type::gpu |
+                 device_type::accelerator;
+        auto res = json::dump(f);
+        CHECK(res == R"(["cpu","gpu","accelerator"])");
+
+        f &= ~kl::make_flags(device_type::accelerator);
+        res = json::dump(f);
+        CHECK(res == R"(["cpu","gpu"])");
+    }
+
+    SECTION("tuple")
+    {
+        auto t = std::make_tuple(13, 3.14, colour_space::lab, true);
+        auto res = json::dump(t);
+        CHECK(res == R"([13,3.14,"lab",true])");
+    }
+
+    SECTION("skip serializing optional fields")
+    {
+        optional_test t;
+        t.non_opt = 23;
+
+        CHECK(json::dump(t) == R"({"non_opt":23})");
+
+        t.opt = 78;
+        CHECK(json::dump(t) == R"({"non_opt":23,"opt":78})");
+    }
+
+    SECTION("don't skip optional fields if requested")
+    {
+        optional_test t;
+        t.non_opt = 23;
+
+        using namespace rapidjson;
+
+        StringBuffer sb;
+        Writer<StringBuffer> writer{sb};
+        kl::json::dump_context<Writer<StringBuffer>> ctx{writer, false};
+
+        json::dump(t, ctx);
+        std::string res = sb.GetString();
+        CHECK(res == R"({"non_opt":23,"opt":null})");
+
+        sb.Clear();
+        writer.Reset(sb);
+
+        t.opt = 78;
+        json::dump(t, ctx);
+        res = sb.GetString();
+        CHECK(res == R"({"non_opt":23,"opt":78})");
+    }
+
+    SECTION("complex structure with std/boost containers")
+    {
+        auto res = json::dump(test_t{});
+        CHECK(
+            res ==
+            R"({"hello":"world","t":true,"f":false,"i":123,)"
+            R"("pi":3.1415998935699465,"a":[1,2,3,4],"ad":[[1,2],[3,4,5]],)"
+            R"("space":"lab","tup":[1,3.140000104904175,"QWE"],"map":{"1":"hls","2":"rgb"},)"
+            R"("inner":{"r":1337,"d":3.1459259999999999}})");
+    }
+
+    SECTION("unsigned: check value greater than 0x7FFFFFFU")
+    {
+        REQUIRE(json::dump(2147483648U) == "2147483648");
+    }
+
+    SECTION("std containers")
+    {
+        auto j1 = json::dump(std::vector<inner_t>{inner_t{}});
+        CHECK(j1 == R"([{"r":1337,"d":3.1459259999999999}])");
+
+        auto j2 = json::dump(std::list<inner_t>{inner_t{}});
+        CHECK(j2 == R"([{"r":1337,"d":3.1459259999999999}])");
+
+        auto j3 = json::dump(std::deque<inner_t>{inner_t{}});
+        CHECK(j3 == R"([{"r":1337,"d":3.1459259999999999}])");
+
+        auto j4 =
+            json::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
+        CHECK(j4 == R"({"inner1":{"r":1337,"d":3.1459259999999999}})");
+
+        auto j5 = json::dump(
+            std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
+        CHECK(j5 == R"({"inner2":{"r":1337,"d":3.1459259999999999}})");
+    }
+}
+
+namespace kl {
+namespace json {
+
+template <>
+struct encoder<std::chrono::seconds>
+{
+    template <typename Context>
+    static void encode(const std::chrono::seconds& s, Context& ctx)
+    {
+        json::dump(s.count(), ctx);
+    }
+};
+} // namespace json
+} // namespace kl
+
+TEST_CASE("json dump - extended")
+{
+    using namespace std::chrono;
+    chrono_test t{2, seconds{10}, {seconds{6}, seconds{12}}};
+    const auto res = kl::json::dump(t);
+    CHECK(res == R"({"t":2,"sec":10,"secs":[6,12]})");
+}
+
+template <typename Context>
+void encode(global_struct, Context& ctx)
+{
+    kl::json::dump("global_struct", ctx);
+}
+
+namespace {
+
+template <typename Context>
+void encode(struct_in_anonymous_ns, Context& ctx)
+{
+    kl::json::dump(1, ctx);
+}
+} // namespace
+
+namespace my {
+
+template <typename Context>
+void encode(none_t, Context& ctx)
+{
+    kl::json::dump(nullptr, ctx);
+}
+
+template <typename T, typename Context>
+void encode(const value_wrapper<T>& t, Context& ctx)
+{
+    kl::json::dump(t.value, ctx);
+}
+} // namespace my
+
+TEST_CASE("json dump - overloading")
+{
+    aggregate a{{}, {}, {31}, {}};
+    auto res = kl::json::dump(a);
+    CHECK(res == R"({"g":"global_struct","n":null,"w":31,"a":1})");
 }
