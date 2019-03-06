@@ -617,10 +617,10 @@ namespace json {
 template <>
 struct serializer<std::chrono::seconds>
 {
-    static rapidjson::Value to_json(const std::chrono::seconds& t,
-                                    rapidjson::Document&)
+    template <typename Context>
+    static rapidjson::Value to_json(const std::chrono::seconds& t, Context& ctx)
     {
-        return rapidjson::Value{t.count()};
+        return json::serialize(t.count(), ctx);
     }
 
     static std::chrono::seconds from_json(const rapidjson::Value& value)
@@ -640,9 +640,11 @@ TEST_CASE("json - extended")
 }
 
 struct global_struct {};
-rapidjson::Value to_json(global_struct, rapidjson::Document& doc)
+
+template <typename Context>
+rapidjson::Value to_json(global_struct, Context& ctx)
 {
-    return rapidjson::Value{"global_struct", doc.GetAllocator()};
+    return kl::json::serialize("global_struct", ctx);
 }
 
 global_struct from_json(kl::type_t<global_struct>,
@@ -655,7 +657,9 @@ global_struct from_json(kl::type_t<global_struct>,
 namespace {
 
 struct struct_in_anonymous_ns{};
-rapidjson::Value to_json(struct_in_anonymous_ns, rapidjson::Document& doc)
+
+template <typename Context>
+rapidjson::Value to_json(struct_in_anonymous_ns, Context&)
 {
     return rapidjson::Value{1};
 }
@@ -671,7 +675,8 @@ namespace my {
 
 struct none_t {};
 
-rapidjson::Value to_json(none_t, rapidjson::Document& doc)
+template <typename Context>
+rapidjson::Value to_json(none_t, Context&)
 {
     return rapidjson::Value{};
 }
@@ -689,10 +694,10 @@ struct value_wrapper
 
 // Defining such function with specializaton would not be possible as there's no
 // way to partially specialize a function template.
-template <typename T>
-rapidjson::Value to_json(const value_wrapper<T>& t, rapidjson::Document& doc)
+template <typename T, typename Context>
+rapidjson::Value to_json(const value_wrapper<T>& t, Context& ctx)
 {
-    return rapidjson::Value{t.value};
+    return kl::json::serialize(t.value, ctx);
 }
 
 template <typename T>
