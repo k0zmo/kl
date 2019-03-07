@@ -933,6 +933,54 @@ TEST_CASE("json dump")
     }
 }
 
+namespace {
+
+class my_dump_context
+{
+public:
+    using writer_type = rapidjson::Writer<rapidjson::StringBuffer>;
+
+    explicit my_dump_context(writer_type& writer)
+        : writer_{writer}
+    {
+    }
+
+    writer_type& writer() const { return writer_; }
+
+    template <typename Key, typename Value>
+    bool skip_field(const Key& key, const Value& value)
+    {
+        return !std::strcmp(key, "secret");
+    }
+
+private:
+    writer_type& writer_;
+};
+
+struct struct_with_blacklisted
+{
+    int value{34};
+    float secret{3.2f};
+    bool other_non_secret{true};
+};
+} // namespace
+
+KL_DEFINE_REFLECTABLE(struct_with_blacklisted, (value, secret, other_non_secret))
+
+TEST_CASE("json dump - custom context")
+{
+    using namespace kl;
+    using namespace rapidjson;
+
+    StringBuffer sb;
+    Writer<StringBuffer> writer{sb};
+    my_dump_context ctx{writer};
+
+    json::dump(struct_with_blacklisted{}, ctx);
+    std::string res = sb.GetString();
+    CHECK(res == R"({"value":34,"other_non_secret":true})");
+}
+
 namespace kl {
 namespace json {
 

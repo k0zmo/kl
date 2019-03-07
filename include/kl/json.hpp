@@ -27,6 +27,12 @@ namespace json {
 template <typename T>
 struct encoder;
 
+template <typename T>
+bool is_null_value(const T&) { return false; }
+
+template <typename T>
+bool is_null_value(const boost::optional<T>& opt) { return !opt; }
+
 template <typename Writer>
 class dump_context
 {
@@ -39,7 +45,12 @@ public:
     }
 
     Writer& writer() const { return writer_; }
-    bool skip_null_fields() const { return skip_null_fields_; }
+
+    template <typename Key, typename Value>
+    bool skip_field(const Key&, const Value& value)
+    {
+        return skip_null_fields_ && is_null_value(value);
+    }
 
 private:
     Writer& writer_;
@@ -69,18 +80,17 @@ public:
     {
         return doc_.GetAllocator();
     }
-    bool skip_null_fields() const { return skip_null_fields_; }
+
+    template <typename Key, typename Value>
+    bool skip_field(const Key&, const Value& value)
+    {
+        return skip_null_fields_ && is_null_value(value);
+    }
 
 private:
     rapidjson::Document& doc_;
     bool skip_null_fields_;
 };
-
-template <typename T>
-bool is_null_value(const T&) { return false; }
-
-template <typename T>
-bool is_null_value(const boost::optional<T>& opt) { return !opt; }
 
 template <typename T>
 rapidjson::Document serialize(const T& obj);
@@ -235,8 +245,11 @@ void encode(const Map& map, Context& ctx)
     ctx.writer().StartObject();
     for (const auto& kv : map)
     {
-        encode_key(kv.first, ctx);
-        json::dump(kv.second, ctx);
+        if (!ctx.skip_field(kv.first, kv.second))
+        {
+            encode_key(kv.first, ctx);
+            json::dump(kv.second, ctx);
+        }
     }
     ctx.writer().EndObject();
 }
@@ -258,7 +271,7 @@ void encode(const Reflectable& refl, Context& ctx)
 {
     ctx.writer().StartObject();
     ctti::reflect(refl, [&ctx](auto fi) {
-        if (!ctx.skip_null_fields() || !is_null_value(fi.get()))
+        if (!ctx.skip_field(fi.name(), fi.get()))
         {
             ctx.writer().Key(fi.name());
             json::dump(fi.get(), ctx);
@@ -366,8 +379,13 @@ rapidjson::Value to_json(const Map& map, Context& ctx)
 
     rapidjson::Value obj(rapidjson::kObjectType);
     for (const auto& kv : map)
-        obj.AddMember(rapidjson::StringRef(kv.first),
-                      json::serialize(kv.second, ctx), ctx.allocator());
+    {
+        if (!ctx.skip_field(kv.first, kv.second))
+        {
+            obj.AddMember(rapidjson::StringRef(kv.first),
+                          json::serialize(kv.second, ctx), ctx.allocator());
+        }
+    }
     return obj;
 }
 
@@ -391,7 +409,7 @@ rapidjson::Value to_json(const Reflectable& refl, Context& ctx)
 {
     rapidjson::Value obj{rapidjson::kObjectType};
     ctti::reflect(refl, [&obj, &ctx](auto fi) {
-        if (!ctx.skip_null_fields() || !is_null_value(fi.get()))
+        if (!ctx.skip_field(fi.name(), fi.get()))
         {
             auto json = json::serialize(fi.get(), ctx);
             obj.AddMember(rapidjson::StringRef(fi.name()), std::move(json),
