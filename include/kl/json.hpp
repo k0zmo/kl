@@ -229,7 +229,7 @@ void encode(const std::basic_string<typename Context::writer_type::Ch>& str,
 template <typename Key, typename Context>
 void encode_key(const Key& key, Context& ctx)
 {
-    ctx.writer().Key(key.c_str(), key.size());
+    ctx.writer().Key(key.c_str(), static_cast<rapidjson::SizeType>(key.size()));
 }
 
 template <typename Context>
