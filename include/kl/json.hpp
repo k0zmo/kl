@@ -76,20 +76,11 @@ private:
     bool skip_null_fields_;
 };
 
-template <typename Optional>
-struct optional_traits
-{
-    constexpr static bool is_null_value(const Optional&) { return false; }
-};
+template <typename T>
+bool is_null_value(const T&) { return false; }
 
 template <typename T>
-struct optional_traits<boost::optional<T>>
-{
-    constexpr static bool is_null_value(const boost::optional<T>& opt)
-    {
-        return !opt;
-    }
-};
+bool is_null_value(const boost::optional<T>& opt) { return !opt; }
 
 template <typename T>
 rapidjson::Document serialize(const T& obj);
@@ -267,10 +258,7 @@ void encode(const Reflectable& refl, Context& ctx)
 {
     ctx.writer().StartObject();
     ctti::reflect(refl, [&ctx](auto fi) {
-        using field_type =
-            std::remove_cv_t<typename decltype(fi)::original_type>;
-        if (!ctx.skip_null_fields() ||
-            !optional_traits<field_type>::is_null_value(fi.get()))
+        if (!ctx.skip_null_fields() || !is_null_value(fi.get()))
         {
             ctx.writer().Key(fi.name());
             json::dump(fi.get(), ctx);
@@ -403,11 +391,7 @@ rapidjson::Value to_json(const Reflectable& refl, Context& ctx)
 {
     rapidjson::Value obj{rapidjson::kObjectType};
     ctti::reflect(refl, [&obj, &ctx](auto fi) {
-        using field_type =
-            std::remove_cv_t<typename decltype(fi)::original_type>;
-
-        if (!ctx.skip_null_fields() ||
-            !optional_traits<field_type>::is_null_value(fi.get()))
+        if (!ctx.skip_null_fields() || !is_null_value(fi.get()))
         {
             auto json = json::serialize(fi.get(), ctx);
             obj.AddMember(rapidjson::StringRef(fi.name()), std::move(json),
