@@ -56,6 +56,7 @@ target_link_libraries(kl
         Boost::boost
         rapidjson::rapidjson
         GSL::gsl
+        yaml::yaml-cpp
         kl_cxx_flags
     PRIVATE
         Boost::disable_autolinking
