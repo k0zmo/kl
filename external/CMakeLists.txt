@@ -7,8 +7,8 @@ FetchContent_Declare(rapidjson
     URL_HASH SHA1=0fe7b4f7b83df4b3d517f4a202f3a383af7a0818
 )
 FetchContent_Declare(yamlcpp
-    URL https://github.com/jbeder/yaml-cpp/archive/yaml-cpp-0.6.2.zip
-    URL_HASH SHA1=b92c42ebb2373651ad2a9de9423428b50f97f92d
+    URL https://github.com/jbeder/yaml-cpp/archive/0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip
+    URL_HASH SHA1=3e4f9d6d78dd4258569bc498c97027096d5d74fc
 )
 FetchContent_Declare(GSL
     URL https://github.com/Microsoft/GSL/archive/v1.0.0.zip
@@ -45,6 +45,7 @@ if(NOT yamlcpp_POPULATED)
         "${yamlcpp_SOURCE_DIR}/include/yaml-cpp/*.h")
     target_sources(yaml-cpp PRIVATE ${sources})
     target_include_directories(yaml-cpp PUBLIC ${yamlcpp_SOURCE_DIR}/include)
+    target_compile_features(yaml-cpp PUBLIC cxx_std_11)
     set_target_properties(yaml-cpp PROPERTIES FOLDER external)
 endif()
 
