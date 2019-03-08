@@ -1,6 +1,7 @@
 #include "kl/json.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_flags.hpp"
+#include "input/typedefs.hpp"
 
 #include <catch2/catch.hpp>
 #include <boost/optional/optional_io.hpp>
@@ -16,84 +17,6 @@
 #include <deque>
 #include <list>
 #include <map>
-
-namespace {
-
-struct optional_test
-{
-    int non_opt;
-    boost::optional<int> opt;
-};
-
-struct inner_t
-{
-    int r = 1337;
-    double d = 3.145926;
-};
-
-enum class colour_space
-{
-    rgb,
-    xyz,
-    ycrcb,
-    hsv,
-    lab,
-    hls,
-    luv
-};
-
-// on GCC underlying_type(ordinary_enum) => unsigned
-enum ordinary_enum : int { oe_one };
-enum class scope_enum { one };
-enum ordinary_enum_reflectable { oe_one_ref };
-enum class scope_enum_reflectable { one };
-
-struct enums
-{
-    ordinary_enum e0 = ordinary_enum::oe_one;
-    scope_enum e1 = scope_enum::one;
-    ordinary_enum_reflectable e2 = ordinary_enum_reflectable::oe_one_ref;
-    scope_enum_reflectable e3 = scope_enum_reflectable::one;
-};
-
-struct test_t
-{
-    std::string hello = "world";
-    bool t = true;
-    bool f = false;
-    boost::optional<int> n;
-    int i = 123;
-    float pi = 3.1416f;
-    std::vector<int> a = {1, 2, 3, 4};
-    std::vector<std::vector<int>> ad = {std::vector<int>{1, 2},
-                                        std::vector<int>{3, 4, 5}};
-    colour_space space = colour_space::lab;
-    std::tuple<int, double, std::string> tup = std::make_tuple(1, 3.14f, "QWE");
-
-    std::map<std::string, colour_space> map = {{"1", colour_space::hls},
-                                               {"2", colour_space::rgb}};
-
-    inner_t inner;
-};
-
-struct unsigned_test
-{
-    unsigned char u8{128};
-    unsigned short u16{32768};
-    unsigned int u32{std::numeric_limits<unsigned int>::max()};
-    std::uint64_t u64{std::numeric_limits<std::uint64_t>::max()};
-};
-} // namespace
-
-KL_DEFINE_REFLECTABLE(optional_test, (non_opt, opt))
-KL_DEFINE_REFLECTABLE(inner_t, (r, d))
-KL_DEFINE_ENUM_REFLECTOR(colour_space, (rgb, xyz, ycrcb, hsv, lab, hls, luv))
-KL_DEFINE_ENUM_REFLECTOR(ordinary_enum_reflectable, (oe_one_ref))
-KL_DEFINE_ENUM_REFLECTOR(scope_enum_reflectable, (one))
-KL_DEFINE_REFLECTABLE(enums, (e0, e1, e2, e3))
-KL_DEFINE_REFLECTABLE(test_t,
-                      (hello, t, f, n, i, pi, a, ad, space, tup, map, inner))
-KL_DEFINE_REFLECTABLE(unsigned_test, (u8, u16, u32, u64))
 
 std::string to_string(const rapidjson::Document& doc)
 {
@@ -621,15 +544,6 @@ TEST_CASE("json")
     }
 }
 
-#include <chrono>
-
-struct chrono_test
-{
-    int t;
-    std::chrono::seconds sec;
-    std::vector<std::chrono::seconds> secs;
-};
-KL_DEFINE_REFLECTABLE(chrono_test, (t, sec, secs))
 
 namespace kl {
 namespace json {
@@ -659,8 +573,6 @@ TEST_CASE("json - extended")
     auto obj = kl::json::deserialize<chrono_test>(j);
 }
 
-struct global_struct {};
-
 template <typename Context>
 rapidjson::Value to_json(global_struct, Context& ctx)
 {
@@ -674,26 +586,7 @@ global_struct from_json(kl::type_t<global_struct>,
                                     : throw kl::json::deserialize_error{""};
 }
 
-namespace {
-
-struct struct_in_anonymous_ns{};
-
-template <typename Context>
-rapidjson::Value to_json(struct_in_anonymous_ns, Context&)
-{
-    return rapidjson::Value{1};
-}
-
-struct_in_anonymous_ns from_json(kl::type_t<struct_in_anonymous_ns>,
-                                 const rapidjson::Value&)
-{
-    return {};
-}
-} // namespace
-
 namespace my {
-
-struct none_t {};
 
 template <typename Context>
 rapidjson::Value to_json(none_t, Context&)
@@ -705,12 +598,6 @@ none_t from_json(kl::type_t<none_t>, const rapidjson::Value& value)
 {
     return value.IsNull() ? none_t{} : throw kl::json::deserialize_error{""};
 }
-
-template <typename T>
-struct value_wrapper
-{
-    T value;
-};
 
 // Defining such function with specializaton would not be possible as there's no
 // way to partially specialize a function template.
@@ -728,40 +615,15 @@ value_wrapper<T> from_json(kl::type_t<value_wrapper<T>>,
 }
 } // namespace my
 
-struct aggregate
-{
-    global_struct g;
-    my::none_t n;
-    my::value_wrapper<int> w;
-    struct_in_anonymous_ns a;
-};
-KL_DEFINE_REFLECTABLE(aggregate, (g, n, w, a))
-
 TEST_CASE("json - overloading")
 {
-    aggregate a{{}, {}, {31}, {}};
+    aggregate a{{}, {}, {31}};
     auto j = kl::json::serialize(a);
     REQUIRE(j.FindMember("n") != j.MemberEnd());
     CHECK(j["n"].IsNull());
     auto obj = kl::json::deserialize<aggregate>(j);
     REQUIRE(obj.w.value == 31);
 }
-
-namespace {
-
-enum class device_type
-{
-    default_ = (1 << 0),
-    cpu = (1 << 1),
-    gpu = (1 << 2),
-    accelerator = (1 << 3),
-    custom = (1 << 4)
-};
-using device_flags = kl::enum_flags<device_type>;
-} // namespace
-
-KL_DEFINE_ENUM_REFLECTOR(device_type,
-                         ((default_, default), cpu, gpu, accelerator, custom))
 
 TEST_CASE("json - enum_flags")
 {
@@ -956,16 +818,7 @@ public:
 private:
     writer_type& writer_;
 };
-
-struct struct_with_blacklisted
-{
-    int value{34};
-    float secret{3.2f};
-    bool other_non_secret{true};
-};
 } // namespace
-
-KL_DEFINE_REFLECTABLE(struct_with_blacklisted, (value, secret, other_non_secret))
 
 TEST_CASE("json dump - custom context")
 {
@@ -1010,15 +863,6 @@ void encode(global_struct, Context& ctx)
     kl::json::dump("global_struct", ctx);
 }
 
-namespace {
-
-template <typename Context>
-void encode(struct_in_anonymous_ns, Context& ctx)
-{
-    kl::json::dump(1, ctx);
-}
-} // namespace
-
 namespace my {
 
 template <typename Context>
@@ -1036,7 +880,7 @@ void encode(const value_wrapper<T>& t, Context& ctx)
 
 TEST_CASE("json dump - overloading")
 {
-    aggregate a{{}, {}, {31}, {}};
+    aggregate a{{}, {}, {31}};
     auto res = kl::json::dump(a);
-    CHECK(res == R"({"g":"global_struct","n":null,"w":31,"a":1})");
+    CHECK(res == R"({"g":"global_struct","n":null,"w":31})");
 }
