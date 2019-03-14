@@ -15,6 +15,17 @@
 #include <list>
 #include <map>
 
+TEST_CASE("yaml")
+{
+    using namespace kl;
+
+    SECTION("parse error")
+    {
+        REQUIRE_NOTHROW(R"([])"_yaml);
+        REQUIRE_THROWS_AS(R"([{]})"_yaml, yaml::parse_error);
+    }
+}
+
 TEST_CASE("yaml dump")
 {
     using namespace kl;

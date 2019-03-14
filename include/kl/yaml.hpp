@@ -52,6 +52,24 @@ std::string dump(const T& obj);
 template <typename T, typename Context>
 void dump(const T& obj, Context& ctx);
 
+struct parse_error : std::exception
+{
+    explicit parse_error(const char* message)
+        : parse_error{std::string(message)}
+    {
+    }
+
+    explicit parse_error(std::string message) noexcept
+        : message_{std::move(message)}
+    {
+    }
+
+    const char* what() const noexcept override { return message_.c_str(); }
+
+private:
+    std::string message_;
+};
+
 namespace detail {
 
 KL_HAS_TYPEDEF_HELPER(value_type)
@@ -230,3 +248,15 @@ void dump(const T& obj, Context& ctx)
 }
 } // namespace yaml
 } // namespace kl
+
+inline YAML::Node operator""_yaml(const char* s, std::size_t len)
+{
+    try
+    {
+        return YAML::Load(s);
+    }
+    catch (const YAML::Exception& ex)
+    {
+        throw kl::yaml::parse_error{ex.what()};
+    }
+}
