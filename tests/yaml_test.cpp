@@ -19,10 +19,207 @@ TEST_CASE("yaml")
 {
     using namespace kl;
 
+    SECTION("basic types")
+    {
+        CHECK(yaml::serialize('a').as<char>() == 'a');
+        CHECK(yaml::serialize(1).as<int>() == 1);
+        CHECK(yaml::serialize(3U).as<unsigned>() == 3U);
+        CHECK(yaml::serialize(std::int64_t{-1}).as<std::int64_t>() == -1);
+        CHECK(yaml::serialize(std::uint64_t{1}).as<std::uint64_t>() == 1);
+        CHECK(yaml::serialize(true).as<bool>() == true);
+        CHECK(yaml::serialize("qwe").as<std::string>() == "qwe");
+        CHECK(yaml::serialize(std::string{"qwe"}).as<std::string>() == "qwe");
+        CHECK(yaml::serialize(13.11).as<double>() == Approx(13.11));
+        CHECK(yaml::serialize(ordinary_enum::oe_one).as<int>() == 0);
+
+        const char* qwe = "qwe";
+        CHECK(yaml::serialize(qwe).as<std::string>() == "qwe");
+    }
+
     SECTION("parse error")
     {
         REQUIRE_NOTHROW(R"([])"_yaml);
         REQUIRE_THROWS_AS(R"([{]})"_yaml, yaml::parse_error);
+        REQUIRE_THROWS_WITH(
+            R"([{]})"_yaml,
+            "yaml-cpp: error at line 1, column 3: illegal flow end");
+    }
+
+    SECTION("serialize inner_t")
+    {
+        auto y = yaml::serialize(inner_t{});
+        REQUIRE(y.IsMap());
+
+        REQUIRE(y["r"]);
+        CHECK(y["r"].as<int>() == 1337);
+        REQUIRE(y["d"]);
+        CHECK(y["d"].as<double>() == Approx(3.145926));
+    }
+
+    SECTION("serialize tuple")
+    {
+        auto t = std::make_tuple(13, 3.14, colour_space::lab, true);
+        auto y = yaml::serialize(t);
+
+        REQUIRE(y.IsSequence());
+
+        REQUIRE(y.size() == 4);
+        CHECK(y[0].as<int>() == 13);
+        CHECK(y[1].as<double>() == Approx(3.14));
+        CHECK(y[2].as<std::string>() == "lab");
+        CHECK(y[3].as<bool>() == true);
+    }
+
+    SECTION("serialize different types and 'modes' for enums")
+    {
+        auto y = yaml::serialize(enums{});
+        REQUIRE(y["e0"].as<int>() == 0);
+        REQUIRE(y["e1"].as<int>() == 0);
+        REQUIRE(y["e2"].as<std::string>() == "oe_one_ref");
+        REQUIRE(y["e3"].as<std::string>() == "one");
+    }
+
+    SECTION("skip serializing optional fields")
+    {
+        optional_test t;
+        t.non_opt = 23;
+
+        REQUIRE(yaml::serialize(t).IsMap());
+        REQUIRE(yaml::serialize(t).size() == 1);
+        REQUIRE(yaml::serialize(t)["non_opt"].as<int>() == 23);
+
+        t.opt = 78;
+        REQUIRE(yaml::serialize(t).size() == 2);
+        REQUIRE(yaml::serialize(t)["non_opt"].as<int>() == 23);
+        REQUIRE(yaml::serialize(t)["opt"].as<int>() == 78);
+    }
+
+    SECTION("don't skip optional fields if requested")
+    {
+        optional_test t;
+        t.non_opt = 23;
+
+        YAML::Node doc;
+        yaml::serialize_context ctx{doc, false};
+
+        REQUIRE(yaml::serialize(t, ctx).IsMap());
+        REQUIRE(yaml::serialize(t, ctx).size() == 2);
+        REQUIRE(yaml::serialize(t, ctx)["non_opt"].as<int>() == 23);
+        REQUIRE(yaml::serialize(t, ctx)["opt"].IsNull());
+
+        t.opt = 78;
+        REQUIRE(yaml::serialize(t, ctx).IsMap());
+        REQUIRE(yaml::serialize(t, ctx).size() == 2);
+        REQUIRE(yaml::serialize(t, ctx)["non_opt"].as<int>() == 23);
+        REQUIRE(yaml::serialize(t, ctx)["opt"].as<int>() == 78);
+    }
+
+    SECTION("serialize complex structure with std/boost containers")
+    {
+        test_t t;
+        auto y = yaml::serialize(t);
+        REQUIRE(y.IsMap());
+
+        REQUIRE(y["hello"].as<std::string>() == "world");
+        REQUIRE(y["t"].as<bool>() == true);
+        REQUIRE(y["f"].as<bool>() == false);
+        REQUIRE(!y["n"]);
+        REQUIRE(y["i"].as<int>() == 123);
+        REQUIRE(y["pi"].as<double>() == Approx(3.1416f));
+        REQUIRE(y["space"].as<std::string>() == "lab");
+
+        REQUIRE(y["a"].IsSequence());
+        const auto& a = y["a"];
+        REQUIRE(a.size() == 4);
+        REQUIRE(a[0].as<int>() == 1);
+        REQUIRE(a[3].as<int>() == 4);
+
+        REQUIRE(y["ad"].IsSequence());
+        const auto& ad = y["ad"];
+        REQUIRE(ad.size() == 2);
+        REQUIRE(ad[0].IsSequence());
+        REQUIRE(ad[1].IsSequence());
+        REQUIRE(ad[0].size() == 2);
+        REQUIRE(ad[0].as<YAML::Node>()[0].as<int>() == 1);
+        REQUIRE(ad[0].as<YAML::Node>()[1].as<int>() == 2);
+        REQUIRE(ad[1].size() == 3);
+        REQUIRE(ad[1].as<YAML::Node>()[0].as<int>() == 3);
+        REQUIRE(ad[1].as<YAML::Node>()[1].as<int>() == 4);
+        REQUIRE(ad[1].as<YAML::Node>()[2].as<int>() == 5);
+
+        REQUIRE(y["tup"].IsSequence());
+        REQUIRE(y["tup"].size() == 3);
+        REQUIRE(y["tup"].as<YAML::Node>()[0].as<int>() == 1);
+        REQUIRE(y["tup"].as<YAML::Node>()[1].as<double>() == Approx{3.14f});
+        REQUIRE(y["tup"].as<YAML::Node>()[2].as<std::string>() == "QWE");
+
+         REQUIRE(y["map"].IsMap());
+         REQUIRE(y["map"].as<YAML::Node>()["1"].as<std::string>() == "hls");
+         REQUIRE(y["map"].as<YAML::Node>()["2"].as<std::string>() == "rgb");
+
+        REQUIRE(y["inner"].IsMap());
+        const auto& inner = y["inner"].as<YAML::Node>();
+        REQUIRE(inner["r"].as<int>() == inner_t{}.r);
+        REQUIRE(inner["d"].as<double>() == inner_t{}.d);
+    }
+
+    SECTION("test unsigned types")
+    {
+        unsigned_test t;
+        auto y = yaml::serialize(t);
+
+        REQUIRE(y["u8"].as<unsigned char>() == t.u8);
+        REQUIRE(y["u16"].as<unsigned short>() == t.u16);
+        REQUIRE(y["u32"].as<unsigned int>() == t.u32);
+        REQUIRE(y["u64"].as<std::uint64_t>() == t.u64);
+    }
+
+    SECTION("to std containers")
+    {
+        auto y1 = yaml::serialize(std::vector<inner_t>{inner_t{}});
+        REQUIRE(y1.IsSequence());
+        REQUIRE(y1.size() == 1);
+
+        auto y2 = yaml::serialize(std::list<inner_t>{inner_t{}});
+        REQUIRE(y2.IsSequence());
+        REQUIRE(y2.size() == 1);
+
+        auto y3 = yaml::serialize(std::deque<inner_t>{inner_t{}});
+        REQUIRE(y3.IsSequence());
+        REQUIRE(y3.size() == 1);
+
+        auto y4 = yaml::serialize(
+            std::map<std::string, inner_t>{{"inner", inner_t{}}});
+        REQUIRE(y4.IsMap());
+        REQUIRE(y4.size() == 1);
+
+        auto y5 = yaml::serialize(
+            std::unordered_map<std::string, inner_t>{{"inner", inner_t{}}});
+        REQUIRE(y5.IsMap());
+        REQUIRE(y5.size() == 1);
+    }
+}
+
+TEST_CASE("yaml - enum_flags")
+{
+    SECTION("to yaml")
+    {
+        auto f = kl::make_flags(device_type::cpu) | device_type::gpu |
+                 device_type::accelerator;
+        auto y = kl::yaml::serialize(f);
+        REQUIRE(y.IsSequence());
+        REQUIRE(y.size() == 3);
+        REQUIRE(y[0].as<std::string>() == "cpu");
+        REQUIRE(y[1].as<std::string>() == "gpu");
+        REQUIRE(y[2].as<std::string>() == "accelerator");
+
+        f &= ~kl::make_flags(device_type::accelerator);
+
+        y = kl::yaml::serialize(f);
+        REQUIRE(y.IsSequence());
+        REQUIRE(y.size() == 2);
+        REQUIRE(y[0].as<std::string>() == "cpu");
+        REQUIRE(y[1].as<std::string>() == "gpu");
     }
 }
 
@@ -158,22 +355,22 @@ inner:
 
     SECTION("std containers")
     {
-        auto j1 = yaml::dump(std::vector<inner_t>{inner_t{}});
-        CHECK(j1 == "- r: 1337\n  d: 3.145926");
+        auto y1 = yaml::dump(std::vector<inner_t>{inner_t{}});
+        CHECK(y1 == "- r: 1337\n  d: 3.145926");
 
-        auto j2 = yaml::dump(std::list<inner_t>{inner_t{}});
-        CHECK(j2 == "- r: 1337\n  d: 3.145926");
+        auto y2 = yaml::dump(std::list<inner_t>{inner_t{}});
+        CHECK(y2 == "- r: 1337\n  d: 3.145926");
 
-        auto j3 = yaml::dump(std::deque<inner_t>{inner_t{}});
-        CHECK(j3 == "- r: 1337\n  d: 3.145926");
+        auto y3 = yaml::dump(std::deque<inner_t>{inner_t{}});
+        CHECK(y3 == "- r: 1337\n  d: 3.145926");
 
-        auto j4 =
+        auto y4 =
             yaml::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
-        CHECK(j4 == "inner1:\n  r: 1337\n  d: 3.145926");
+        CHECK(y4 == "inner1:\n  r: 1337\n  d: 3.145926");
 
-        auto j5 = yaml::dump(
+        auto y5 = yaml::dump(
             std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
-        CHECK(j5 == "inner2:\n  r: 1337\n  d: 3.145926");
+        CHECK(y5 == "inner2:\n  r: 1337\n  d: 3.145926");
     }
 }
 
