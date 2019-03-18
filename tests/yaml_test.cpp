@@ -51,9 +51,6 @@ TEST_CASE("yaml")
     {
         REQUIRE_NOTHROW(R"([])"_yaml);
         REQUIRE_THROWS_AS(R"([{]})"_yaml, yaml::parse_error);
-        REQUIRE_THROWS_WITH(
-            R"([{]})"_yaml,
-            "yaml-cpp: error at line 1, column 3: illegal flow end");
     }
 
     SECTION("serialize inner_t")
@@ -71,6 +68,9 @@ TEST_CASE("yaml")
     {
         REQUIRE_THROWS_AS(yaml::deserialize<inner_t>({}),
                           yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>({}),
+                            "type must be a sequence or map but is Null\n"
+                            "error when deserializing type inner_t");
     }
 
     SECTION("deserialize inner_t - missing one field")
@@ -78,6 +78,10 @@ TEST_CASE("yaml")
         auto y = "d: 1.0"_yaml;
         REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y),
                           yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y),
+                            "type must be a scalar but is Null\n"
+                            "error when deserializing field r\n"
+                            "error when deserializing type inner_t");
     }
 
     SECTION("deserialize inner_t - one additional field")
@@ -113,40 +117,41 @@ TEST_CASE("yaml")
     SECTION("deserialize simple - wrong types")
     {
         YAML::Node null{};
-        REQUIRE_THROWS_AS(yaml::deserialize<int>(null),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_AS(yaml::deserialize<bool>(null),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_AS(yaml::deserialize<float>(null),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_AS(yaml::deserialize<std::string>(null),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_AS(yaml::deserialize<std::tuple<int>>(null),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_AS(yaml::deserialize<std::vector<int>>(null),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_AS((yaml::deserialize<std::map<std::string, int>>(null)),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<int>(null),
+                            "type must be a scalar but is Null");
+        REQUIRE_THROWS_WITH(yaml::deserialize<bool>(null),
+                            "type must be a scalar but is Null");
+        REQUIRE_THROWS_WITH(yaml::deserialize<float>(null),
+                            "type must be a scalar but is Null");
+        REQUIRE_THROWS_WITH(yaml::deserialize<std::string>(null),
+                            "type must be a scalar but is Null");
+        REQUIRE_THROWS_WITH(yaml::deserialize<std::tuple<int>>(null),
+                            "type must be a sequence but is Null");
+        REQUIRE_THROWS_WITH(yaml::deserialize<std::vector<int>>(null),
+                            "type must be a sequence but is Null");
+        REQUIRE_THROWS_WITH(
+            (yaml::deserialize<std::map<std::string, int>>(null)),
+            "type must be a map but is Null");
 
         YAML::Node str{"text"};
-        REQUIRE_THROWS_AS(yaml::deserialize<int>(str),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_AS(yaml::deserialize<bool>(str),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_AS(yaml::deserialize<float>(str),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<int>(str), "bad conversion");
+        REQUIRE_THROWS_WITH(yaml::deserialize<bool>(str), "bad conversion");
+        REQUIRE_THROWS_WITH(yaml::deserialize<float>(str), "bad conversion");
         REQUIRE_NOTHROW(yaml::deserialize<std::string>(str));
 
         YAML::Node arr{YAML::NodeType::Sequence};
         arr.push_back(true);
-        REQUIRE_THROWS_AS(yaml::deserialize<std::vector<int>>(arr),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<std::vector<int>>(arr),
+                            "bad conversion\n"
+                            "error when deserializing element 0");
 
         YAML::Node obj{YAML::NodeType::Map};
         obj["key0"] = YAML::Node{3};
         obj["key2"] = YAML::Node{true};
-        REQUIRE_THROWS_AS((yaml::deserialize<std::map<std::string, int>>(obj)),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(
+            (yaml::deserialize<std::map<std::string, int>>(obj)),
+            "bad conversion\n"
+            "error when deserializing field key2");
     }
 
     SECTION("deserialize tuple")
@@ -168,12 +173,12 @@ TEST_CASE("yaml")
         REQUIRE(std::get<3>(obj) == true);
 
         y = R"([7, 13, true])"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<decltype(t)>(y),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
+                            "type must be a scalar but is Null");
 
         y = "7, 13, rgb, 1, true"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<decltype(t)>(y),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
+                            "type must be a sequence but is Scalar");
     }
 
     SECTION("serialize different types and 'modes' for enums")
@@ -199,16 +204,29 @@ TEST_CASE("yaml")
     SECTION("deserialize different types and 'modes' for enums - fail")
     {
         auto y = "{e0: 0, e1: 0, e2: oe_one_ref, e3: 0}"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<enums>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<enums>(y),
+                            "invalid enum value: 0\n"
+                            "error when deserializing field e3\n"
+                            "error when deserializing type enums");
 
         y = "{e0: 0, e1: 0, e2: oe_one_ref2, e3: 0}"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<enums>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<enums>(y),
+                            "invalid enum value: oe_one_ref2\n"
+                            "error when deserializing field e2\n"
+                            "error when deserializing type enums");
 
         y = "{e0: 0, e1: true, e2: oe_one_ref, e3: one}"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<enums>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<enums>(y),
+            "yaml-cpp: error at line 1, column 13: bad conversion\n"
+            "error when deserializing field e1\n"
+            "error when deserializing type enums");
 
         y = "{e0: 0, e1: 0, e2: oe_one_ref, e3: []}"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<enums>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<enums>(y),
+                            "type must be a scalar but is Sequence\n"
+                            "error when deserializing field e3\n"
+                            "error when deserializing type enums");
     }
 
     SECTION("skip serializing optional fields")
@@ -271,21 +289,11 @@ TEST_CASE("yaml")
     SECTION("deserialize with optional fields invalid")
     {
         auto y = "{non_opt: 32, opt: QWE}"_yaml;
-
-        try
-        {
-            yaml::deserialize<optional_test>(y);
-        }
-        catch (std::exception& ex)
-        {
-            REQUIRE(!strcmp(ex.what(),
-                            "yaml-cpp: error at line 1, column 20: bad conversion\n"
-                            "error when deserializing field opt\n"
-                            "error when deserializing type optional_test"));
-        }
-
-        REQUIRE_THROWS_AS(yaml::deserialize<optional_test>(y),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<optional_test>(y),
+            "yaml-cpp: error at line 1, column 20: bad conversion\n"
+            "error when deserializing field opt\n"
+            "error when deserializing type optional_test");
     }
 
     SECTION("serialize complex structure with std/boost containers")
@@ -422,12 +430,16 @@ tup:
     SECTION("deserialize to struct from an array - num elements differs")
     {
         auto y = "[3,4.0,QWE]"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<inner_t>(y),
+            "sequence size is greater than declared struct's field count\n"
+            "error when deserializing type inner_t");
 
         y = "- 3"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y),
+                            "type must be a scalar but is Null\n"
+                            "error when deserializing element 1\n"
+                            "error when deserializing type inner_t");
     }
 
     SECTION("deserialize to struct from an array - tail optional fields")
@@ -441,12 +453,18 @@ tup:
     SECTION("deserialize to struct from an array - type mismatch")
     {
         auto y = "[3,QWE]"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<inner_t>(y),
+            "yaml-cpp: error at line 1, column 4: bad conversion\n"
+            "error when deserializing element 1\n"
+            "error when deserializing type inner_t");
 
         y = "[false,4]"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<inner_t>(y),
+            "yaml-cpp: error at line 1, column 2: bad conversion\n"
+            "error when deserializing element 0\n"
+            "error when deserializing type inner_t");
     }
 
     SECTION("optional<string>")
@@ -466,8 +484,8 @@ tup:
         using tuple_t = std::tuple<int, bool, boost::optional<std::string>>;
 
         auto y = "[4]"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<tuple_t>(y),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<tuple_t>(y),
+                            "type must be a scalar but is Null");
 
         y = "[4,true]"_yaml;
         auto t = yaml::deserialize<tuple_t>(y);
@@ -641,8 +659,8 @@ TEST_CASE("yaml - enum_flags")
     SECTION("from yaml")
     {
         auto y = "cpu: 1"_yaml;
-        REQUIRE_THROWS_AS(kl::yaml::deserialize<device_flags>(y),
-                          kl::yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(kl::yaml::deserialize<device_flags>(y),
+                            "type must be a sequnce but is Map");
 
         y = "[]"_yaml;
         auto f = kl::yaml::deserialize<device_flags>(y);

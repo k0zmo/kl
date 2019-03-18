@@ -62,8 +62,6 @@ TEST_CASE("json")
     {
         REQUIRE_NOTHROW(R"([])"_json);
         REQUIRE_THROWS_AS(R"([{]})"_json, json::parse_error);
-        REQUIRE_THROWS_WITH(R"([{]})"_json,
-                            "Missing a name for object member.");
     }
 
     SECTION("serialize inner_t")
@@ -80,17 +78,15 @@ TEST_CASE("json")
         REQUIRE(it->value.GetDouble() == Approx(3.145926));
     }
 
-    SECTION("deserialize inner_t - empty json")
-    {
-        REQUIRE_THROWS_AS(json::deserialize<inner_t>({}),
-                          json::deserialize_error);
-    }
-
     SECTION("deserialize inner_t - missing one field")
     {
         auto j = R"({"d": 1.0})"_json;
         REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
                           json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
+                            "type must be an integral but is kNullType\n"
+                            "error when deserializing field r\n"
+                            "error when deserializing type inner_t");
     }
 
     SECTION("deserialize inner_t - one additional field")
@@ -127,40 +123,44 @@ TEST_CASE("json")
     SECTION("deserialize simple - wrong types")
     {
         rapidjson::Value null{};
-        REQUIRE_THROWS_AS(json::deserialize<int>(null),
-                          json::deserialize_error);
-        REQUIRE_THROWS_AS(json::deserialize<bool>(null),
-                          json::deserialize_error);
-        REQUIRE_THROWS_AS(json::deserialize<float>(null),
-                          json::deserialize_error);
-        REQUIRE_THROWS_AS(json::deserialize<std::string>(null),
-                          json::deserialize_error);
-        REQUIRE_THROWS_AS(json::deserialize<std::tuple<int>>(null),
-                          json::deserialize_error);
-        REQUIRE_THROWS_AS(json::deserialize<std::vector<int>>(null),
-                          json::deserialize_error);
-        REQUIRE_THROWS_AS((json::deserialize<std::map<std::string, int>>(null)),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<int>(null),
+                            "type must be an integral but is kNullType");
+        REQUIRE_THROWS_WITH(json::deserialize<bool>(null),
+                            "type must be a bool but is kNullType");
+        REQUIRE_THROWS_WITH(json::deserialize<float>(null),
+                            "type must be a floating-point but is kNullType");
+        REQUIRE_THROWS_WITH(json::deserialize<std::string>(null),
+                            "type must be a string but is kNullType");
+        REQUIRE_THROWS_WITH(json::deserialize<std::tuple<int>>(null),
+                            "type must be an array but is kNullType");
+        REQUIRE_THROWS_WITH(json::deserialize<std::vector<int>>(null),
+                            "type must be an array but is kNullType");
+        REQUIRE_THROWS_WITH(
+            (json::deserialize<std::map<std::string, int>>(null)),
+            "type must be an object but is kNullType");
 
         rapidjson::Value str{"\"text\""};
-        REQUIRE_THROWS_AS(json::deserialize<int>(str),
-                          json::deserialize_error);
-        REQUIRE_THROWS_AS(json::deserialize<bool>(str),
-                          json::deserialize_error);
-        REQUIRE_THROWS_AS(json::deserialize<float>(str),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<int>(str),
+                            "type must be an integral but is kStringType");
+        REQUIRE_THROWS_WITH(json::deserialize<bool>(str),
+                            "type must be a bool but is kStringType");
+        REQUIRE_THROWS_WITH(json::deserialize<float>(str),
+                            "type must be a floating-point but is kStringType");
         REQUIRE_NOTHROW(json::deserialize<std::string>(str));
 
         rapidjson::Document arr{rapidjson::kArrayType};
         arr.PushBack(true, arr.GetAllocator());
-        REQUIRE_THROWS_AS(json::deserialize<std::vector<int>>(arr),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<std::vector<int>>(arr),
+                            "type must be an integral but is kTrueType\n"
+                            "error when deserializing element 0");
 
         rapidjson::Document obj{rapidjson::kObjectType};
         obj.AddMember("key0", rapidjson::Value{3}, obj.GetAllocator());
         obj.AddMember("key2", rapidjson::Value{true}, obj.GetAllocator());
-        REQUIRE_THROWS_AS((json::deserialize<std::map<std::string, int>>(obj)),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(
+            (json::deserialize<std::map<std::string, int>>(obj)),
+            "type must be an integral but is kTrueType\n"
+            "error when deserializing field key2");
     }
 
     SECTION("deserialize tuple")
@@ -182,12 +182,12 @@ TEST_CASE("json")
         REQUIRE(std::get<3>(obj) == true);
 
         j = R"([7, 13, true])"_json;
-        REQUIRE_THROWS_AS(json::deserialize<decltype(t)>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
+                            "type must be a bool but is kNullType");
 
         j = R"([7, 13, "rgb", 1, true])"_json;
-        REQUIRE_THROWS_AS(json::deserialize<decltype(t)>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
+                            "type must be a bool but is kNumberType");
     }
 
     SECTION("serialize different types and 'modes' for enums")
@@ -213,13 +213,22 @@ TEST_CASE("json")
     SECTION("deserialize different types and 'modes' for enums - fail")
     {
         auto j = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref", "e3": 0})"_json;
-        REQUIRE_THROWS_AS(json::deserialize<enums>(j), json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
+                            "type must be a string-enum but is kNumberType\n"
+                            "error when deserializing field e3\n"
+                            "error when deserializing type enums");
 
         j = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref2", "e3": 0})"_json;
-        REQUIRE_THROWS_AS(json::deserialize<enums>(j), json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
+                            "invalid enum value: oe_one_ref2\n"
+                            "error when deserializing field e2\n"
+                            "error when deserializing type enums");
 
         j = R"({"e0": 0, "e1": true, "e2": "oe_one_ref", "e3": "one"})"_json;
-        REQUIRE_THROWS_AS(json::deserialize<enums>(j), json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
+                            "type must be a number-enum but is kTrueType\n"
+                            "error when deserializing field e1\n"
+                            "error when deserializing type enums");
     }
 
     SECTION("skip serializing optional fields")
@@ -282,21 +291,10 @@ TEST_CASE("json")
     SECTION("deserialize with optional fields invalid")
     {
         auto j = R"({"non_opt": 32, "opt": "QWE"})"_json;
-
-        try
-        {
-            json::deserialize<optional_test>(j);
-        }
-        catch (std::exception& ex)
-        {
-            REQUIRE(!strcmp(ex.what(),
+        REQUIRE_THROWS_WITH(json::deserialize<optional_test>(j),
                             "type must be an integral but is kStringType\n"
                             "error when deserializing field opt\n"
-                            "error when deserializing type optional_test"));
-        }
-
-        REQUIRE_THROWS_AS(json::deserialize<optional_test>(j),
-                          json::deserialize_error);
+                            "error when deserializing type optional_test");
     }
 
     SECTION("serialize complex structure with std/boost containers")
@@ -441,12 +439,16 @@ TEST_CASE("json")
     SECTION("deserialize to struct from an array - num elements differs")
     {
         auto j = R"([3,4.0,"QWE"])"_json;
-        REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(
+            json::deserialize<inner_t>(j),
+            "array size is greater than declared struct's field count\n"
+            "error when deserializing type inner_t");
 
         j = R"([3])"_json;
-        REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
+                            "type must be a floating-point but is kNullType\n"
+                            "error when deserializing element 1\n"
+                            "error when deserializing type inner_t");
     }
 
     SECTION("deserialize to struct from an array - tail optional fields")
@@ -460,12 +462,16 @@ TEST_CASE("json")
     SECTION("deserialize to struct from an array - type mismatch")
     {
         auto j = R"([3,"QWE"])"_json;
-        REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
+                            "type must be a floating-point but is kStringType\n"
+                            "error when deserializing element 1\n"
+                            "error when deserializing type inner_t");
 
         j = R"([false,4])"_json;
-        REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
+                            "type must be an integral but is kFalseType\n"
+                            "error when deserializing element 0\n"
+                            "error when deserializing type inner_t");
     }
 
     SECTION("optional<string>")
@@ -485,8 +491,8 @@ TEST_CASE("json")
         using tuple_t = std::tuple<int, bool, boost::optional<std::string>>;
 
         auto j = R"([4])"_json;
-        REQUIRE_THROWS_AS(json::deserialize<tuple_t>(j),
-                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<tuple_t>(j),
+                            "type must be a bool but is kNullType");
 
         j = R"([4,true])"_json;
         auto t = json::deserialize<tuple_t>(j);
@@ -675,8 +681,8 @@ TEST_CASE("json - enum_flags")
     SECTION("from json")
     {
         auto j = R"({"cpu": 1})"_json;
-        REQUIRE_THROWS_AS(kl::json::deserialize<device_flags>(j),
-                          kl::json::deserialize_error);
+        REQUIRE_THROWS_WITH(kl::json::deserialize<device_flags>(j),
+                            "type must be an array but is kObjectType");
 
         j = R"([])"_json;
         auto f = kl::json::deserialize<device_flags>(j);
