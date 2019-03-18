@@ -13,6 +13,9 @@
 #include <exception>
 #include <string>
 
+KL_DEFINE_ENUM_REFLECTOR(YAML, NodeType::value,
+                         (Undefined, Null, Scalar, Sequence, Map))
+
 namespace kl {
 namespace yaml {
 
@@ -58,8 +61,7 @@ struct serializer;
 class serialize_context
 {
 public:
-    explicit serialize_context(YAML::Node& node,
-                               bool skip_null_fields = true)
+    explicit serialize_context(YAML::Node& node, bool skip_null_fields = true)
         : node_{node}, skip_null_fields_{skip_null_fields}
     {
     }
@@ -82,6 +84,41 @@ YAML::Node serialize(const T& obj);
 
 template <typename T, typename Context>
 YAML::Node serialize(const T& obj, Context& ctx);
+
+template <typename T>
+T deserialize(type_t<T>, const YAML::Node& value);
+
+// Shorter version of from which can't be overloaded. Only use to invoke
+// the from() without providing a bit weird first parameter.
+template <typename T>
+T deserialize(const YAML::Node& value)
+{
+    // TODO replace with variable template type<T>
+    return yaml::deserialize(type_t<T>{}, value);
+}
+
+struct deserialize_error : std::exception
+{
+    explicit deserialize_error(const char* message)
+        : deserialize_error(std::string(message))
+    {
+    }
+    explicit deserialize_error(std::string message) noexcept
+        : messages_(std::move(message))
+    {
+    }
+
+    const char* what() const noexcept override { return messages_.c_str(); }
+
+    void add(const char* message)
+    {
+        messages_.insert(end(messages_), '\n');
+        messages_.append(message);
+    }
+
+private:
+    std::string messages_;
+};
 
 struct parse_error : std::exception
 {
@@ -109,6 +146,7 @@ KL_HAS_TYPEDEF_HELPER(mapped_type)
 KL_HAS_TYPEDEF_HELPER(key_type)
 
 KL_VALID_EXPR_HELPER(has_c_str, std::declval<T&>().c_str())
+KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
 
 template <typename T>
 struct is_map_alike
@@ -124,6 +162,8 @@ struct is_vector_alike
         has_value_type<T>,
         has_iterator<T>,
         negation<has_c_str<T>>> {};
+
+// encode implementation
 
 template <typename Context>
 void encode(std::nullptr_t, Context& ctx)
@@ -232,6 +272,8 @@ void encode(const boost::optional<T>& opt, Context& ctx)
         return yaml::dump(*opt, ctx);
 }
 
+// to_yaml implementation
+
 // For all arithmetic types
 template <typename Arithmetic, typename Context,
           enable_if<std::is_arithmetic<Arithmetic>> = true>
@@ -298,7 +340,7 @@ template <typename Enum, typename Context>
 YAML::Node enum_to_yaml(Enum e, Context& ctx,
                         std::true_type /*is_enum_reflectable*/)
 {
-    return YAML::Node{enum_reflector<Enum>::to_string(e)};
+    return YAML::Node{kl::to_string(e)};
 }
 
 template <typename Enum, typename Context>
@@ -355,6 +397,275 @@ YAML::Node to_yaml(const boost::optional<T>& opt, Context& ctx)
     return YAML::Node{};
 }
 
+// from_yaml implementation
+
+inline std::string yaml_type_name(const YAML::Node& value)
+{
+    return kl::to_string(value.Type());
+}
+
+template <typename T>
+T from_scalar_yaml(const YAML::Node& value)
+{
+    if (!value.IsScalar())
+        throw deserialize_error{"type must be a scalar but is " +
+                                yaml_type_name(value)};
+
+    try
+    {
+        return value.as<T>();
+    }
+    catch (const YAML::BadConversion& ex)
+    {
+        throw deserialize_error{ex.what()};
+    }
+}
+
+template <typename Arithmetic, enable_if<std::is_arithmetic<Arithmetic>> = true>
+Arithmetic from_yaml(type_t<Arithmetic>, const YAML::Node& value)
+{
+    return from_scalar_yaml<Arithmetic>(value);
+}
+
+inline std::string from_yaml(type_t<std::string>, const YAML::Node& value)
+{
+    if (!value.IsScalar())
+        throw deserialize_error{"type must be a scalar but is " +
+                                yaml_type_name(value)};
+    return value.Scalar();
+}
+
+template <typename Map, enable_if<is_map_alike<Map>> = true>
+Map from_yaml(type_t<Map>, const YAML::Node& value)
+{
+    if (!value.IsMap())
+        throw deserialize_error{"type must be a map but is " +
+                                yaml_type_name(value)};
+
+    Map ret{};
+
+    for (const auto& obj : value)
+    {
+        try
+        {
+            ret.emplace(
+                yaml::deserialize<typename Map::key_type>(obj.first),
+                yaml::deserialize<typename Map::mapped_type>(obj.second));
+        }
+        catch (deserialize_error& ex)
+        {
+            std::string msg =
+                "error when deserializing field " + obj.first.Scalar();
+            ex.add(msg.c_str());
+            throw;
+        }
+    }
+
+    return ret;
+}
+
+template <typename Vector>
+void vector_reserve(Vector&, std::size_t, std::false_type)
+{
+}
+
+template <typename Vector>
+void vector_reserve(Vector& vec, std::size_t size, std::true_type)
+{
+    vec.reserve(size);
+}
+
+template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
+                                     is_vector_alike<Vector>> = true>
+Vector from_yaml(type_t<Vector>, const YAML::Node& value)
+{
+    if (!value.IsSequence())
+        throw deserialize_error{"type must be a sequence but is " +
+                                yaml_type_name(value)};
+
+    Vector ret{};
+    vector_reserve(ret, value.size(), has_reserve<Vector>{});
+
+    for (const auto& item : value)
+    {
+        try
+        {
+            ret.push_back(yaml::deserialize<typename Vector::value_type>(item));
+        }
+        catch (deserialize_error& ex)
+        {
+            std::string msg = "error when deserializing element " +
+                              std::to_string(ret.size());
+            ex.add(msg.c_str());
+            throw;
+        }
+    }
+
+    return ret;
+}
+
+template <typename Reflectable>
+Reflectable reflectable_from_yaml(const YAML::Node& value)
+{
+    Reflectable refl{};
+
+    if (value.IsMap())
+    {
+        ctti::reflect(refl, [&value](auto fi) {
+            using field_type = typename decltype(fi)::type;
+
+            try
+            {
+                const auto& query = value[fi.name()];
+                if (query)
+                    fi.get() = yaml::deserialize<field_type>(query);
+                else
+                    fi.get() = yaml::deserialize<field_type>({});
+            }
+            catch (deserialize_error& ex)
+            {
+                std::string msg =
+                    "error when deserializing field " + std::string(fi.name());
+                ex.add(msg.c_str());
+                throw;
+            }
+        });
+    }
+    else if (value.IsSequence())
+    {
+        if (value.size() > ctti::total_num_fields<Reflectable>())
+        {
+            throw deserialize_error{"sequence size is greater than "
+                                    "declared struct's field "
+                                    "count"};
+        }
+        ctti::reflect(refl, [&value, index = 0U](auto fi) mutable {
+            using field_type = typename decltype(fi)::type;
+
+            try
+            {
+                if (index < value.size())
+                    fi.get() = yaml::deserialize<field_type>(value[index]);
+                else
+                    fi.get() = yaml::deserialize<field_type>({});
+                ++index;
+            }
+            catch (deserialize_error& ex)
+            {
+                std::string msg =
+                    "error when deserializing element " + std::to_string(index);
+                ex.add(msg.c_str());
+                throw;
+            }
+        });
+    }
+    else
+    {
+        throw deserialize_error{"type must be a sequence or map but is " +
+                                yaml_type_name(value)};
+    }
+
+    return refl;
+}
+
+template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
+Reflectable from_yaml(type_t<Reflectable>, const YAML::Node& value)
+{
+    static_assert(std::is_default_constructible<Reflectable>::value,
+                  "Reflectable must be default constructible");
+
+    try
+    {
+        return reflectable_from_yaml<Reflectable>(value);
+    }
+    catch (deserialize_error& ex)
+    {
+        std::string msg = "error when deserializing type " +
+                          std::string(ctti::name<Reflectable>());
+        ex.add(msg.c_str());
+        throw;
+    }
+}
+
+template <typename Enum>
+Enum enum_from_yaml(const YAML::Node& value,
+                    std::false_type /*is_enum_reflectable*/)
+{
+    using underlying_type = std::underlying_type_t<Enum>;
+    return static_cast<Enum>(from_scalar_yaml<underlying_type>(value));
+}
+
+template <typename Enum>
+Enum enum_from_yaml(const YAML::Node& value,
+                    std::true_type /*is_enum_reflectable*/)
+{
+    if (!value.IsScalar())
+        throw deserialize_error{"type must be a scalar but is " +
+                                yaml_type_name(value)};
+    if (auto enum_value = kl::from_string<Enum>(value.Scalar()))
+        return enum_value.get();
+    throw deserialize_error{"invalid enum value: " + value.Scalar()};
+}
+
+template <typename Enum, enable_if<std::is_enum<Enum>> = true>
+Enum from_yaml(type_t<Enum>, const YAML::Node& value)
+{
+    return enum_from_yaml<Enum>(value, is_enum_reflectable<Enum>{});
+}
+
+template <typename Enum>
+enum_flags<Enum> from_yaml(type_t<enum_flags<Enum>>, const YAML::Node& value)
+{
+    if (!value.IsSequence())
+        throw deserialize_error{"type must be a sequnce but is " +
+                                yaml_type_name(value)};
+
+    enum_flags<Enum> ret{};
+
+    for (const auto& v : value)
+    {
+        const auto e = yaml::deserialize<Enum>(v);
+        ret |= e;
+    }
+
+    return ret;
+}
+
+// Safely gets the YAML value from the sequence of YAML values. If provided
+// index is out-of-bounds we return a null value.
+inline const YAML::Node safe_get_value(const YAML::Node& seq, std::size_t idx)
+{
+    static const auto null_value = YAML::Node{};
+    return idx >= seq.size() ? null_value : seq[idx];
+}
+
+template <typename Tuple, std::size_t... Is>
+static Tuple tuple_from_yaml(const YAML::Node& value, index_sequence<Is...>)
+{
+    return std::make_tuple(yaml::deserialize<std::tuple_element_t<Is, Tuple>>(
+        safe_get_value(value, Is))...);
+}
+
+template <typename... Ts>
+std::tuple<Ts...> from_yaml(type_t<std::tuple<Ts...>>, const YAML::Node& value)
+{
+    if (!value.IsSequence())
+        throw deserialize_error{"type must be a sequence but is " +
+                                yaml_type_name(value)};
+
+    return tuple_from_yaml<std::tuple<Ts...>>(
+        value, make_index_sequence<sizeof...(Ts)>{});
+}
+
+template <typename T>
+boost::optional<T> from_yaml(type_t<boost::optional<T>>,
+                             const YAML::Node& value)
+{
+    if (!value || value.IsNull())
+        return {};
+    return yaml::deserialize<T>(value);
+}
+
 template <typename T, typename Context>
 void dump(const T&, Context&, priority_tag<0>)
 {
@@ -406,6 +717,30 @@ auto serialize(const T& obj, Context& ctx, priority_tag<2>)
 {
     return yaml::serializer<T>::to_yaml(obj, ctx);
 }
+
+template <typename T>
+T deserialize(const YAML::Node&, priority_tag<0>)
+{
+    static_assert(always_false<T>::value,
+                  "Cannot deserialize an instance of type T - no viable "
+                  "definition of from_yaml provided");
+    return T{}; // Keeps compiler happy
+}
+
+template <typename T>
+auto deserialize(const YAML::Node& value, priority_tag<1>)
+    -> decltype(from_yaml(std::declval<type_t<T>>(), value))
+{
+    // TODO replace with variable template type<T>
+    return from_yaml(type_t<T>{}, value);
+}
+
+template <typename T>
+auto deserialize(const YAML::Node& value, priority_tag<2>)
+    -> decltype(yaml::serializer<T>::from_yaml(value))
+{
+    return yaml::serializer<T>::from_yaml(value);
+}
 } // namespace detail
 
 template <typename T>
@@ -436,6 +771,12 @@ template <typename T, typename Context>
 YAML::Node serialize(const T& obj, Context& ctx)
 {
     return detail::serialize(obj, ctx, priority_tag<2>{});
+}
+
+template <typename T>
+T deserialize(type_t<T>, const YAML::Node& value)
+{
+    return detail::deserialize<T>(value, priority_tag<2>{});
 }
 } // namespace yaml
 } // namespace kl
