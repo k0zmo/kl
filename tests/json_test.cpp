@@ -30,7 +30,7 @@ TEST_CASE("json")
 {
     using namespace kl;
 
-    SECTION("basic types")
+    SECTION("serialize basic types")
     {
         CHECK(json::serialize('a').IsInt());
         CHECK(json::serialize(1).IsInt());
@@ -39,15 +39,31 @@ TEST_CASE("json")
         CHECK(json::serialize(std::uint64_t{1}).IsUint64());
         CHECK(json::serialize(true).IsBool());
         CHECK(json::serialize("qwe").IsString());
-        CHECK(json::serialize(std::string{ "qwe" }).IsString());
+        CHECK(json::serialize(std::string{"qwe"}).IsString());
         CHECK(json::serialize(13.11).IsDouble());
         CHECK(json::serialize(ordinary_enum::oe_one).IsInt());
+
+        const char* qwe = "qwe";
+        CHECK(json::serialize(qwe).IsString());
+    }
+
+    SECTION("deserialize basic types")
+    {
+        CHECK(json::deserialize<int>("-1"_json) == -1);
+        CHECK(json::deserialize<std::string>("\"string\""_json) == "string");
+        CHECK(json::deserialize<unsigned>("33"_json) == 33U);
+        CHECK(json::deserialize<bool>("true"_json));
+        CHECK(json::deserialize<double>("13.11"_json) == Approx{13.11});
+        CHECK(json::deserialize<ordinary_enum>("0"_json) ==
+              ordinary_enum::oe_one);
     }
 
     SECTION("parse error")
     {
         REQUIRE_NOTHROW(R"([])"_json);
         REQUIRE_THROWS_AS(R"([{]})"_json, json::parse_error);
+        REQUIRE_THROWS_WITH(R"([{]})"_json,
+                            "Missing a name for object member.");
     }
 
     SECTION("serialize inner_t")
@@ -125,6 +141,15 @@ TEST_CASE("json")
                           json::deserialize_error);
         REQUIRE_THROWS_AS((json::deserialize<std::map<std::string, int>>(null)),
                           json::deserialize_error);
+
+        rapidjson::Value str{"\"text\""};
+        REQUIRE_THROWS_AS(json::deserialize<int>(str),
+                          json::deserialize_error);
+        REQUIRE_THROWS_AS(json::deserialize<bool>(str),
+                          json::deserialize_error);
+        REQUIRE_THROWS_AS(json::deserialize<float>(str),
+                          json::deserialize_error);
+        REQUIRE_NOTHROW(json::deserialize<std::string>(str));
 
         rapidjson::Document arr{rapidjson::kArrayType};
         arr.PushBack(true, arr.GetAllocator());
@@ -207,6 +232,7 @@ TEST_CASE("json")
         REQUIRE(json::serialize(t)["non_opt"] == 23);
 
         t.opt = 78;
+        REQUIRE(json::serialize(t).MemberCount() == 2);
         REQUIRE(json::serialize(t)["non_opt"] == 23);
         REQUIRE(json::serialize(t)["opt"] == 78);
     }
@@ -217,7 +243,7 @@ TEST_CASE("json")
         t.non_opt = 23;
 
         rapidjson::Document doc;
-        kl::json::serialize_context ctx{doc, false};
+        json::serialize_context ctx{doc, false};
 
         REQUIRE(json::serialize(t, ctx).IsObject());
         REQUIRE(json::serialize(t, ctx).MemberCount() == 2);
@@ -544,7 +570,6 @@ TEST_CASE("json")
     }
 }
 
-
 namespace kl {
 namespace json {
 
@@ -802,10 +827,7 @@ class my_dump_context
 public:
     using writer_type = rapidjson::Writer<rapidjson::StringBuffer>;
 
-    explicit my_dump_context(writer_type& writer)
-        : writer_{writer}
-    {
-    }
+    explicit my_dump_context(writer_type& writer) : writer_{writer} {}
 
     writer_type& writer() const { return writer_; }
 

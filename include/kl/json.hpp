@@ -359,9 +359,15 @@ rapidjson::Value to_json(const std::basic_string<Ch>& str, Context& ctx)
     return rapidjson::Value{str, ctx.allocator()};
 }
 
+template <typename Context>
+rapidjson::Value to_json(const char* str, Context& ctx)
+{
+    return rapidjson::Value{str, ctx.allocator()};
+}
+
 // For string literals
 template <std::size_t N, typename Context>
-rapidjson::Value to_json(const char (&str)[N], Context& ctx)
+rapidjson::Value to_json(char (&str)[N], Context& ctx)
 {
     // No need for allocator
     return rapidjson::Value{str, N - 1};
@@ -838,7 +844,7 @@ auto dump(const T& obj, Context& ctx, priority_tag<2>)
 }
 
 template <typename T, typename Context>
-rapidjson::Value serialize(const T&, rapidjson::Document&, priority_tag<0>)
+rapidjson::Value serialize(const T&, Context&, priority_tag<0>)
 {
     static_assert(always_false<T>::value,
                   "Cannot serialize an instance of type T - no viable "
