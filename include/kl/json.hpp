@@ -158,6 +158,8 @@ KL_HAS_TYPEDEF_HELPER(iterator)
 KL_HAS_TYPEDEF_HELPER(mapped_type)
 KL_HAS_TYPEDEF_HELPER(key_type)
 
+KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
+
 template <typename T>
 struct is_map_alike
     : conjunction<
@@ -171,6 +173,8 @@ struct is_vector_alike
     : conjunction<
         has_value_type<T>,
         has_iterator<T>> {};
+
+// encode implementation
 
 template <typename Context>
 void encode(std::nullptr_t, Context& ctx)
@@ -336,14 +340,14 @@ void encode(const boost::optional<T>& opt, Context& ctx)
         json::dump(*opt, ctx);
 }
 
+// to_json implementation
+
 // Checks if we can construct a Json object with given T
 template <typename T>
 using is_json_constructible =
     bool_constant<std::is_constructible<rapidjson::Value, T>::value &&
                   // We want reflectable unscoped enum to handle ourselves
                   !std::is_enum<T>::value>;
-
-KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
 
 // For all T's that we can directly create rapidjson::Value value from
 template <typename JsonConstructible, typename Context,
@@ -383,7 +387,7 @@ rapidjson::Value to_json(const Map& map, Context& ctx)
         std::is_constructible<std::string, typename Map::key_type>::value,
         "std::string must be constructible from the Map's key type");
 
-    rapidjson::Value obj(rapidjson::kObjectType);
+    rapidjson::Value obj{rapidjson::kObjectType};
     for (const auto& kv : map)
     {
         if (!ctx.skip_field(kv.first, kv.second))
@@ -402,7 +406,7 @@ template <
               negation<is_map_alike<Vector>>, is_vector_alike<Vector>> = true>
 rapidjson::Value to_json(const Vector& vec, Context& ctx)
 {
-    rapidjson::Value arr(rapidjson::kArrayType);
+    rapidjson::Value arr{rapidjson::kArrayType};
     for (const auto& v : vec)
         arr.PushBack(json::serialize(v, ctx), ctx.allocator());
     return arr;
@@ -429,9 +433,8 @@ template <typename Enum, typename Context>
 rapidjson::Value enum_to_json(Enum e, Context& ctx,
                               std::true_type /*is_enum_reflectable*/)
 {
-    return rapidjson::Value{
-        rapidjson::StringRef(enum_reflector<Enum>::to_string(e)),
-        ctx.allocator()};
+    return rapidjson::Value{rapidjson::StringRef(kl::to_string(e)),
+                            ctx.allocator()};
 }
 
 template <typename Enum, typename Context>
@@ -452,7 +455,7 @@ rapidjson::Value to_json(const enum_flags<Enum>& flags, Context& ctx)
 {
     static_assert(is_enum_reflectable<Enum>::value,
                   "Only flags of reflectable enums are supported");
-    rapidjson::Value arr(rapidjson::kArrayType);
+    rapidjson::Value arr{rapidjson::kArrayType};
 
     for (const auto possible_value : enum_reflector<Enum>::values())
     {
@@ -493,7 +496,7 @@ rapidjson::Value to_json(const boost::optional<T>& opt, Context& ctx)
 
 inline std::string json_type_name(const rapidjson::Value& value)
 {
-    return {enum_reflector<rapidjson::Type>::to_string(value.GetType())};
+    return kl::to_string(value.GetType());
 }
 
 template <typename T>
@@ -740,36 +743,6 @@ Reflectable from_json(type_t<Reflectable>, const rapidjson::Value& value)
     }
 }
 
-template <typename Tuple, std::size_t... Is>
-static Tuple tuple_from_json(const rapidjson::Value& value,
-                             index_sequence<Is...>)
-{
-    const auto arr = value.GetArray();
-    return std::make_tuple(json::deserialize<std::tuple_element_t<Is, Tuple>>(
-        safe_get_value(arr, Is))...);
-}
-
-template <typename... Ts>
-std::tuple<Ts...> from_json(type_t<std::tuple<Ts...>>,
-                            const rapidjson::Value& value)
-{
-    if (!value.IsArray())
-        throw deserialize_error{"type must be an array but is " +
-                                json_type_name(value)};
-
-    return tuple_from_json<std::tuple<Ts...>>(
-        value, make_index_sequence<sizeof...(Ts)>{});
-}
-
-template <typename T>
-boost::optional<T> from_json(type_t<boost::optional<T>>,
-                             const rapidjson::Value& value)
-{
-    if (value.IsNull())
-        return {};
-    return json::deserialize<T>(value);
-}
-
 template <typename Enum>
 Enum enum_from_json(const rapidjson::Value& value,
                     std::false_type /*is_enum_reflectable*/)
@@ -787,7 +760,7 @@ Enum enum_from_json(const rapidjson::Value& value,
     if (!value.IsString())
         throw deserialize_error{"type must be a string-enum but is " +
                                 json_type_name(value)};
-    if (auto enum_value = enum_reflector<Enum>::from_string(
+    if (auto enum_value = kl::from_string<Enum>(
             gsl::cstring_span<>(value.GetString(), value.GetStringLength())))
     {
         return enum_value.get();
@@ -819,6 +792,36 @@ enum_flags<Enum> from_json(type_t<enum_flags<Enum>>,
     }
 
     return ret;
+}
+
+template <typename Tuple, std::size_t... Is>
+static Tuple tuple_from_json(const rapidjson::Value& value,
+                             index_sequence<Is...>)
+{
+    const auto arr = value.GetArray();
+    return std::make_tuple(json::deserialize<std::tuple_element_t<Is, Tuple>>(
+        safe_get_value(arr, Is))...);
+}
+
+template <typename... Ts>
+std::tuple<Ts...> from_json(type_t<std::tuple<Ts...>>,
+                            const rapidjson::Value& value)
+{
+    if (!value.IsArray())
+        throw deserialize_error{"type must be an array but is " +
+                                json_type_name(value)};
+
+    return tuple_from_json<std::tuple<Ts...>>(
+        value, make_index_sequence<sizeof...(Ts)>{});
+}
+
+template <typename T>
+boost::optional<T> from_json(type_t<boost::optional<T>>,
+                             const rapidjson::Value& value)
+{
+    if (value.IsNull())
+        return {};
+    return json::deserialize<T>(value);
 }
 
 template <typename T, typename Context>
