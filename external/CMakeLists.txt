@@ -6,6 +6,10 @@ FetchContent_Declare(rapidjson
     URL https://github.com/Tencent/rapidjson/archive/v1.1.0.zip
     URL_HASH SHA1=0fe7b4f7b83df4b3d517f4a202f3a383af7a0818
 )
+FetchContent_Declare(yamlcpp
+    URL https://github.com/jbeder/yaml-cpp/archive/0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip
+    URL_HASH SHA1=3e4f9d6d78dd4258569bc498c97027096d5d74fc
+)
 FetchContent_Declare(GSL
     URL https://github.com/Microsoft/GSL/archive/v1.0.0.zip
     URL_HASH SHA1=e9824bf3693bf34f17850915a744deec905c90be
@@ -25,6 +29,24 @@ if(NOT rapidjson_POPULATED)
     add_library(rapidjson::rapidjson ALIAS rapidjson)
     target_include_directories(rapidjson SYSTEM INTERFACE ${rapidjson_SOURCE_DIR}/include)
     target_compile_definitions(rapidjson INTERFACE RAPIDJSON_HAS_STDSTRING=1)
+endif()
+
+FetchContent_GetProperties(yamlcpp)
+if(NOT yamlcpp_POPULATED)
+    FetchContent_Populate(yamlcpp)
+
+    # YAML-CPP's CMake file is very old (2.6) and doesn't use INTERFACE_ properties
+    # add_subdirectory(${yamlcpp_SOURCE_DIR} ${yamlcpp_BINARY_DIR})
+    add_library(yaml-cpp)
+    add_library(yaml::yaml-cpp ALIAS yaml-cpp)
+    file(GLOB_RECURSE sources
+        "${yamlcpp_SOURCE_DIR}/src/*.cpp"
+        "${yamlcpp_SOURCE_DIR}/src/*.h"
+        "${yamlcpp_SOURCE_DIR}/include/yaml-cpp/*.h")
+    target_sources(yaml-cpp PRIVATE ${sources})
+    target_include_directories(yaml-cpp PUBLIC ${yamlcpp_SOURCE_DIR}/include)
+    target_compile_features(yaml-cpp PUBLIC cxx_std_11)
+    set_target_properties(yaml-cpp PROPERTIES FOLDER external)
 endif()
 
 FetchContent_GetProperties(GSL)

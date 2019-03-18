@@ -4,7 +4,7 @@ jobs:
       vmImage: 'ubuntu-16.04'
     strategy:
       matrix:
-        Release: 
+        Release:
           BuildType: Release
         AddressSanitizer:
           BuildType: ASan
@@ -28,7 +28,7 @@ jobs:
       vmImage: 'ubuntu-16.04'
     strategy:
       matrix:
-        Release: 
+        Release:
           BuildType: Release
         AddressSanitizer:
           BuildType: ASan
@@ -81,7 +81,7 @@ jobs:
       vmImage: 'vs2017-win2016'
     strategy:
       matrix:
-        Win32: 
+        Win32:
           Architecture: Win32
         Win64:
           Architecture: x64

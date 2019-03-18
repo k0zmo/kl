@@ -21,9 +21,10 @@ set(test_files
     tuple_test.cpp
     type_traits_test.cpp
     utility_test.cpp
+    yaml_test.cpp
     zip_test.cpp
 )
-target_sources(kl-tests PRIVATE ${test_files})
+target_sources(kl-tests PRIVATE ${test_files} input/typedefs.hpp)
 target_link_libraries(kl-tests PRIVATE
     kl::kl
     Catch2::Catch2
