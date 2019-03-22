@@ -147,9 +147,11 @@ function(add_coverage_target_gcovr _target)
     if(arg_XML)
         set(output_mode --xml)
         set(output_file ${output_name}.xml)
+        set(report_type XML)
     else()
         set(output_mode --html --html-details)
         set(output_file ${output_name}.html)
+        set(report_type HTML)
     endif()
 
     list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS})
@@ -165,7 +167,7 @@ function(add_coverage_target_gcovr _target)
     add_custom_target(${_target}
         ${cmd}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-        COMMENT "Running gcovr to produce HTML report"
+        COMMENT "Running gcovr to produce ${report_type} report"
     )
     add_custom_command(TARGET ${_target} POST_BUILD
         COMMAND ;

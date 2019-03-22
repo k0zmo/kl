@@ -1,3 +1,4 @@
 /[Bb]uild*
 CMakeLists.txt.user
 /_build*
+/.vscode
