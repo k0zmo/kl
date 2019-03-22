@@ -228,6 +228,7 @@ constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
         template <typename Type, typename Visitor>                             \
         static void reflect(Type&& obj, Visitor&& visitor)                     \
         {                                                                      \
+            using type = std::remove_reference_t<Type>;                        \
             KL_TYPE_INFO_VISIT_WITH_FIELD_INFO_BASES(bases_)                   \
             KL_TYPE_INFO_VISIT_WITH_FIELD_INFO(values_)                        \
         }                                                                      \
@@ -235,6 +236,7 @@ constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
         template <typename Type, typename Visitor>                             \
         static void reflect(Visitor&& visitor)                                 \
         {                                                                      \
+            using type = std::remove_reference_t<Type>;                        \
             KL_TYPE_INFO_VISIT_WITH_FIELD_TYPE_INFO_BASES(bases_)              \
             KL_TYPE_INFO_VISIT_WITH_FIELD_TYPE_INFO(values_)                   \
         }                                                                      \
@@ -280,9 +282,8 @@ constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
 
 #define KL_TYPE_INFO_VISIT_WITH_FIELD_INFO_IMPL(name_)                         \
     std::forward<Visitor>(visitor)(                                            \
-        detail::field_info<std::remove_reference_t<Type>,                      \
-                           decltype(this_type::name_)>{obj.name_,              \
-                                                  BOOST_PP_STRINGIZE(name_)});
+        detail::field_info<type, decltype(this_type::name_)>{                  \
+            obj.name_, BOOST_PP_STRINGIZE(name_)});
 
 #define KL_TYPE_INFO_VISIT_WITH_FIELD_INFO(values_)                            \
     KL_TYPE_INFO_FOR_EACH_IN_TUPLE_IF(values_,                                 \
@@ -290,8 +291,7 @@ constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
 
 #define KL_TYPE_INFO_VISIT_WITH_FIELD_KL_TYPE_INFO_IMPL(name_)                 \
     std::forward<Visitor>(visitor)(                                            \
-        detail::field_type_info<std::remove_reference_t<Type>,                 \
-                                decltype(this_type::name_)>{                   \
+        detail::field_type_info<type, decltype(this_type::name_)>{             \
             BOOST_PP_STRINGIZE(name_)});
 
 #define KL_TYPE_INFO_VISIT_WITH_FIELD_TYPE_INFO(values_)                       \
