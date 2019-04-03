@@ -114,7 +114,7 @@ function(add_coverage_target_gcovr _target)
         message(FATAL_ERROR "gcovr not found!")
     endif()
 
-    set(options XML)
+    set(options XML LLVM)
     set(one_value_args COMMAND OUTPUT_NAME)
     set(multi_value_args FILTERS EXCLUDE ARGS)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
@@ -154,6 +154,10 @@ function(add_coverage_target_gcovr _target)
         set(report_type HTML)
     endif()
 
+    if(arg_LLVM)
+ 	    set(gcov_executable "--gcov-executable=\"llvm-cov\" gcov")
+ 	endif()
+
     list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS})
     list(APPEND cmd COMMAND
         ${GCOVR_EXECUTABLE}
@@ -162,6 +166,7 @@ function(add_coverage_target_gcovr _target)
         ${arg_FILTERS}
         ${arg_EXCLUDE}
         --output=${output_file}
+        ${gcov_executable}
     )
 
     add_custom_target(${_target}
