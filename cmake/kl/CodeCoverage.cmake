@@ -33,6 +33,20 @@
 #       )
 #   endif()
 
+macro(ignore_errors_call _out)
+    if(WIN32)
+        find_program(TRUE_EXECUTABLE true)
+        mark_as_advanced(TRUE_EXECUTABLE)
+        if(TRUE_EXECUTABLE)
+            set(${_out} || ${TRUE_EXECUTABLE})
+        else()
+            set(${_out} || cd)
+        endif()
+    else()
+        set(${_out} || true)
+    endif()
+endmacro()
+
 function(add_coverage_target_lcov _target)
     find_program(LCOV_EXECUTABLE lcov)
     mark_as_advanced(LCOV_EXECUTABLE)
@@ -46,7 +60,7 @@ function(add_coverage_target_lcov _target)
         message(FATAL_ERROR "genhtml not found!")
     endif()
 
-    set(options BRANCHES)
+    set(options BRANCHES IGNORE_COMMAND_ERRORS)
     set(one_value_args COMMAND OUTPUT_NAME)
     set(multi_value_args FILTERS ARGS)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
@@ -68,8 +82,12 @@ function(add_coverage_target_lcov _target)
         set(arg_FILTERS '*')
     endif()
 
+    if(arg_IGNORE_COMMAND_ERRORS)
+        ignore_errors_call(ignore_errors)
+    endif()
+
     list(APPEND cmd COMMAND ${LCOV_EXECUTABLE} -q --zerocounters --directory .)
-    list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS})
+    list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS} ${ignore_errors})
     list(APPEND cmd COMMAND
         ${LCOV_EXECUTABLE}
         -q
@@ -114,7 +132,7 @@ function(add_coverage_target_gcovr _target)
         message(FATAL_ERROR "gcovr not found!")
     endif()
 
-    set(options XML LLVM)
+    set(options XML LLVM IGNORE_COMMAND_ERRORS)
     set(one_value_args COMMAND OUTPUT_NAME)
     set(multi_value_args FILTERS EXCLUDE ARGS)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
@@ -155,10 +173,14 @@ function(add_coverage_target_gcovr _target)
     endif()
 
     if(arg_LLVM)
- 	    set(gcov_executable "--gcov-executable=\"llvm-cov\" gcov")
- 	endif()
+        set(gcov_executable "--gcov-executable=\"llvm-cov\" gcov")
+    endif()
 
-    list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS})
+    if(arg_IGNORE_COMMAND_ERRORS)
+        ignore_errors_call(ignore_errors)
+    endif()
+
+    list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS} ${ignore_errors})
     list(APPEND cmd COMMAND
         ${GCOVR_EXECUTABLE}
         --delete ${output_mode}
@@ -187,7 +209,7 @@ function(add_coverage_target_occ _target)
         message(FATAL_ERROR "OpenCppCoverage not found!")
     endif()
 
-    set(options COBERTURA)
+    set(options COBERTURA IGNORE_RUNNER_ERRORS)
     set(one_value_args RUNNER OUTPUT_NAME)
     set(multi_value_args FILTERS EXCLUDE)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
@@ -225,8 +247,21 @@ function(add_coverage_target_occ _target)
         set(export_type "--export_type=html:${output_name}")
     endif()
 
+    if(arg_IGNORE_RUNNER_ERRORS)
+        ignore_errors_call(ignore_errors)
+        if(MSVC_IDE)
+            # MSBuild parses process stdout and stderr and looks for 'error:' which is common when tests fail
+            set(ignore_errors ">NUL;2>NUL;${ignore_errors}")
+        endif()
+    endif()
+
     add_custom_target(${_target}
-        COMMAND ${OPEN_CPP_COVERAGE_EXECUTABLE} ${sources} ${excluded} ${export_type} -- $<TARGET_FILE:${arg_RUNNER}>
+        COMMAND ${OPEN_CPP_COVERAGE_EXECUTABLE}
+            ${sources}
+            ${excluded}
+            ${export_type}
+            -- $<TARGET_FILE:${arg_RUNNER}>
+            ${ignore_errors}
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 endfunction()
