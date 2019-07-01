@@ -144,6 +144,16 @@ function(target_precompile_headers _target)
             endif()
         endforeach()
 
+        # For executable targets we need to turn -fPIC into -fPIE
+        get_target_property(var ${_target} TYPE)
+        if(var STREQUAL EXECUTABLE)
+            set_target_properties(${_target}.pch PROPERTIES POSITION_INDEPENDENT_CODE OFF)
+            get_target_property(var ${_target} POSITION_INDEPENDENT_CODE)
+            if(NOT (var STREQUAL var-NOTFOUND OR var STREQUAL ""))
+                target_compile_options(${_target}.pch PRIVATE -fPIE)
+            endif()
+        endif()
+
         # # Generate a symlink from a ${host_file}.obj to gch_file
         add_custom_command(OUTPUT ${gch_file}
             COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_OBJECTS:${_target}.pch> ${gch_file}
