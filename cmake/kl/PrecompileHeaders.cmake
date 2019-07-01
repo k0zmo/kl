@@ -65,8 +65,8 @@ function(target_precompile_headers _target)
         file(TO_NATIVE_PATH ${pch_file} pch_file_native)
         file(TO_NATIVE_PATH ${prefix_file} prefix_file_native)
 
-        # This is required because of some really weird handling 
-        # of $(Configuration) in COMPILE_OPTIONS property (but not COMPILE_FLAGS!) 
+        # This is required because of some really weird handling
+        # of $(Configuration) in COMPILE_OPTIONS property (but not COMPILE_FLAGS!)
         # when a option with a path has native slashes.
         string(REPLACE "$(" "\\$(" pch_file_native ${pch_file_native})
 
@@ -115,7 +115,7 @@ function(target_precompile_headers _target)
         endif()
         file(TO_NATIVE_PATH ${host_file} host_file_native)
 
-        set(gch_file ${host_file}.gch) 
+        set(gch_file ${host_file}.gch)
 
         # Add target to compile the prefix header with exactly the same properties as the source target
         add_library(${_target}.pch OBJECT ${host_file})
@@ -125,13 +125,6 @@ function(target_precompile_headers _target)
         )
 
         set(properties
-            INTERFACE_COMPILE_DEFINITIONS
-            INTERFACE_COMPILE_FEATURES
-            INTERFACE_COMPILE_OPTIONS
-            INTERFACE_INCLUDE_DIRECTORIES
-            INTERFACE_LINK_LIBRARIES
-            INTERFACE_POSITION_INDEPENDENT_CODE
-            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES
             COMPILE_DEFINITIONS
             COMPILE_FEATURES
             COMPILE_OPTIONS
@@ -145,7 +138,7 @@ function(target_precompile_headers _target)
         foreach(property IN ITEMS ${properties})
             get_target_property(var ${_target} ${property})
             if(NOT (var STREQUAL var-NOTFOUND OR var STREQUAL ""))
-                # Simply checking for if(var) is not sufficient 
+                # Simply checking for if(var) is not sufficient
                 # since some properties can have value of OFF
                 set_target_properties(${_target}.pch PROPERTIES ${property} "${var}")
             endif()
