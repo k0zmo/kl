@@ -55,9 +55,9 @@ private:
 };
 } // namespace
 
-file_view::file_view(gsl::cstring_span<> file_path)
+file_view::file_view(const char* file_path)
 {
-    file_descriptor fd{::open(file_path.data(), O_RDONLY)};
+    file_descriptor fd{::open(file_path, O_RDONLY)};
     if (!fd)
         throw std::system_error{static_cast<int>(errno),
                                 std::system_category()};

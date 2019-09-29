@@ -12,7 +12,7 @@ namespace kl {
 class file_view
 {
 public:
-    explicit file_view(gsl::cstring_span<> file_path);
+    explicit file_view(const char* file_path);
     ~file_view();
 
     gsl::span<const byte> get_bytes() const { return contents_; }

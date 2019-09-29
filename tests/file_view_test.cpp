@@ -15,7 +15,8 @@ TEST_CASE("file_view")
     SECTION("read empty file")
     {
         {
-            std::ofstream{"test_empty_file.tmp", std::ios::trunc | std::ios::out};
+            std::ofstream{"test_empty_file.tmp",
+                          std::ios::trunc | std::ios::out};
         }
 
         kl::file_view view{"test_empty_file.tmp"};
@@ -27,8 +28,8 @@ TEST_CASE("file_view")
     SECTION("read file")
     {
         {
-            std::ofstream strm{
-                "test.tmp", std::ios::trunc | std::ios::out | std::ios::binary};
+            std::ofstream strm{"test.tmp", std::ios::trunc | std::ios::out |
+                                               std::ios::binary};
             strm << "Test\nHello.";
         }
 

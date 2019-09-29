@@ -55,11 +55,10 @@ private:
 };
 } // namespace
 
-file_view::file_view(gsl::cstring_span<> file_path)
+file_view::file_view(const char* file_path)
 {
-    handle<(LONG_PTR)-1> file_handle{
-        ::CreateFileA(file_path.data(), GENERIC_READ, 0x0, nullptr,
-                      OPEN_EXISTING, 0x0, nullptr)};
+    handle<(LONG_PTR)-1> file_handle{::CreateFileA(
+        file_path, GENERIC_READ, 0x0, nullptr, OPEN_EXISTING, 0x0, nullptr)};
     if (!file_handle)
         throw std::system_error{static_cast<int>(::GetLastError()),
                                 std::system_category()};
