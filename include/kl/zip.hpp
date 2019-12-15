@@ -82,7 +82,7 @@ public:
 
     zip_iterator& operator++()
     {
-        tuple::increment_each_fn::call(pack_);
+        tuple::for_each_fn::call(pack_, [](auto& f) { ++f; });
         return *this;
     }
 

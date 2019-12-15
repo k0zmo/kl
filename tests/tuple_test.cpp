@@ -68,11 +68,11 @@ TEST_CASE("tuple")
         static_assert(std::tuple_size<decltype(tt)>::value == 3, "???");
     }
 
-    SECTION("increment_each_fn")
+    SECTION("for_each_fn")
     {
         int arr[3]{};
         std::tuple<int, int*> t{1, std::begin(arr)};
-        kl::tuple::increment_each_fn::call(t);
+        kl::tuple::for_each_fn::call(t, [](auto& f) { ++f; });
         REQUIRE(std::get<0>(t) == 2);
         REQUIRE(std::get<1>(t) == std::begin(arr) + 1);
     }

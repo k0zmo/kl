@@ -41,6 +41,25 @@ public:
     }
 };
 
+struct for_each_fn
+{
+private:
+    template <typename Tup, typename Fun, std::size_t... Is>
+    static void impl(Tup&& tup, Fun&& fun, kl::index_sequence<Is...>)
+    {
+        using swallow = std::initializer_list<int>;
+        (void)swallow{(fun(std::get<Is>(std::forward<Tup>(tup))), 0)...};
+    }
+
+public:
+    template <typename Tup, typename Fun>
+    static void call(Tup&& tup, Fun&& fun)
+    {
+        for_each_fn::impl(std::forward<Tup>(tup), std::forward<Fun>(fun),
+                          kl::make_tuple_indices<Tup>{});
+    }
+};
+
 // Transforms tuple of dereferencable to tuple of references:
 //   tuple<int*, boost::optional<double>, std::vector<short>::const_iterator> ->
 //   tuple<int&, double&, const short&>
@@ -88,25 +107,6 @@ public:
     {
         return transform_deref_fn::impl(std::forward<Tup>(tup),
                                         make_tuple_indices<Tup>{});
-    }
-};
-
-// Increments each value of given tuple
-struct increment_each_fn
-{
-private:
-    template <typename Tup, std::size_t... Is>
-    static void impl(Tup&& tup, index_sequence<Is...>)
-    {
-        using swallow = std::initializer_list<int>;
-        (void)swallow{((void)++(std::get<Is>(std::forward<Tup>(tup))), 0)...};
-    }
-
-public:
-    template <typename Tup>
-    static void call(Tup&& tup)
-    {
-        impl(std::forward<Tup>(tup), make_tuple_indices<Tup>{});
     }
 };
 
