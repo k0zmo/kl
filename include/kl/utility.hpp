@@ -9,25 +9,25 @@ namespace kl {
 // Casts any kind of enum (enum, enum class) to its underlying type (i.e
 // int32_t)
 template <typename Enum>
-constexpr auto underlying_cast(Enum e)
+constexpr auto underlying_cast(Enum e) noexcept
 {
     return static_cast<std::underlying_type_t<Enum>>(e);
 }
 
 template <typename T, std::size_t N>
-constexpr auto countof(const T (&arr)[N])
+constexpr auto countof(const T (&arr)[N]) noexcept
 {
     return N;
 }
 
 template <typename T, std::size_t N>
-constexpr auto countof(const std::array<T, N>& arr)
+constexpr auto countof(const std::array<T, N>& arr) noexcept
 {
     return N;
 }
 
 template <typename To, typename From>
-To bitwise_cast(From from)
+To bitwise_cast(From from) noexcept
 {
     static_assert(sizeof(To) == sizeof(From),
                   "Size of destination and source objects must be equal.");

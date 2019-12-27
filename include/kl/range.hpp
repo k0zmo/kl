@@ -11,14 +11,14 @@ class range
 {
 public:
     using iterator = Iterator;
-    using value_type = typename std::iterator_traits<Iterator>::value_type;
-    using difference_type =
-        typename std::iterator_traits<Iterator>::difference_type;
-    using pointer = typename std::iterator_traits<Iterator>::pointer;
-    using reference = typename std::iterator_traits<Iterator>::reference;
+    using iterator_traits = std::iterator_traits<Iterator>;
+    using value_type = typename iterator_traits::value_type;
+    using difference_type = typename iterator_traits::difference_type;
+    using pointer = typename iterator_traits::pointer;
+    using reference = typename iterator_traits::reference;
 
 public:
-    constexpr range() = default;
+    constexpr range() : first_{}, last_{} {}
     constexpr range(Iterator first, Iterator last)
         : first_{std::move(first)}, last_{std::move(last)}
     {
@@ -29,8 +29,8 @@ public:
     constexpr std::size_t size() const { return std::distance(first_, last_); }
 
 private:
-    Iterator first_{};
-    Iterator last_{};
+    Iterator first_;
+    Iterator last_;
 };
 
 template <class Iterator>
@@ -50,7 +50,7 @@ inline range<typename Container::const_iterator>
     make_range(const Container& cont)
 {
     return range<typename Container::const_iterator>{cont.cbegin(),
-                                                          cont.cend()};
+                                                     cont.cend()};
 }
 
 template <class ArrayType, std::size_t N>

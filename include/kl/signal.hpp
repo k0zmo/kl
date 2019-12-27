@@ -18,22 +18,25 @@ class signal_base
 protected:
     friend class kl::connection;
 
-    signal_base() = default;
+    signal_base() noexcept = default;
     ~signal_base() = default;
 
-    signal_base(signal_base&&) {}
-    signal_base& operator=(signal_base&&) { return *this; }
+    signal_base(signal_base&&) noexcept {}
+    signal_base& operator=(signal_base&&) noexcept { return *this; }
 
 private:
     signal_base(const signal_base&) = delete;
     signal_base& operator=(const signal_base&) = delete;
 
-    virtual void disconnect(int id) = 0;
+    virtual void disconnect(int id) noexcept = 0;
 };
 
 struct connection_info final
 {
-    connection_info(signal_base* parent, int id) : parent{parent}, id{id} {}
+    connection_info(signal_base* parent, int id) noexcept
+        : parent{parent}, id{id}
+    {
+    }
 
     signal_base* parent;
     const int id;
@@ -58,7 +61,7 @@ class connection final
 {
 public:
     // Creates empty connection
-    connection() = default;
+    connection() noexcept = default;
     ~connection() = default;
 
     // Copy constructor/operator
@@ -66,10 +69,11 @@ public:
     connection& operator=(const connection&) = default;
 
     // Move constructor/operator
-    connection(connection&& other) : impl_{std::exchange(other.impl_, nullptr)}
+    connection(connection&& other) noexcept
+        : impl_{std::exchange(other.impl_, nullptr)}
     {
     }
-    connection& operator=(connection&& other)
+    connection& operator=(connection&& other) noexcept
     {
         swap(*this, other);
         return *this;
@@ -87,7 +91,7 @@ public:
     // Returns true if connection is valid
     bool connected() const { return impl_ && impl_->parent; }
 
-    size_t hash() const
+    size_t hash() const noexcept
     {
         // Get hash out of underlying pointer
         return detail::hash_std(impl_);
@@ -96,7 +100,7 @@ public:
     class blocker
     {
     public:
-        blocker() = default;
+        blocker() noexcept = default;
         blocker(connection& con) : impl_{con.impl_}
         {
             if (impl_)
@@ -128,17 +132,17 @@ public:
             return *this;
         }
 
-        blocker(blocker&& other) : impl_{std::move(other.impl_)} {}
+        blocker(blocker&& other) noexcept : impl_{std::move(other.impl_)} {}
 
-        blocker& operator=(blocker&& other)
+        blocker& operator=(blocker&& other) noexcept
         {
             swap(*this, other);
             return *this;
         }
 
-        bool blocking() const { return impl_ != nullptr; }
+        bool blocking() const noexcept { return impl_ != nullptr; }
 
-        friend void swap(blocker& left, blocker& right)
+        friend void swap(blocker& left, blocker& right) noexcept
         {
             using std::swap;
             swap(left.impl_, right.impl_);
@@ -151,27 +155,30 @@ public:
     blocker get_blocker() { return {*this}; }
 
 public:
-    friend void swap(connection& left, connection& right)
+    friend void swap(connection& left, connection& right) noexcept
     {
         using std::swap;
         swap(left.impl_, right.impl_);
     }
 
-    friend bool operator==(const connection& left, const connection& right)
+    friend bool operator==(const connection& left,
+                           const connection& right) noexcept
     {
         return left.impl_ == right.impl_;
     }
 
-    friend bool operator<(const connection& left, const connection& right)
+    friend bool operator<(const connection& left,
+                          const connection& right) noexcept
     {
         return left.impl_ < right.impl_;
     }
 
 private:
     friend connection
-        make_connection(std::shared_ptr<detail::connection_info> ci);
+        make_connection(std::shared_ptr<detail::connection_info> ci) noexcept;
     // Private constructor - use by concrete instances of signal class
-    connection(std::shared_ptr<detail::connection_info> c) : impl_{std::move(c)}
+    connection(std::shared_ptr<detail::connection_info> c) noexcept
+        : impl_{std::move(c)}
     {
         assert(impl_);
     }
@@ -180,7 +187,8 @@ private:
     std::shared_ptr<detail::connection_info> impl_;
 };
 
-inline connection make_connection(std::shared_ptr<detail::connection_info> ci)
+inline connection
+    make_connection(std::shared_ptr<detail::connection_info> ci) noexcept
 {
     return connection(std::move(ci));
 }
@@ -192,8 +200,8 @@ inline connection make_connection(std::shared_ptr<detail::connection_info> ci)
 class scoped_connection final
 {
 public:
-    scoped_connection() = default;
-    scoped_connection(connection connection)
+    scoped_connection() noexcept = default;
+    scoped_connection(connection connection) noexcept
         : connection_{std::move(connection)}
     {
     }
@@ -203,40 +211,40 @@ public:
     scoped_connection(const scoped_connection&) = delete;
     scoped_connection& operator=(const scoped_connection&) = delete;
 
-    scoped_connection(scoped_connection&& other)
+    scoped_connection(scoped_connection&& other) noexcept
         : connection_{std::move(other.connection_)}
     {
     }
 
-    scoped_connection& operator=(scoped_connection&& other)
+    scoped_connection& operator=(scoped_connection&& other) noexcept
     {
         swap(*this, other);
         return *this;
     }
 
     // Release underlying connection. Won't disconnect it upon destruction
-    connection release()
+    connection release() noexcept
     {
         connection ret{std::move(connection_)};
         return ret;
     }
 
-    const connection& get() const { return connection_; }
+    const connection& get() const noexcept { return connection_; }
 
-    friend void swap(scoped_connection& left, scoped_connection& right)
+    friend void swap(scoped_connection& left, scoped_connection& right) noexcept
     {
         using std::swap;
         swap(left.connection_, right.connection_);
     }
 
     friend bool operator==(const scoped_connection& left,
-                           const scoped_connection& right)
+                           const scoped_connection& right) noexcept
     {
         return left.connection_ == right.connection_;
     }
 
     friend bool operator<(const scoped_connection& left,
-                          const scoped_connection& right)
+                          const scoped_connection& right) noexcept
     {
         return left.connection_ < right.connection_;
     }
@@ -345,19 +353,19 @@ public:
 
 public:
     // Constructs empty, disconnected signal
-    signal() = default;
+    signal() noexcept = default;
     ~signal() { disconnect_all_slots(); }
 
     signal(const signal&) = delete;
     signal& operator=(const signal&) = delete;
 
-    signal(signal&& other)
+    signal(signal&& other) noexcept
         : slots_{std::exchange(other.slots_, nullptr)}, id_{other.id_}
     {
         rebind();
     }
 
-    signal& operator=(signal&& other)
+    signal& operator=(signal&& other) noexcept
     {
         swap(*this, other);
         return *this;
@@ -432,7 +440,7 @@ public:
     }
 
     // Disconnects all slots bound to this signal
-    void disconnect_all_slots()
+    void disconnect_all_slots() noexcept
     {
         for (auto iter = slots_; iter;)
         {
@@ -445,7 +453,7 @@ public:
     }
 
     // Retrieves number of slots connected to this signal
-    size_t num_slots() const
+    size_t num_slots() const noexcept
     {
         size_t sum{0};
         for (auto iter = slots_; iter; iter = iter->next)
@@ -457,9 +465,9 @@ public:
     }
 
     // Returns true if signal isn't connected to any slot
-    bool empty() const { return num_slots() == 0; }
+    bool empty() const noexcept { return num_slots() == 0; }
 
-    friend void swap(signal& left, signal& right)
+    friend void swap(signal& left, signal& right) noexcept
     {
         using std::swap;
         swap(left.id_, right.id_);
@@ -470,7 +478,7 @@ public:
     }
 
 private:
-    virtual void disconnect(int id) override
+    virtual void disconnect(int id) noexcept override
     {
         for (auto iter = slots_; iter; iter = iter->next)
         {
@@ -486,7 +494,7 @@ private:
         }
     }
 
-    void rebind()
+    void rebind() noexcept
     {
         remove_slots_if([](slot& s) { return !s.valid(); });
 
@@ -514,7 +522,7 @@ private:
     }
 
     template <typename Pred>
-    void remove_slots_if(Pred&& pred)
+    void remove_slots_if(Pred&& pred) noexcept
     {
         for (auto iter = slots_, prev = slots_; iter;)
         {
@@ -544,7 +552,7 @@ private:
 
     public:
         slot(std::shared_ptr<detail::connection_info> connection_info,
-             slot_type impl)
+             slot_type impl) noexcept
             : connection_info_{std::move(connection_info)},
               impl_{std::move(impl)}
 
@@ -559,7 +567,7 @@ private:
             return impl_(args...);
         }
 
-        bool prepare()
+        bool prepare() noexcept
         {
             if (!valid())
                 return false;
@@ -567,18 +575,27 @@ private:
             return true;
         }
 
-        void invalidate() { connection_info().parent = nullptr; }
+        void invalidate() noexcept { connection_info().parent = nullptr; }
 
-        const detail::connection_info& connection_info() const
+        const detail::connection_info& connection_info() const noexcept
         {
             return *connection_info_;
         }
 
-        detail::connection_info& connection_info() { return *connection_info_; }
+        detail::connection_info& connection_info() noexcept
+        {
+            return *connection_info_;
+        }
 
-        bool valid() const { return connection_info().parent != nullptr; }
-        bool is_blocked() const { return connection_info().blocking > 0; }
-        bool is_prepared() const { return valid() && prepared_; }
+        bool valid() const noexcept
+        {
+            return connection_info().parent != nullptr;
+        }
+        bool is_blocked() const noexcept
+        {
+            return connection_info().blocking > 0;
+        }
+        bool is_prepared() const noexcept { return valid() && prepared_; }
 
     private:
         std::shared_ptr<detail::connection_info> connection_info_;
@@ -590,7 +607,7 @@ private:
     int id_{0};
 
 private:
-    void insert_new_slot(slot* new_slot, connect_position at)
+    void insert_new_slot(slot* new_slot, connect_position at) noexcept
     {
         if (!slots_)
         {
@@ -685,13 +702,16 @@ namespace std {
 template <>
 struct hash<kl::connection>
 {
-    size_t operator()(const kl::connection& key) const { return key.hash(); }
+    size_t operator()(const kl::connection& key) const noexcept
+    {
+        return key.hash();
+    }
 };
 
 template <>
 struct hash<kl::scoped_connection>
 {
-    size_t operator()(const kl::scoped_connection& key) const
+    size_t operator()(const kl::scoped_connection& key) const noexcept
     {
         return hash<kl::connection>{}(key.get());
     }

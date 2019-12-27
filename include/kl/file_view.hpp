@@ -15,7 +15,7 @@ public:
     explicit file_view(const char* file_path);
     ~file_view();
 
-    gsl::span<const byte> get_bytes() const { return contents_; }
+    gsl::span<const byte> get_bytes() const noexcept { return contents_; }
 
 private:
     gsl::span<const byte> contents_;

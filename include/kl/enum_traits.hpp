@@ -67,20 +67,29 @@ struct enum_trait_support_range
         return open_closed ? underlying_cast(Max) : underlying_cast(Max) + 1;
     }
 
-    static constexpr Enum min() { return static_cast<Enum>(min_value()); }
-    static constexpr Enum max() { return static_cast<Enum>(max_value()); }
-    static constexpr std::size_t count() { return max_value() - min_value(); }
+    static constexpr Enum min() noexcept
+    {
+        return static_cast<Enum>(min_value());
+    }
+    static constexpr Enum max() noexcept
+    {
+        return static_cast<Enum>(max_value());
+    }
+    static constexpr std::size_t count() noexcept
+    {
+        return max_value() - min_value();
+    }
 
     static_assert(count() > 0, "count() > 0 constaint is not fulfilled");
 
-    constexpr static bool in_range(Enum e)
+    constexpr static bool in_range(Enum e) noexcept
     {
         return underlying_cast(e) >= min_value() &&
                underlying_cast(e) < max_value();
     }
 
     template <typename Integral, enable_if<std::is_integral<Integral>> = true>
-    constexpr static bool in_range(Integral v)
+    constexpr static bool in_range(Integral v) noexcept
     {
         return v >= min_value() && v < max_value();
     }
@@ -90,19 +99,19 @@ namespace enums {
 namespace operators {
 
 template <typename Enum>
-constexpr auto operator+(Enum e)
+constexpr auto operator+(Enum e) noexcept
 {
     return underlying_cast(e);
 }
 
 template <typename Enum>
-constexpr Enum& operator++(Enum& e)
+constexpr Enum& operator++(Enum& e) noexcept
 {
     return e = static_cast<Enum>(underlying_cast(e) + 1);
 }
 
 template <typename Enum>
-constexpr Enum operator++(Enum& e, int)
+constexpr Enum operator++(Enum& e, int) noexcept
 {
     // postfix
     const auto ret = e;
@@ -111,68 +120,68 @@ constexpr Enum operator++(Enum& e, int)
 }
 
 template <typename Enum>
-constexpr Enum operator|(Enum left, Enum right)
+constexpr Enum operator|(Enum left, Enum right) noexcept
 {
     return static_cast<Enum>(underlying_cast(left) | underlying_cast(right));
 }
 
 template <typename Enum>
-constexpr Enum& operator|=(Enum& left, Enum right)
+constexpr Enum& operator|=(Enum& left, Enum right) noexcept
 {
     return left = enums::operators::operator|(left, right);
 }
 
 template <typename Enum>
-constexpr Enum operator&(Enum left, Enum right)
+constexpr Enum operator&(Enum left, Enum right) noexcept
 {
     return static_cast<Enum>(underlying_cast(left) & underlying_cast(right));
 }
 
 template <typename Enum>
-constexpr Enum& operator&=(Enum& left, Enum right)
+constexpr Enum& operator&=(Enum& left, Enum right) noexcept
 {
     return left = enums::operators::operator&(left, right);
 }
 
 template <typename Enum>
-constexpr Enum operator^(Enum left, Enum right)
+constexpr Enum operator^(Enum left, Enum right) noexcept
 {
     return static_cast<Enum>(underlying_cast(left) ^ underlying_cast(right));
 }
 
 template <typename Enum>
-constexpr Enum& operator^=(Enum& left, Enum right)
+constexpr Enum& operator^=(Enum& left, Enum right) noexcept
 {
     return left = enums::operators::operator^(left, right);
 }
 
 template <typename Enum>
-constexpr Enum operator~(Enum e)
+constexpr Enum operator~(Enum e) noexcept
 {
     return static_cast<Enum>(~underlying_cast(e));
 }
 
 template <typename Enum>
-constexpr Enum operator<<(Enum left, int right)
+constexpr Enum operator<<(Enum left, int right) noexcept
 {
     return static_cast<Enum>(underlying_cast(left) << right);
 }
 
 template <typename Enum>
-constexpr Enum operator>>(Enum left, int right)
+constexpr Enum operator>>(Enum left, int right) noexcept
 {
     return static_cast<Enum>(underlying_cast(left) >> right);
 }
 
 template <typename Enum>
-constexpr Enum& operator<<=(Enum& left, int right)
+constexpr Enum& operator<<=(Enum& left, int right) noexcept
 {
     left = static_cast<Enum>(underlying_cast(left) << right);
     return left;
 }
 
 template <typename Enum>
-constexpr Enum& operator>>=(Enum& left, int right)
+constexpr Enum& operator>>=(Enum& left, int right) noexcept
 {
     left = static_cast<Enum>(underlying_cast(left) >> right);
     return left;
@@ -182,27 +191,27 @@ constexpr Enum& operator>>=(Enum& left, int right)
 } // namespace kl
 
 /*
-* Arithmetic operators defined for each enum type that support
-* enum_trait_support_indexing trait
-*/
+ * Arithmetic operators defined for each enum type that support
+ * enum_trait_support_indexing trait
+ */
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::does_index>>
-constexpr auto operator+(Enum e)
+constexpr auto operator+(Enum e) noexcept
 {
     return kl::enums::operators::operator+(e);
 }
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::does_index>>
-constexpr Enum& operator++(Enum& e)
+constexpr Enum& operator++(Enum& e) noexcept
 {
     return kl::enums::operators::operator++(e);
 }
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::does_index>>
-constexpr Enum operator++(Enum& e, int)
+constexpr Enum operator++(Enum& e, int) noexcept
 {
     return kl::enums::operators::operator++(e, int());
 }
@@ -213,64 +222,64 @@ constexpr Enum operator++(Enum& e, int)
  */
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::enable_bitmask>>
-constexpr Enum operator|(Enum left, Enum right)
+constexpr Enum operator|(Enum left, Enum right) noexcept
 {
     return kl::enums::operators::operator|(left, right);
 }
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::enable_bitmask>>
-constexpr Enum operator&(Enum left, Enum right)
+constexpr Enum operator&(Enum left, Enum right) noexcept
 {
     return kl::enums::operators::operator&(left, right);
 }
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::enable_bitmask>>
-constexpr Enum operator^(Enum left, Enum right)
+constexpr Enum operator^(Enum left, Enum right) noexcept
 {
     return kl::enums::operators::operator^(left, right);
 }
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::enable_bitmask>>
-constexpr Enum& operator|=(Enum& left, Enum right)
+constexpr Enum& operator|=(Enum& left, Enum right) noexcept
 {
     return kl::enums::operators::operator|=(left, right);
 }
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::enable_bitmask>>
-constexpr Enum& operator&=(Enum& left, Enum right)
+constexpr Enum& operator&=(Enum& left, Enum right) noexcept
 {
     return kl::enums::operators::operator&=(left, right);
 }
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::enable_bitmask>>
-constexpr Enum& operator^=(Enum& left, Enum right)
+constexpr Enum& operator^=(Enum& left, Enum right) noexcept
 {
     return kl::enums::operators::operator^=(left, right);
 }
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::enable_bitmask>>
-constexpr Enum operator~(Enum e)
+constexpr Enum operator~(Enum e) noexcept
 {
     return kl::enums::operators::operator~(e);
 }
 
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::enable_bitmask>>
-constexpr bool check_mask(Enum v, Enum mask)
+constexpr bool check_mask(Enum v, Enum mask) noexcept
 {
     return (kl::underlying_cast(v) & kl::underlying_cast(mask)) != 0;
 }
 
 /*
-* Binary arithmetic (shifting) operators defined for each enum type that support
-* enum_trait_support_bitshift trait
-*/
+ * Binary arithmetic (shifting) operators defined for each enum type that
+ * support enum_trait_support_bitshift trait
+ */
 template <typename Enum,
           typename = std::enable_if_t<kl::enum_traits<Enum>::enable_bitshift>>
 constexpr Enum operator<<(Enum left, int right)

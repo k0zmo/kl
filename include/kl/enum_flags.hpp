@@ -14,112 +14,121 @@ public:
     using enum_type = Enum;
 
 public:
-    constexpr enum_flags() : value_{0} {}
-    constexpr explicit enum_flags(Enum value)
+    constexpr enum_flags() noexcept : value_{0} {}
+    constexpr explicit enum_flags(Enum value) noexcept
         : value_{static_cast<underlying_type>(value)}
     {
     }
 
-    constexpr underlying_type underlying_value() const { return value_; }
-    constexpr Enum value() const { return static_cast<Enum>(value_); }
+    constexpr underlying_type underlying_value() const noexcept
+    {
+        return value_;
+    }
+    constexpr Enum value() const noexcept { return static_cast<Enum>(value_); }
 
-    constexpr explicit operator bool() const { return value_ != 0; }
+    constexpr explicit operator bool() const noexcept { return value_ != 0; }
 
-    constexpr bool test(Enum flag) const
+    constexpr bool test(Enum flag) const noexcept
     {
         return (value_ & static_cast<underlying_type>(flag)) ==
                static_cast<underlying_type>(flag);
     }
 
-    constexpr enum_flags operator~() const { return enum_flags(~value_); }
+    constexpr enum_flags operator~() const noexcept
+    {
+        return enum_flags(~value_);
+    }
 
-    constexpr enum_flags operator&(enum_flags f) const
+    constexpr enum_flags operator&(enum_flags f) const noexcept
     {
         return enum_flags{value_ & f.value_};
     }
 
-    constexpr enum_flags operator|(enum_flags f) const
+    constexpr enum_flags operator|(enum_flags f) const noexcept
     {
         return enum_flags{value_ | f.value_};
     }
 
-    constexpr enum_flags operator^(enum_flags f) const
+    constexpr enum_flags operator^(enum_flags f) const noexcept
     {
         return enum_flags{value_ ^ f.value_};
     }
 
-    constexpr enum_flags& operator&=(enum_flags f)
+    constexpr enum_flags& operator&=(enum_flags f) noexcept
     {
         value_ &= f.value_;
         return *this;
     }
 
-    constexpr enum_flags& operator|=(enum_flags f)
+    constexpr enum_flags& operator|=(enum_flags f) noexcept
     {
         value_ |= f.value_;
         return *this;
     }
 
-    constexpr enum_flags& operator^=(enum_flags f)
+    constexpr enum_flags& operator^=(enum_flags f) noexcept
     {
         value_ ^= f.value_;
         return *this;
     }
 
-    constexpr enum_flags operator&(Enum value) const
+    constexpr enum_flags operator&(Enum value) const noexcept
     {
         return (*this & enum_flags{value});
     }
 
-    constexpr enum_flags operator|(Enum value) const
+    constexpr enum_flags operator|(Enum value) const noexcept
     {
         return (*this | enum_flags{value});
     }
 
-    constexpr enum_flags operator^(Enum value) const
+    constexpr enum_flags operator^(Enum value) const noexcept
     {
         return (*this ^ enum_flags{value});
     }
 
-    constexpr enum_flags& operator&=(Enum value)
+    constexpr enum_flags& operator&=(Enum value) noexcept
     {
         return (*this &= enum_flags{value});
     }
 
-    constexpr enum_flags& operator|=(Enum value)
+    constexpr enum_flags& operator|=(Enum value) noexcept
     {
         return (*this |= enum_flags{value});
     }
 
-    constexpr enum_flags& operator^=(Enum value)
+    constexpr enum_flags& operator^=(Enum value) noexcept
     {
         return (*this ^= enum_flags{value});
     }
 
-    constexpr friend enum_flags operator|(Enum a, enum_flags b)
+    constexpr friend enum_flags operator|(Enum a, enum_flags b) noexcept
     {
         return enum_flags{a} | b;
     }
 
-    constexpr friend enum_flags operator&(Enum a, enum_flags b)
+    constexpr friend enum_flags operator&(Enum a, enum_flags b) noexcept
     {
         return enum_flags{a} & b;
     }
 
-    constexpr friend enum_flags operator^(Enum a, enum_flags b)
+    constexpr friend enum_flags operator^(Enum a, enum_flags b) noexcept
     {
         return enum_flags{a} ^ b;
     }
 
 private:
-    constexpr explicit enum_flags(underlying_type value) : value_{value} {}
+    constexpr explicit enum_flags(underlying_type value) noexcept
+        : value_{value}
+    {
+    }
 
 private:
     underlying_type value_;
 };
 
 template <typename Enum>
-constexpr enum_flags<Enum> make_flags(Enum value)
+constexpr enum_flags<Enum> make_flags(Enum value) noexcept
 {
     return enum_flags<Enum>{value};
 }

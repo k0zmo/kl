@@ -8,7 +8,7 @@
 namespace kl {
 namespace hash {
 
-constexpr std::uint32_t fnv1a(const char* data, std::size_t length)
+constexpr std::uint32_t fnv1a(const char* data, std::size_t length) noexcept
 {
     uint32_t hash = 2166136261U;
     for (std::size_t i = 0; i < length; ++i)
@@ -20,17 +20,16 @@ template <std::size_t N>
 constexpr std::uint32_t fnv1a(const char (&str)[N])
 {
     // Get rid of null
-    return str[N - 1] != '\0' ? throw std::logic_error{""}
-                              : fnv1a(str, N - 1);
+    return str[N - 1] != '\0' ? throw std::logic_error{""} : fnv1a(str, N - 1);
 }
 
-inline uint32_t fnv1a(const std::string& str)
+inline uint32_t fnv1a(const std::string& str) noexcept
 {
     return fnv1a(str.c_str(), str.size());
 }
 
 namespace operators {
-constexpr uint32_t operator""_h(const char* data, size_t length)
+constexpr uint32_t operator""_h(const char* data, size_t length) noexcept
 {
     return fnv1a(data, length);
 }
@@ -38,14 +37,14 @@ constexpr uint32_t operator""_h(const char* data, size_t length)
 
 namespace detail {
 
-constexpr std::uint16_t get16bits(const char* d)
+constexpr std::uint16_t get16bits(const char* d) noexcept
 {
     return (d[0] | (d[1] << 8));
 }
 } // namespace detail
 
 // From http://www.azillionmonkeys.com/qed/hash.html
-constexpr std::uint32_t hsieh(const char* data, std::size_t length)
+constexpr std::uint32_t hsieh(const char* data, std::size_t length) noexcept
 {
     auto hash = static_cast<uint32_t>(length);
 

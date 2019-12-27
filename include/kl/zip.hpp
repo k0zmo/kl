@@ -115,22 +115,22 @@ public:
     using pointer = value_type*;
 
 public:
-    explicit integral_iterator(std::size_t value) : value_{value} {}
+    explicit integral_iterator(std::size_t value) noexcept : value_{value} {}
 
-    reference operator*() const { return value_; }
+    reference operator*() const noexcept { return value_; }
 
-    integral_iterator& operator++()
+    integral_iterator& operator++() noexcept
     {
         ++value_;
         return *this;
     }
 
-    bool operator!=(const integral_iterator& other) const
+    bool operator!=(const integral_iterator& other) const noexcept
     {
         return value_ != other.value_;
     }
 
-    difference_type operator-(const integral_iterator& other) const
+    difference_type operator-(const integral_iterator& other) const noexcept
     {
         return value_ - other.value_;
     }
@@ -149,17 +149,22 @@ public:
     using pointer = value_type*;
 
 public:
-    explicit inf_integral_iterator(std::size_t value) : value_{value} {}
+    explicit inf_integral_iterator(std::size_t value) noexcept : value_{value}
+    {
+    }
 
-    reference operator*() const { return value_; }
+    reference operator*() const noexcept { return value_; }
 
-    inf_integral_iterator& operator++()
+    inf_integral_iterator& operator++() noexcept
     {
         ++value_;
         return *this;
     }
 
-    bool operator!=(const inf_integral_iterator&) const { return true; }
+    bool operator!=(const inf_integral_iterator&) const noexcept
+    {
+        return true;
+    }
 
 private:
     std::size_t value_{0};
@@ -193,12 +198,12 @@ public:
     using super_t = range<iterator>;
 
 public:
-    integral_range(std::size_t first, std::size_t last)
+    integral_range(std::size_t first, std::size_t last) noexcept
         : super_t{iterator{first}, iterator{last}}
     {
     }
 
-    size_t size() const { return end() - begin(); }
+    size_t size() const noexcept { return end() - begin(); }
 };
 
 class inf_integral_range : public range<detail::inf_integral_iterator>
