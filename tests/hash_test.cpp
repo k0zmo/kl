@@ -47,9 +47,7 @@ TEST_CASE("hash")
 
     SECTION("Hsieh's")
     {
-#if !defined(_MSC_VER) || _MSC_VER >= 1910
         static_assert(kl::hash::hsieh("QWEASDZXC", 9) == 0xAEB8600C, "");
-#endif
         REQUIRE(kl::hash::hsieh(nullptr, 0) == 0);
         REQUIRE(kl::hash::hsieh("QWEASDZXC", 9) == 0xAEB8600C);
         REQUIRE(kl::hash::hsieh("QWEASDZX", 8) == 0xE0B4386A);

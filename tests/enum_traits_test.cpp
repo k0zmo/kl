@@ -101,12 +101,9 @@ TEST_CASE("enum_traits")
         REQUIRE(e1 == colour_space::hls);
         REQUIRE(e == colour_space::hls);
 
-#if !defined(_MSC_VER) || _MSC_VER >= 1910
-        // Requires C++14 constexpr
         auto e2 = e++;
         REQUIRE(e2 == colour_space::hls);
         REQUIRE(e == colour_space::luv);
-#endif
 
         {
             using namespace kl::enums::operators;
@@ -117,12 +114,9 @@ TEST_CASE("enum_traits")
             REQUIRE(e1_ == access_mode::read_only);
             REQUIRE(e_ == access_mode::read_only);
 
-#if !defined(_MSC_VER) || _MSC_VER >= 1910
-            // Requires C++14 constexpr
             auto e2_ = e_++;
             REQUIRE(e2_ == access_mode::read_only);
             REQUIRE(e_ == access_mode::max);
-#endif
         }
     }
 

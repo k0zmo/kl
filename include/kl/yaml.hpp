@@ -93,8 +93,7 @@ T deserialize(type_t<T>, const YAML::Node& value);
 template <typename T>
 T deserialize(const YAML::Node& value)
 {
-    // TODO replace with variable template type<T>
-    return yaml::deserialize(type_t<T>{}, value);
+    return yaml::deserialize(type<T>, value);
 }
 
 struct deserialize_error : std::exception
@@ -729,10 +728,9 @@ T deserialize(const YAML::Node&, priority_tag<0>)
 
 template <typename T>
 auto deserialize(const YAML::Node& value, priority_tag<1>)
-    -> decltype(from_yaml(std::declval<type_t<T>>(), value))
+    -> decltype(from_yaml(type<T>, value))
 {
-    // TODO replace with variable template type<T>
-    return from_yaml(type_t<T>{}, value);
+    return from_yaml(type<T>, value);
 }
 
 template <typename T>

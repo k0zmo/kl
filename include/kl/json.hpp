@@ -106,8 +106,7 @@ T deserialize(type_t<T>, const rapidjson::Value& value);
 template <typename T>
 T deserialize(const rapidjson::Value& value)
 {
-    // TODO replace with variable template type<T>
-    return json::deserialize(type_t<T>{}, value);
+    return json::deserialize(type<T>, value);
 }
 
 struct deserialize_error : std::exception
@@ -880,10 +879,9 @@ T deserialize(const rapidjson::Value&, priority_tag<0>)
 
 template <typename T>
 auto deserialize(const rapidjson::Value& value, priority_tag<1>)
-    -> decltype(from_json(std::declval<type_t<T>>(), value))
+    -> decltype(from_json(type<T>, value))
 {
-    // TODO replace with variable template type<T>
-    return from_json(type_t<T>{}, value);
+    return from_json(type<T>, value);
 }
 
 template <typename T>

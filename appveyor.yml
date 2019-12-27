@@ -1,15 +1,15 @@
 version: "1.0.{build}"
 
-os: Visual Studio 2015
+os: Visual Studio 2017
 
 environment:
   global:
     BOOST_INCLUDEDIR: "C:/Libraries/boost_1_67_0"
   matrix:
-    - CMAKE_GENERATOR_NAME: "Visual Studio 14 2015"
-      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_67_0/lib32-msvc-14.0"
-    - CMAKE_GENERATOR_NAME: "Visual Studio 14 2015 Win64"
-      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_67_0/lib64-msvc-14.0"
+    - CMAKE_GENERATOR_NAME: "Visual Studio 15 2017"
+      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_67_0/lib32-msvc-14.1"
+    - CMAKE_GENERATOR_NAME: "Visual Studio 15 2017 Win64"
+      BOOST_LIBRARYDIR: "C:/Libraries/boost_1_67_0/lib64-msvc-14.1"
 
 init:
   - cmd: cmake --version

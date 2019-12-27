@@ -2,12 +2,6 @@
 
 #include <type_traits>
 
-#if defined(_MSC_VER) && _MSC_VER < 1910
-#define constexpr14
-#else
-#define constexpr14 constexpr
-#endif
-
 namespace kl {
 
 template <typename Enum>
@@ -54,50 +48,50 @@ public:
         return enum_flags{value_ ^ f.value_};
     }
 
-    constexpr14 enum_flags& operator&=(enum_flags f)
+    constexpr enum_flags& operator&=(enum_flags f)
     {
         value_ &= f.value_;
         return *this;
     }
 
-    constexpr14 enum_flags& operator|=(enum_flags f)
+    constexpr enum_flags& operator|=(enum_flags f)
     {
         value_ |= f.value_;
         return *this;
     }
 
-    constexpr14 enum_flags& operator^=(enum_flags f)
+    constexpr enum_flags& operator^=(enum_flags f)
     {
         value_ ^= f.value_;
         return *this;
     }
 
-    constexpr14 enum_flags operator&(Enum value) const
+    constexpr enum_flags operator&(Enum value) const
     {
         return (*this & enum_flags{value});
     }
 
-    constexpr14 enum_flags operator|(Enum value) const
+    constexpr enum_flags operator|(Enum value) const
     {
         return (*this | enum_flags{value});
     }
 
-    constexpr14 enum_flags operator^(Enum value) const
+    constexpr enum_flags operator^(Enum value) const
     {
         return (*this ^ enum_flags{value});
     }
 
-    constexpr14 enum_flags& operator&=(Enum value)
+    constexpr enum_flags& operator&=(Enum value)
     {
         return (*this &= enum_flags{value});
     }
 
-    constexpr14 enum_flags& operator|=(Enum value)
+    constexpr enum_flags& operator|=(Enum value)
     {
         return (*this |= enum_flags{value});
     }
 
-    constexpr14 enum_flags& operator^=(Enum value)
+    constexpr enum_flags& operator^=(Enum value)
     {
         return (*this ^= enum_flags{value});
     }
@@ -135,6 +129,5 @@ struct is_enum_flags : std::false_type {};
 
 template <typename T>
 struct is_enum_flags<enum_flags<T>> : std::true_type {};
-} // namespace kl
 
-#undef constexpr14
+} // namespace kl

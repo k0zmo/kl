@@ -51,10 +51,8 @@ struct priority_tag<0> {};
 template <typename T>
 struct type_t {};
 
-#if !defined(_MSC_VER) || _MSC_VER >= 1910
 template <typename T>
 constexpr type_t<T> type{};
-#endif
 
 // Instantiate printer<T> deep in template territory to get compile error
 // message with a T name
