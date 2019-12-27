@@ -17,9 +17,11 @@
 #include <exception>
 #include <string>
 
-KL_DEFINE_ENUM_REFLECTOR(rapidjson, Type,
-                         (kNullType, kFalseType, kTrueType, kObjectType,
-                          kArrayType, kStringType, kNumberType))
+namespace rapidjson {
+
+KL_DESCRIBE_ENUM(Type, (kNullType, kFalseType, kTrueType, kObjectType,
+                        kArrayType, kStringType, kNumberType))
+} // namespace rapidjson
 
 namespace kl {
 namespace json {

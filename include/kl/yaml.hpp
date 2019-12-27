@@ -13,8 +13,10 @@
 #include <exception>
 #include <string>
 
-KL_DEFINE_ENUM_REFLECTOR(YAML, NodeType::value,
-                         (Undefined, Null, Scalar, Sequence, Map))
+namespace YAML {
+
+KL_DESCRIBE_ENUM(NodeType::value, (Undefined, Null, Scalar, Sequence, Map))
+} // namespace YAML
 
 namespace kl {
 namespace yaml {

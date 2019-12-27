@@ -26,7 +26,24 @@ public:
 
     constexpr Iterator begin() const { return first_; }
     constexpr Iterator end() const { return last_; }
-    constexpr std::size_t size() const { return std::distance(first_, last_); }
+    constexpr std::size_t size() const
+    {
+        return size_impl(
+            typename std::iterator_traits<Iterator>::iterator_category{});
+    }
+
+private:
+    // std::distance is not constexpr in C++14
+    std::size_t size_impl(std::input_iterator_tag) const
+    {
+        return std::distance(first_, last_);
+    }
+    constexpr std::size_t
+        size_impl(std::random_access_iterator_tag) const noexcept
+    {
+        return last_ - first_;
+    }
+
 
 private:
     Iterator first_;

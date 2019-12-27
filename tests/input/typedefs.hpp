@@ -122,11 +122,11 @@ struct struct_with_blacklisted
 
 KL_DEFINE_REFLECTABLE(optional_test, (non_opt, opt))
 KL_DEFINE_REFLECTABLE(inner_t, (r, d))
-KL_DEFINE_ENUM_REFLECTOR(colour_space, (rgb, xyz, ycrcb, hsv, lab, hls, luv))
-KL_DEFINE_ENUM_REFLECTOR(ordinary_enum_reflectable, (oe_one_ref))
-KL_DEFINE_ENUM_REFLECTOR(scope_enum_reflectable, (one))
-KL_DEFINE_ENUM_REFLECTOR(device_type,
-                         ((default_, default), cpu, gpu, accelerator, custom))
+KL_DESCRIBE_ENUM(colour_space, (rgb, xyz, ycrcb, hsv, lab, hls, luv))
+KL_DESCRIBE_ENUM(ordinary_enum_reflectable, (oe_one_ref))
+KL_DESCRIBE_ENUM(scope_enum_reflectable, (one))
+KL_DESCRIBE_ENUM(device_type,
+                 ((default_, default), cpu, gpu, accelerator, custom))
 KL_DEFINE_REFLECTABLE(enums, (e0, e1, e2, e3))
 KL_DEFINE_REFLECTABLE(test_t,
                       (hello, t, f, n, i, pi, a, ad, space, tup, map, inner))
