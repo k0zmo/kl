@@ -95,13 +95,6 @@ template <typename T>
 using is_reflectable =
     bool_constant<type_info<remove_cvref_t<T>>::is_reflectable>;
 
-namespace detail {
-
-constexpr std::size_t base_num_fields(type_pack<>) { return 0; }
-
-template <typename Head, typename... Tail>
-constexpr std::size_t base_num_fields(type_pack<Head, Tail...>);
-} // namespace detail
 
 struct ctti
 {
@@ -152,18 +145,16 @@ struct ctti
     static constexpr std::size_t total_num_fields()
     {
         return ctti::num_fields<Reflectable>() +
-               detail::base_num_fields(ctti::base_types<Reflectable>());
+               ctti::base_num_fields(ctti::base_types<Reflectable>{});
+    }
+
+private:
+    template <typename... Types>
+    static constexpr std::size_t base_num_fields(type_pack<Types...>)
+    {
+        return (0 + ... + ctti::total_num_fields<Types>());
     }
 };
-
-namespace detail {
-template <typename Head, typename... Tail>
-constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
-{
-    return ctti::total_num_fields<Head>() +
-           base_num_fields(type_pack<Tail...>());
-}
-} // namespace detail
 } // namespace kl
 
 #define KL_DEFINE_REFLECTABLE(...) KL_TYPE_INFO_IMPL(__VA_ARGS__)

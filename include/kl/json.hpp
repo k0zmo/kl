@@ -319,8 +319,7 @@ template <typename Tuple, std::size_t... Is, typename Context>
 void encode_tuple(const Tuple& tuple, Context& ctx, index_sequence<Is...>)
 {
     ctx.writer().StartArray();
-    using swallow = std::initializer_list<int>;
-    (void)swallow{((json::dump(std::get<Is>(tuple), ctx)), 0)...};
+    (json::dump(std::get<Is>(tuple), ctx), ...);
     ctx.writer().EndArray();
 }
 
@@ -470,10 +469,8 @@ rapidjson::Value tuple_to_json(const Tuple& tuple, Context& ctx,
                                index_sequence<Is...>)
 {
     rapidjson::Value arr{rapidjson::kArrayType};
-    using swallow = std::initializer_list<int>;
-    (void)swallow{(arr.PushBack(json::serialize(std::get<Is>(tuple), ctx),
-                                ctx.allocator()),
-                   0)...};
+    (arr.PushBack(json::serialize(std::get<Is>(tuple), ctx), ctx.allocator()),
+     ...);
     return arr;
 }
 

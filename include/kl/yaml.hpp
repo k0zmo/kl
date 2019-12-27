@@ -251,8 +251,7 @@ template <typename Tuple, typename Context, std::size_t... Is>
 void encode_tuple(const Tuple& tuple, Context& ctx, std::index_sequence<Is...>)
 {
     ctx.emitter() << YAML::BeginSeq;
-    using swallow = std::initializer_list<int>;
-    (void)swallow{(yaml::dump(std::get<Is>(tuple), ctx), 0)...};
+    (yaml::dump(std::get<Is>(tuple), ctx), ...);
     ctx.emitter() << YAML::EndSeq;
 }
 
@@ -376,9 +375,7 @@ YAML::Node tuple_to_yaml(const Tuple& tuple, Context& ctx,
                          index_sequence<Is...>)
 {
     YAML::Node arr{YAML::NodeType::Sequence};
-    using swallow = std::initializer_list<int>;
-    (void)swallow{
-        (arr.push_back(yaml::serialize(std::get<Is>(tuple), ctx)), 0)...};
+    (arr.push_back(yaml::serialize(std::get<Is>(tuple), ctx)), ...);
     return arr;
 }
 
