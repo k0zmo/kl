@@ -46,12 +46,6 @@ size_t hash_std(T&& v)
     using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
     return std::hash<remove_cvref_t>{}(std::forward<T>(v));
 }
-
-template <typename T>
-struct identity_type
-{
-    using type = T;
-};
 } // namespace detail
 
 /*
@@ -72,7 +66,9 @@ public:
     connection& operator=(const connection&) = default;
 
     // Move constructor/operator
-    connection(connection&& other) : impl_{std::move(other.impl_)} {}
+    connection(connection&& other) : impl_{std::exchange(other.impl_, nullptr)}
+    {
+    }
     connection& operator=(connection&& other)
     {
         swap(*this, other);
@@ -330,8 +326,7 @@ template <typename Ret, typename... Args>
 class signal<Ret(Args...)> : public detail::signal_base
 {
 public:
-    // MSVC2013 doesn't like: using signature_type = Ret(Args...);
-    using signature_type = typename detail::identity_type<Ret(Args...)>::type;
+    using signature_type = Ret(Args...);
     using slot_type = std::function<Ret(Args...)>;
     using extended_slot_type = std::function<Ret(connection&, Args...)>;
     using signal_type = signal<Ret(Args...)>;
@@ -342,8 +337,11 @@ public:
     struct arg
     {
         static_assert(N < arity, "invalid arg index");
-        using type = typename std::tuple_element<N, std::tuple<Args...>>::type;
+        using type = std::tuple_element_t<N, std::tuple<Args...>>;
     };
+
+    template <std::size_t N>
+    using arg_t = typename arg<N>::type;
 
 public:
     // Constructs empty, disconnected signal
@@ -353,9 +351,9 @@ public:
     signal(const signal&) = delete;
     signal& operator=(const signal&) = delete;
 
-    signal(signal&& other) : slots_(other.slots_), id_{other.id_}
+    signal(signal&& other)
+        : slots_{std::exchange(other.slots_, nullptr)}, id_{other.id_}
     {
-        other.slots_ = nullptr;
         rebind();
     }
 

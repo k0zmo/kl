@@ -159,7 +159,7 @@ private:
     }
 
     template <typename T0, typename T1, typename... Ts>
-    static const typename std::common_type<T0, T1, Ts...>::type&
+    static const std::common_type_t<T0, T1, Ts...>&
         (min)(const T0& arg1, const T1& arg2, const Ts&... args)
     {
         return (arg1 < arg2) ? (min)(arg1, args...) : (min)(arg2, args...);

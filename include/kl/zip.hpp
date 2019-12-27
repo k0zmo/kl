@@ -16,7 +16,7 @@ template <typename Seq>
 struct seq_traits
 {
 private:
-    using seq = typename std::remove_reference<Seq>::type;
+    using seq = std::remove_reference_t<Seq>;
 
 public:
     using iterator = typename seq::iterator;
@@ -27,7 +27,7 @@ template <typename Seq>
 struct seq_traits<const Seq>
 {
 private:
-    using seq = typename std::remove_reference<Seq>::type;
+    using seq = std::remove_reference_t<Seq>;
 
 public:
     using iterator = typename seq::const_iterator;
@@ -37,15 +37,15 @@ public:
 template <typename Seq, std::size_t N>
 struct seq_traits<Seq[N]>
 {
-    using iterator = typename std::add_pointer<Seq>::type;
-    using reference = typename std::add_lvalue_reference<Seq>::type;
+    using iterator = std::add_pointer_t<Seq>;
+    using reference = std::add_lvalue_reference_t<Seq>;
 };
 
 template <typename Seq, std::size_t N>
 struct seq_traits<const Seq[N]>
 {
-    using iterator = typename std::add_pointer<const Seq>::type;
-    using reference = typename std::add_lvalue_reference<const Seq>::type;
+    using iterator = std::add_pointer_t<const Seq>;
+    using reference = std::add_lvalue_reference_t<const Seq>;
 };
 
 template <typename Seq>
@@ -168,12 +168,10 @@ private:
 
 template <typename... Seqs>
 class zip_range
-    : public range<
-          detail::zip_iterator<typename std::remove_reference<Seqs>::type...>>
+    : public range<detail::zip_iterator<std::remove_reference_t<Seqs>...>>
 {
 public:
-    using iterator =
-        detail::zip_iterator<typename std::remove_reference<Seqs>::type...>;
+    using iterator = detail::zip_iterator<std::remove_reference_t<Seqs>...>;
     using super_t = range<iterator>;
 
 public:

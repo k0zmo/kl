@@ -43,14 +43,22 @@ KL_DEFINE_ENUM_REFLECTOR(ns::inner, colour_space,
 
 TEST_CASE("enum_reflector")
 {
+    SECTION("enum_reflector for non-enums")
+    {
+        static_assert(!kl::is_enum_reflectable<int>::value, "???");
+        static_assert(!kl::is_enum_nonreflectable<int>::value, "???");
+    }
+
     SECTION("non-reflectable enum")
     {
         static_assert(!kl::is_enum_reflectable<non_reflectable>::value, "???");
+        static_assert(kl::is_enum_nonreflectable<non_reflectable>::value, "???");
     }
 
     SECTION("reflector for globally defined enum type")
     {
         static_assert(kl::is_enum_reflectable<access_mode>::value, "???");
+        static_assert(!kl::is_enum_nonreflectable<access_mode>::value, "???");
 
         using reflector = kl::enum_reflector<access_mode>;
         using namespace std::string_literals;
@@ -94,8 +102,8 @@ TEST_CASE("enum_reflector")
 
     SECTION("reflector for enum type in namespace")
     {
-        static_assert(kl::is_enum_reflectable<ns::inner::colour_space>::value,
-                      "???");
+        static_assert(kl::is_enum_reflectable<ns::inner::colour_space>::value, "???");
+        static_assert(!kl::is_enum_nonreflectable<ns::inner::colour_space>::value, "???");
 
         using namespace std::string_literals;
         auto refl = kl::reflect<ns::inner::colour_space>();
@@ -137,8 +145,8 @@ TEST_CASE("enum_reflector")
 
     SECTION("reflector for old enum type (unscoped)")
     {
-        static_assert(kl::is_enum_reflectable<unscoped_enum_type>::value,
-                      "???");
+        static_assert(kl::is_enum_reflectable<unscoped_enum_type>::value, "???");
+        static_assert(!kl::is_enum_nonreflectable<unscoped_enum_type>::value, "???");
 
         using reflector = kl::enum_reflector<unscoped_enum_type>;
         using namespace std::string_literals;

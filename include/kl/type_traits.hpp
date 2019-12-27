@@ -71,6 +71,9 @@ struct func_traits<Ret(Args...)>
     {
         using type = at_type_t<N, Args...>;
     };
+
+    template <std::size_t N>
+    using arg_t = typename arg<N>::type;
 };
 
 // Lambdas and anything else having operator() defined

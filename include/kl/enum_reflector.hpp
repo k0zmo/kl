@@ -109,14 +109,14 @@ struct enum_reflector
     }
 };
 
-template <typename Enum, typename = void>
+template <typename Enum, bool is_enum = std::is_enum<Enum>::value>
 struct is_enum_reflectable : std::false_type {};
 
 // NOTE: We can't instantiate enum_reflector<Enum> with Enum being not a enum
 // type. This would cause compilation error on underlying_type alias. That's why
 // we check is_defined only if Enum is an actual enum type.
 template <typename Enum>
-struct is_enum_reflectable<Enum, std::enable_if_t<std::is_enum<Enum>::value>>
+struct is_enum_reflectable<Enum, true>
     : std::integral_constant<bool, enum_reflector<Enum>::is_defined>
 {
 };
