@@ -1,5 +1,5 @@
 add_library(kl_cxx_flags INTERFACE)
-target_compile_features(kl_cxx_flags INTERFACE cxx_std_14)
+target_compile_features(kl_cxx_flags INTERFACE cxx_std_17)
 
 if(KL_DEV_BUILD)
     include(kl/DevFlags)
