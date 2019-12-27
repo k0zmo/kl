@@ -81,13 +81,13 @@ struct type_info
     template <typename Type, typename Visitor>
     static void reflect(Type&&, Visitor&&)
     {
-        static_assert(always_false<Type>::value, "Can't reflect this type");
+        static_assert(always_false_v<Type>, "Can't reflect this type");
     }
 
     template <typename Type, typename Visitor>
     static void reflect(Visitor&&)
     {
-        static_assert(always_false<Type>::value, "Can't reflect this type");
+        static_assert(always_false_v<Type>, "Can't reflect this type");
     }
 };
 
@@ -95,6 +95,8 @@ template <typename T>
 using is_reflectable =
     bool_constant<type_info<remove_cvref_t<T>>::is_reflectable>;
 
+template <typename T>
+inline constexpr bool is_reflectable_v = is_reflectable<T>::value;
 
 struct ctti
 {

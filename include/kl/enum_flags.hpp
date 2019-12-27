@@ -139,4 +139,6 @@ struct is_enum_flags : std::false_type {};
 template <typename T>
 struct is_enum_flags<enum_flags<T>> : std::true_type {};
 
+template <typename T>
+inline constexpr bool is_enum_flags_v = is_enum_flags<T>::value;
 } // namespace kl

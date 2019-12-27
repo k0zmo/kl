@@ -36,7 +36,7 @@ struct overloader<>
     template <typename U>
     void operator()(U)
     {
-        static_assert(always_false<U>::value,
+        static_assert(always_false_v<U>,
                       "No callable supplied for this overloader");
     }
 };
@@ -45,8 +45,8 @@ template <typename F, typename... Fs>
 struct overload_return_type
 {
     static constexpr auto value =
-        is_same<typename func_traits<F>::return_type,
-                typename func_traits<Fs>::return_type...>::value;
+        is_same_v<typename func_traits<F>::return_type,
+                  typename func_traits<Fs>::return_type...>;
     static_assert(value, "All supplied callables must return the same type");
     using type = typename func_traits<F>::return_type;
 };
@@ -84,7 +84,7 @@ struct func_overload
     func_overload(func_ptr func) : func_{func} {}
 
     using forward_arg =
-        std::conditional_t<std::is_reference<Arg>::value, Arg,
+        std::conditional_t<std::is_reference_v<Arg>, Arg,
                            std::add_lvalue_reference_t<const Arg>>;
 
     ReturnType operator()(forward_arg arg) const { return func_(arg); }

@@ -469,7 +469,7 @@ Vector from_yaml(type_t<Vector>, const YAML::Node& value)
                                 yaml_type_name(value)};
 
     Vector ret{};
-    if constexpr (has_reserve<Vector>::value)
+    if constexpr (has_reserve_v<Vector>)
         ret.reserve(value.size());
 
     for (const auto& item : value)

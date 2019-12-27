@@ -13,7 +13,7 @@ using std::make_index_sequence;
 
 template <typename T>
 using make_tuple_indices =
-    make_index_sequence<std::tuple_size<std::remove_reference_t<T>>::value>;
+    make_index_sequence<std::tuple_size_v<std::remove_reference_t<T>>>;
 
 namespace tuple {
 

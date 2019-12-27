@@ -31,9 +31,9 @@ To bitwise_cast(From from) noexcept
 {
     static_assert(sizeof(To) == sizeof(From),
                   "Size of destination and source objects must be equal.");
-    static_assert(std::is_trivially_copyable<To>::value,
+    static_assert(std::is_trivially_copyable_v<To>,
                   "To type must be trivially copyable.");
-    static_assert(std::is_trivially_copyable<From>::value,
+    static_assert(std::is_trivially_copyable_v<From>,
                   "From type must be trivially copyable");
 
     To to;

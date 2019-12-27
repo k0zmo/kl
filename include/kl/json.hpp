@@ -615,7 +615,7 @@ Vector from_json(type_t<Vector>, const rapidjson::Value& value)
                                 json_type_name(value)};
 
     Vector ret{};
-    if constexpr (has_reserve<Vector>::value)
+    if constexpr (has_reserve_v<Vector>)
         ret.reserve(value.Size());
 
     for (const auto& item : value.GetArray())

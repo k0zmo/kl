@@ -68,48 +68,48 @@ struct enum_reflector
 
     static constexpr std::size_t count()
     {
-        static_assert(always_false<Enum>::value,
+        static_assert(always_false_v<Enum>,
                       "enum_reflector<Enum> is not defined.");
         return 0;
     }
 
     static constexpr const char* name()
     {
-        static_assert(always_false<Enum>::value,
+        static_assert(always_false_v<Enum>,
                       "enum_reflector<Enum> is not defined.");
         return "";
     }
 
     static constexpr const char* full_name()
     {
-        static_assert(always_false<Enum>::value,
+        static_assert(always_false_v<Enum>,
                       "enum_reflector<Enum> is not defined.");
         return "";
     }
 
     static boost::optional<enum_type> from_string(gsl::cstring_span<>)
     {
-        static_assert(always_false<Enum>::value,
+        static_assert(always_false_v<Enum>,
                       "enum_reflector<Enum> is not defined.");
         return boost::none;
     }
 
     static const char* to_string(enum_type)
     {
-        static_assert(always_false<Enum>::value,
+        static_assert(always_false_v<Enum>,
                       "enum_reflector<Enum> is not defined.");
         return nullptr;
     }
 
     static kl::range<const enum_type*> values()
     {
-        static_assert(always_false<Enum>::value,
+        static_assert(always_false_v<Enum>,
                       "enum_reflector<Enum> is not defined.");
         return {};
     }
 };
 
-template <typename Enum, bool is_enum = std::is_enum<Enum>::value>
+template <typename Enum, bool is_enum = std::is_enum_v<Enum>>
 struct is_enum_reflectable : std::false_type {};
 
 // NOTE: We can't instantiate enum_reflector<Enum> with Enum being not a enum
@@ -122,8 +122,14 @@ struct is_enum_reflectable<Enum, true>
 };
 
 template <typename T>
+inline constexpr bool is_enum_reflectable_v = is_enum_reflectable<T>::value;
+
+template <typename T>
 using is_enum_nonreflectable =
-    bool_constant<std::is_enum<T>::value && !is_enum_reflectable<T>::value>;
+    bool_constant<std::is_enum_v<T> && !is_enum_reflectable_v<T>>;
+
+template <typename T>
+inline constexpr bool is_enum_nonreflectable_v = is_enum_nonreflectable<T>::value;
 
 template <typename Enum>
 constexpr enum_reflector<Enum> reflect()
