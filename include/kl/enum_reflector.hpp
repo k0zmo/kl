@@ -35,7 +35,7 @@ KL_DEFINE_ENUM_REFLECTOR(ns::detail, enum_,
     - values(): returns range over all reflected enum values
 */
 
-#include "kl/base_range.hpp"
+#include "kl/range.hpp"
 #include "kl/type_traits.hpp"
 
 #include <boost/optional.hpp>
@@ -101,8 +101,7 @@ struct enum_reflector
         return nullptr;
     }
 
-    // TODO: This could be constexpr from VS2017
-    static kl::base_range<const enum_type*> values()
+    static kl::range<const enum_type*> values()
     {
         static_assert(always_false<Enum>::value,
                       "enum_reflector<Enum> is not defined.");
@@ -244,7 +243,7 @@ boost::optional<Enum> from_string(gsl::cstring_span<> str)
     full_name_::KL_ENUM_REFLECTOR_GET_ENUM_VALUE(value_),
 
 #define KL_ENUM_REFLECTOR_DEFINITION_VALUES(full_name_, values_)               \
-    static kl::base_range<const full_name_*> values()                          \
+    static kl::range<const full_name_*> values()                               \
     {                                                                          \
         static const full_name_ value_list[] = {                               \
             BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(values_),                      \

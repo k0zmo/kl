@@ -1,6 +1,6 @@
 #pragma once
 
-#include "kl/base_range.hpp"
+#include "kl/range.hpp"
 #include "kl/tuple.hpp"
 #include "kl/type_traits.hpp"
 
@@ -168,13 +168,13 @@ private:
 
 template <typename... Seqs>
 class zip_range
-    : public base_range<
+    : public range<
           detail::zip_iterator<typename std::remove_reference<Seqs>::type...>>
 {
 public:
     using iterator =
         detail::zip_iterator<typename std::remove_reference<Seqs>::type...>;
-    using super_t = base_range<iterator>;
+    using super_t = range<iterator>;
 
 public:
     explicit zip_range(const Seqs&... seqs)
@@ -188,11 +188,11 @@ public:
     }
 };
 
-class integral_range : public base_range<detail::integral_iterator>
+class integral_range : public range<detail::integral_iterator>
 {
 public:
     using iterator = detail::integral_iterator;
-    using super_t = base_range<iterator>;
+    using super_t = range<iterator>;
 
 public:
     integral_range(std::size_t first, std::size_t last)
@@ -203,11 +203,11 @@ public:
     size_t size() const { return end() - begin(); }
 };
 
-class inf_integral_range : public base_range<detail::inf_integral_iterator>
+class inf_integral_range : public range<detail::inf_integral_iterator>
 {
 public:
     using iterator = detail::inf_integral_iterator;
-    using super_t = base_range<iterator>;
+    using super_t = range<iterator>;
 
 public:
     inf_integral_range() : super_t{iterator{0}, iterator{0}} {}

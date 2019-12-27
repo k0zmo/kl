@@ -9,7 +9,6 @@ if(KL_DEV_BUILD)
 endif()
 
 add_library(kl
-    ${kl_SOURCE_DIR}/include/kl/base_range.hpp
     ${kl_SOURCE_DIR}/include/kl/base64.hpp
     ${kl_SOURCE_DIR}/include/kl/binary_rw.hpp
     ${kl_SOURCE_DIR}/include/kl/byte.hpp
@@ -24,6 +23,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/json.hpp
     ${kl_SOURCE_DIR}/include/kl/match.hpp
     ${kl_SOURCE_DIR}/include/kl/meta.hpp
+    ${kl_SOURCE_DIR}/include/kl/range.hpp
     ${kl_SOURCE_DIR}/include/kl/signal.hpp
     ${kl_SOURCE_DIR}/include/kl/split.hpp
     ${kl_SOURCE_DIR}/include/kl/stream_join.hpp

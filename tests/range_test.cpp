@@ -1,9 +1,9 @@
-#include "kl/base_range.hpp"
+#include "kl/range.hpp"
 
 #include <catch2/catch.hpp>
 #include <vector>
 
-TEST_CASE("base_range")
+TEST_CASE("range")
 {
     SECTION("from vector")
     {

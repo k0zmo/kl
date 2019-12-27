@@ -1,6 +1,5 @@
 add_executable(kl-tests main_test.cpp)
 set(test_files
-    base_range_test.cpp
     base64_test.cpp
     binary_rw_test.cpp
     byte_test.cpp
@@ -15,6 +14,7 @@ set(test_files
     json_test.cpp
     match_test.cpp
     meta_test.cpp
+    range_test.cpp
     signal_test.cpp
     split_test.cpp
     stream_join_test.cpp

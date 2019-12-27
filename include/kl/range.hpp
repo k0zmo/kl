@@ -2,11 +2,12 @@
 
 #include <iterator>
 #include <type_traits>
+#include <cstddef>
 
 namespace kl {
 
 template <class Iterator>
-class base_range
+class range
 {
 public:
     using iterator = Iterator;
@@ -17,55 +18,54 @@ public:
     using reference = typename std::iterator_traits<Iterator>::reference;
 
 public:
-    constexpr base_range() = default;
-    constexpr base_range(Iterator first, Iterator last)
+    constexpr range() = default;
+    constexpr range(Iterator first, Iterator last)
         : first_{std::move(first)}, last_{std::move(last)}
     {
     }
 
     constexpr Iterator begin() const { return first_; }
     constexpr Iterator end() const { return last_; }
-
-    // default implementation (iterator_category is used for dispatching)
-    constexpr size_t size() const { return std::distance(first_, last_); }
+    constexpr std::size_t size() const { return std::distance(first_, last_); }
 
 private:
-    Iterator first_, last_;
+    Iterator first_{};
+    Iterator last_{};
 };
 
 template <class Iterator>
-inline constexpr base_range<Iterator> make_range(Iterator a, Iterator b)
+inline constexpr range<Iterator> make_range(Iterator a, Iterator b)
 {
-    return base_range<Iterator>{a, b};
+    return range<Iterator>{a, b};
 }
 
 template <class Container>
-inline base_range<typename Container::iterator> make_range(Container& cont)
+inline range<typename Container::iterator> make_range(Container& cont)
 {
-    return base_range<typename Container::iterator>{cont.begin(), cont.end()};
+    return range<typename Container::iterator>{cont.begin(), cont.end()};
 }
 
 template <class Container>
-inline base_range<typename Container::const_iterator>
+inline range<typename Container::const_iterator>
     make_range(const Container& cont)
 {
-    return base_range<typename Container::const_iterator>{cont.cbegin(),
+    return range<typename Container::const_iterator>{cont.cbegin(),
                                                           cont.cend()};
 }
 
-template <class ArrayType, size_t N>
-inline constexpr base_range<std::add_pointer_t<ArrayType>>
+template <class ArrayType, std::size_t N>
+inline constexpr range<std::add_pointer_t<ArrayType>>
     make_range(ArrayType (&arr)[N])
 {
     using value_type = std::add_pointer_t<ArrayType>;
-    return base_range<value_type>{std::begin(arr), std::end(arr)};
+    return range<value_type>{std::begin(arr), std::end(arr)};
 }
 
-template <class ArrayType, size_t N>
-inline constexpr base_range<std::add_pointer_t<const ArrayType>>
+template <class ArrayType, std::size_t N>
+inline constexpr range<std::add_pointer_t<const ArrayType>>
     make_range(const ArrayType (&arr)[N])
 {
     using value_type = std::add_pointer_t<const ArrayType>;
-    return base_range<value_type>{std::begin(arr), std::end(arr)};
+    return range<value_type>{std::begin(arr), std::end(arr)};
 }
 } // namespace kl
