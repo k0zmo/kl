@@ -606,17 +606,6 @@ Map from_json(type_t<Map>, const rapidjson::Value& value)
     return ret;
 }
 
-template <typename Vector>
-void vector_reserve(Vector&, std::size_t, std::false_type)
-{
-}
-
-template <typename Vector>
-void vector_reserve(Vector& vec, std::size_t size, std::true_type)
-{
-    vec.reserve(size);
-}
-
 template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
                                      is_vector_alike<Vector>> = true>
 Vector from_json(type_t<Vector>, const rapidjson::Value& value)
@@ -626,7 +615,8 @@ Vector from_json(type_t<Vector>, const rapidjson::Value& value)
                                 json_type_name(value)};
 
     Vector ret{};
-    vector_reserve(ret, value.Size(), has_reserve<Vector>{});
+    if constexpr (has_reserve<Vector>::value)
+        ret.reserve(value.Size());
 
     for (const auto& item : value.GetArray())
     {

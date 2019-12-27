@@ -264,65 +264,36 @@ namespace detail {
 template <typename Ret>
 struct sink_invoker
 {
-private:
-    template <typename Sink, typename Slot, typename... Args>
-    static bool call_impl(std::false_type /*is_sink_return_type_void*/,
-                          Sink&& sink, const Slot& slot, const Args&... args)
-    {
-        return !!std::forward<Sink>(sink)(slot(args...));
-    }
-
-    template <typename Sink, typename Slot, typename... Args>
-    static bool call_impl(std::true_type /*is_sink_return_type_void*/,
-                          Sink&& sink, const Slot& slot, const Args&... args)
-    {
-        std::forward<Sink>(sink)(slot(args...));
-        return false;
-    }
-
-public:
     template <typename Sink, typename Slot, typename... Args>
     static bool call(Sink&& sink, const Slot& slot, const Args&... args)
     {
-        using is_sink_return_type_void = std::integral_constant<
-            bool, std::is_same<void, std::result_of_t<Sink(
-                                         typename Slot::return_type)>>::value>;
+        constexpr bool does_sink_return_void = std::is_same_v<
+            void, std::invoke_result_t<Sink, typename Slot::return_type>>;
 
-        return sink_invoker::call_impl(is_sink_return_type_void{},
-                                       std::forward<Sink>(sink), slot, args...);
+        auto&& return_value = slot(args...);
+
+        if constexpr (does_sink_return_void)
+            return std::forward<Sink>(sink)(return_value), false;
+        else
+            return !!std::forward<Sink>(sink)(return_value);
     }
 };
 
 template <>
 struct sink_invoker<void>
 {
-private:
-    template <typename Sink, typename Slot, typename... Args>
-    static bool call_impl(std::false_type /*is_sink_return_type_void*/,
-                          Sink&& sink, const Slot& slot, const Args&... args)
-    {
-        slot(args...);
-        return !!std::forward<Sink>(sink)();
-    }
-
-    template <typename Sink, typename Slot, typename... Args>
-    static bool call_impl(std::true_type /*is_sink_return_type_void*/,
-                          Sink&& sink, const Slot& slot, const Args&... args)
-    {
-        slot(args...);
-        std::forward<Sink>(sink)();
-        return false;
-    }
-
-public:
     template <typename Sink, typename Slot, typename... Args>
     static bool call(Sink&& sink, const Slot& slot, const Args&... args)
     {
-        using is_sink_return_type_void = std::integral_constant<
-            bool, std::is_same<void, std::result_of_t<Sink()>>::value>;
+        constexpr bool does_sink_return_void =
+            std::is_same_v<void, std::invoke_result_t<Sink>>;
 
-        return sink_invoker::call_impl(is_sink_return_type_void{},
-                                       std::forward<Sink>(sink), slot, args...);
+        slot(args...);
+
+        if constexpr (does_sink_return_void)
+            return std::forward<Sink>(sink)(), false;
+        else
+            return !!std::forward<Sink>(sink)();
     }
 };
 } // namespace detail
