@@ -52,10 +52,13 @@ jobs:
           cd _build && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: ubuntu16_gcc5_coverage
+  - job: ubuntu16_gcc7_coverage
     pool:
       vmImage: 'ubuntu-16.04'
     steps:
+      - template: templates/install-gcc.yml
+        parameters:
+          version: '7'
       - script: |
           which g++ && g++ --version
           cmake --version

@@ -1,7 +1,7 @@
 #pragma once
 
 /*
- * Requirements: boost 1.57+, C++11 compiler and preprocessor
+ * Requirements: boost 1.57+, C++14 compiler and preprocessor
  * Sample usage:
 
 namespace ns {
@@ -10,47 +10,23 @@ enum class enum_
 {
     A, B, C
 };
+KL_DESCRIBE_ENUM(enum_, (A, (B, b), C))
 }
 }
 
- * First argument is namespace scope, can be omitted for enums defined in global
-   namespace
- * Second argument is unqualified enum type name
- * Third argument is a tuple of enum values. Each value can be optionally a
+ * First argument is unqualified enum type name
+ * Second argument is a tuple of enum values. Each value can be optionally a
    tuple (pair) of its real name and name used for to-from string conversions
+ * Macro should be placed inside the same namespace as the enum type
 
-KL_DEFINE_ENUM_REFLECTOR(ns::detail, enum_,
-                         (A, (B, b), C))
-
- * Remarks: Macro KL_DEFINE_ENUM_REFLECTOR works for unscoped as well as scoped
-   enums and requires C++11 (both for preprocessor and unscoped enum handling)
-
- * KL_DEFINE_ENUM_REFLECTOR(...) defines enum_reflector<Enum> class with
-   following members:
-    - count(): returns number of defined enum values
-    - name(): returns string with unqualified name of enum type
-    - full_name(): returns string with a name with full namespace scope
-    - to_string(): converts given enum value to its string representation
-    - from_string(): converts string to enum value
-    - values(): returns range over all reflected enum values
+ * Remarks: Macro KL_DESCRIBE_ENUM works for unscoped as well as scoped
+   enums and requires C++17 (both for preprocessor and unscoped enum handling)
 */
 
-#include "kl/range.hpp"
 #include "kl/type_traits.hpp"
+#include "kl/describe_enum.hpp"
 
-#include <boost/optional.hpp>
-
-#include <boost/preprocessor/arithmetic/dec.hpp>
-#include <boost/preprocessor/cat.hpp>
-#include <boost/preprocessor/stringize.hpp>
-#include <boost/preprocessor/punctuation/remove_parens.hpp>
-#include <boost/preprocessor/control/expr_if.hpp>
-#include <boost/preprocessor/control/if.hpp>
-#include <boost/preprocessor/repetition/repeat.hpp>
-#include <boost/preprocessor/repetition/enum.hpp>
-#include <boost/preprocessor/tuple/elem.hpp>
-#include <boost/preprocessor/tuple/size.hpp>
-#include <boost/preprocessor/tuple/push_back.hpp>
+#include <boost/optional/optional.hpp>
 
 #include <gsl/string_span>
 
@@ -59,55 +35,22 @@ KL_DEFINE_ENUM_REFLECTOR(ns::detail, enum_,
 
 namespace kl {
 
-template <typename Enum>
-struct enum_reflector
+namespace detail {
+
+KL_VALID_EXPR_HELPER(has_describe_enum, describe_enum(T{}))
+
+// C++14 array lite (TODO: replace with std::array later)
+template <typename T, std::size_t N>
+struct array14
 {
-    using enum_type = Enum;
-    using underlying_type = std::underlying_type_t<enum_type>;
-    static constexpr const bool is_defined = false;
+    constexpr auto size() const noexcept { return N; }
+    constexpr auto data() const noexcept { return elems_; }
+    constexpr T* begin() noexcept { return elems_; }
+    constexpr T* end() noexcept { return elems_ + size(); }
 
-    static constexpr std::size_t count()
-    {
-        static_assert(always_false<Enum>::value,
-                      "enum_reflector<Enum> is not defined.");
-        return 0;
-    }
-
-    static constexpr const char* name()
-    {
-        static_assert(always_false<Enum>::value,
-                      "enum_reflector<Enum> is not defined.");
-        return "";
-    }
-
-    static constexpr const char* full_name()
-    {
-        static_assert(always_false<Enum>::value,
-                      "enum_reflector<Enum> is not defined.");
-        return "";
-    }
-
-    static boost::optional<enum_type> from_string(gsl::cstring_span<>)
-    {
-        static_assert(always_false<Enum>::value,
-                      "enum_reflector<Enum> is not defined.");
-        return boost::none;
-    }
-
-    static const char* to_string(enum_type)
-    {
-        static_assert(always_false<Enum>::value,
-                      "enum_reflector<Enum> is not defined.");
-        return nullptr;
-    }
-
-    static kl::range<const enum_type*> values()
-    {
-        static_assert(always_false<Enum>::value,
-                      "enum_reflector<Enum> is not defined.");
-        return {};
-    }
+    T elems_[N];
 };
+} // namespace detail
 
 template <typename Enum, bool is_enum = std::is_enum<Enum>::value>
 struct is_enum_reflectable : std::false_type {};
@@ -117,7 +60,7 @@ struct is_enum_reflectable : std::false_type {};
 // we check is_defined only if Enum is an actual enum type.
 template <typename Enum>
 struct is_enum_reflectable<Enum, true>
-    : std::integral_constant<bool, enum_reflector<Enum>::is_defined>
+    : bool_constant<detail::has_describe_enum<Enum>::value>
 {
 };
 
@@ -126,180 +69,90 @@ using is_enum_nonreflectable =
     bool_constant<std::is_enum<T>::value && !is_enum_reflectable<T>::value>;
 
 template <typename Enum>
-constexpr enum_reflector<Enum> reflect()
+struct enum_reflector
+{
+    using enum_type = Enum;
+    using underlying_type = std::underlying_type_t<enum_type>;
+
+    static_assert(is_enum_reflectable<enum_type>::value,
+                  "Enum must be a reflectable enum. "
+                  "Define describe_enum(Enum) function");
+
+    static constexpr std::size_t count() noexcept
+    {
+        return describe_enum(enum_type{}).size();
+    }
+
+    // Could be constexpr with std optional and string_view
+    static boost::optional<enum_type>
+        from_string(gsl::cstring_span<> str) noexcept
+    {
+        for (const auto& vn : describe_enum(enum_type{}))
+        {
+            const auto len = std::strlen(vn.name);
+            if (len == static_cast<std::size_t>(str.length()) &&
+                !std::strncmp(vn.name, str.data(), len))
+            {
+                return {vn.value};
+            }
+        }
+        return boost::none;
+    }
+
+    static constexpr const char* to_string(enum_type value) noexcept
+    {
+        // NOTE: for-range loop with describe_enum(...) causes MSVC2017/2019 to
+        // go haywire. `auto&&` is the culprit here though `const auto` is ok.
+        const auto rng = describe_enum(value);
+        for (auto it = rng.begin(); it != rng.end(); ++it)
+        {
+            if (it->value == value)
+                return it->name;
+        }
+        return "(unknown)";
+    }
+
+    static kl::range<const enum_type*> values() noexcept
+    {
+        static constexpr auto value_list = values_impl();
+        return {value_list.data(), value_list.data() + value_list.size()};
+    }
+
+    static constexpr auto constexpr_values() noexcept { return values_impl(); }
+
+private:
+    static constexpr auto values_impl() noexcept
+    {
+        constexpr auto rng = describe_enum(enum_type{});
+        kl::detail::array14<enum_type, rng.size()> values{};
+        auto it = rng.begin();
+        for (auto& value : values)
+        {
+            value = it->value;
+            ++it;
+        }
+        return values;
+    }
+};
+
+template <typename Enum>
+constexpr enum_reflector<Enum> reflect() noexcept
 {
     static_assert(is_enum_reflectable<Enum>::value,
                   "E must be a reflectable enum - defined using "
-                  "KL_DEFINE_ENUM_REFLECTOR macro");
+                  "KL_DESCRIBE_ENUM macro");
     return {};
 }
 
 template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
-const char* to_string(Enum e)
+const char* to_string(Enum e) noexcept
 {
     return enum_reflector<Enum>::to_string(e);
 }
 
 template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
-boost::optional<Enum> from_string(gsl::cstring_span<> str)
+boost::optional<Enum> from_string(gsl::cstring_span<> str) noexcept
 {
     return enum_reflector<Enum>::from_string(str);
 }
 } // namespace kl
-
-#define KL_DEFINE_ENUM_REFLECTOR(...) KL_ENUM_REFLECTOR_IMPL(__VA_ARGS__)
-#if defined(_MSC_VER) && !defined(__INTELLISENSE__) && !defined(__clang__)
-#define KL_ENUM_REFLECTOR_IMPL(...)                                            \
-    BOOST_PP_CAT(                                                              \
-        BOOST_PP_OVERLOAD(KL_ENUM_REFLECTOR_IMPL_, __VA_ARGS__)(__VA_ARGS__),  \
-        BOOST_PP_EMPTY())
-#else
-#define KL_ENUM_REFLECTOR_IMPL(...)                                            \
-    BOOST_PP_OVERLOAD(KL_ENUM_REFLECTOR_IMPL_, __VA_ARGS__)(__VA_ARGS__)
-#endif
-
-// for enums in global namespace
-#define KL_ENUM_REFLECTOR_IMPL_2(name_, values_)                               \
-    KL_ENUM_REFLECTOR_DEFINITION(_, name_, values_)
-
-// for enums enclosed in some namespace(s)
-#define KL_ENUM_REFLECTOR_IMPL_3(ns_, name_, values_)                          \
-    KL_ENUM_REFLECTOR_DEFINITION(KL_ENUM_REFLECTOR_ARG_TO_TUPLE(ns_), name_,   \
-                                 values_)
-
-#define KL_ENUM_REFLECTOR_DEFINITION(ns_, name_, values_)                      \
-    KL_ENUM_REFLECTOR_DEFINITION_IMPL(                                         \
-        KL_ENUM_REFLECTOR_FULL_NAME(ns_, name_),                               \
-        KL_ENUM_REFLECTOR_FULL_NAME_STRING(ns_, name_), name_,                 \
-        (KL_ENUM_REFLECTOR_ARGS_TO_TUPLES(values_)))
-
-#define KL_ENUM_REFLECTOR_DEFINITION_IMPL(full_name_, full_name_string_,       \
-                                          name_, values_)                      \
-    namespace kl {                                                             \
-    template <>                                                                \
-    struct enum_reflector<full_name_>                                          \
-    {                                                                          \
-        using enum_type = full_name_;                                          \
-        using underlying_type = std::underlying_type_t<enum_type>;             \
-                                                                               \
-        static constexpr std::size_t count()                                   \
-        {                                                                      \
-            return BOOST_PP_TUPLE_SIZE(values_);                               \
-        }                                                                      \
-        static constexpr const char* name()                                    \
-        {                                                                      \
-            return BOOST_PP_STRINGIZE(name_);                                  \
-        }                                                                      \
-        static constexpr const char* full_name() { return full_name_string_; } \
-        static constexpr const bool is_defined = true;                         \
-                                                                               \
-        KL_ENUM_REFLECTOR_DEFINITION_FROM_STRING(enum_type, values_)           \
-        KL_ENUM_REFLECTOR_DEFINITION_TO_STRING(enum_type, values_)             \
-        KL_ENUM_REFLECTOR_DEFINITION_VALUES(enum_type, values_)                \
-    };                                                                         \
-    }
-
-#define KL_ENUM_REFLECTOR_GET_ENUM_VALUE(arg_) BOOST_PP_TUPLE_ELEM(0, arg_)
-
-#define KL_ENUM_REFLECTOR_GET_ENUM_VALUE_STRING_IMPL(arg_)                     \
-    BOOST_PP_IF(BOOST_PP_DEC(BOOST_PP_TUPLE_SIZE(arg_)),                       \
-                BOOST_PP_TUPLE_ELEM(1, arg_), BOOST_PP_TUPLE_ELEM(0, arg_))
-
-#define KL_ENUM_REFLECTOR_GET_ENUM_VALUE_STRING(arg_)                          \
-    BOOST_PP_STRINGIZE(KL_ENUM_REFLECTOR_GET_ENUM_VALUE_STRING_IMPL(arg_))
-
-#define KL_ENUM_REFLECTOR_VALUE_FROM_STRING(full_name_, value_)                \
-    if (str == KL_ENUM_REFLECTOR_GET_ENUM_VALUE_STRING(value_))                \
-        return full_name_::KL_ENUM_REFLECTOR_GET_ENUM_VALUE(value_);
-
-#define KL_ENUM_REFLECTOR_DEFINITION_FROM_STRING(full_name_, values_)          \
-    static boost::optional<enum_type> from_string(gsl::cstring_span<> str)     \
-    {                                                                          \
-        BOOST_PP_REPEAT(                                                       \
-            BOOST_PP_TUPLE_SIZE(values_),                                      \
-            KL_ENUM_REFLECTOR_FOR_EACH_IN_TUPLE2,                              \
-            (full_name_, values_, KL_ENUM_REFLECTOR_VALUE_FROM_STRING))        \
-        return boost::none;                                                    \
-    }
-
-#define KL_ENUM_REFLECTOR_VALUE_TO_STRING(full_name_, value_)                  \
-    case full_name_::KL_ENUM_REFLECTOR_GET_ENUM_VALUE(value_):                 \
-        return KL_ENUM_REFLECTOR_GET_ENUM_VALUE_STRING(value_);
-
-#define KL_ENUM_REFLECTOR_DEFINITION_TO_STRING(full_name_, values_)            \
-    static const char* to_string(enum_type value)                              \
-    {                                                                          \
-        switch (value)                                                         \
-        {                                                                      \
-            BOOST_PP_REPEAT(                                                   \
-                BOOST_PP_TUPLE_SIZE(values_),                                  \
-                KL_ENUM_REFLECTOR_FOR_EACH_IN_TUPLE2,                          \
-                (full_name_, values_, KL_ENUM_REFLECTOR_VALUE_TO_STRING))      \
-        }                                                                      \
-        return "(unknown)";                                                    \
-    }
-
-#define KL_ENUM_REFLECTOR_VALUE(full_name_, value_) \
-    full_name_::KL_ENUM_REFLECTOR_GET_ENUM_VALUE(value_),
-
-#define KL_ENUM_REFLECTOR_DEFINITION_VALUES(full_name_, values_)               \
-    static kl::range<const full_name_*> values()                               \
-    {                                                                          \
-        static const full_name_ value_list[] = {                               \
-            BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(values_),                      \
-                            KL_ENUM_REFLECTOR_FOR_EACH_IN_TUPLE2,              \
-                            (full_name_, values_, KL_ENUM_REFLECTOR_VALUE))};  \
-        return kl::make_range(std::begin(value_list), std::end(value_list));   \
-    }
-
-// makes sure arg is a tuple (works for tuples and single arg)
-#define KL_ENUM_REFLECTOR_ARG_TO_TUPLE(arg_) (BOOST_PP_REMOVE_PARENS(arg_))
-
-// (x) -> (x, x)
-// (x, y) -> (x, y)   :nop
-// (x, y, z) -> (x, y, z) :nop
-#define KL_ENUM_REFLECTOR_ARG_TO_TUPLES_TRANSFORM(arg_)                        \
-    BOOST_PP_IF(BOOST_PP_DEC(BOOST_PP_TUPLE_SIZE(arg_)), arg_,                 \
-                BOOST_PP_TUPLE_PUSH_BACK(arg_, BOOST_PP_TUPLE_ELEM(0, arg_)))
-
-#define KL_ENUM_REFLECTOR_ARG_TO_TUPLES(arg_)                                  \
-    KL_ENUM_REFLECTOR_ARG_TO_TUPLES_TRANSFORM(                                 \
-        KL_ENUM_REFLECTOR_ARG_TO_TUPLE(arg_))
-
-#define KL_ENUM_REFLECTOR_ARGS_TO_TUPLES_IMPL(_, index_, args_)                \
-    KL_ENUM_REFLECTOR_ARG_TO_TUPLES(BOOST_PP_TUPLE_ELEM(index_, args_))
-
-#define KL_ENUM_REFLECTOR_ARGS_TO_TUPLES(args_)                                \
-    BOOST_PP_ENUM(BOOST_PP_TUPLE_SIZE(args_),                                  \
-                  KL_ENUM_REFLECTOR_ARGS_TO_TUPLES_IMPL, args_)
-
-// tuple_macro_ is ((tuple), macro)
-#define KL_ENUM_REFLECTOR_FOR_EACH_IN_TUPLE(_, index_, tuple_macro_)           \
-    BOOST_PP_TUPLE_ELEM(1, tuple_macro_)                                       \
-    (BOOST_PP_TUPLE_ELEM(index_, BOOST_PP_TUPLE_ELEM(0, tuple_macro_)))
-
-// tuple_macro_ is (arg, (tuple), macro)
-#define KL_ENUM_REFLECTOR_FOR_EACH_IN_TUPLE2(_, index_, tuple_macro_)          \
-    BOOST_PP_TUPLE_ELEM(2, tuple_macro_)                                       \
-    (BOOST_PP_TUPLE_ELEM(0, tuple_macro_),                                     \
-     BOOST_PP_TUPLE_ELEM(index_, BOOST_PP_TUPLE_ELEM(1, tuple_macro_)))
-
-#define KL_ENUM_REFLECTOR_NAMESPACE_SCOPE(ns_) ns_::
-
-#define KL_ENUM_REFLECTOR_FULL_NAME(ns_, name_)                                \
-    BOOST_PP_EXPR_IF(                                                          \
-        BOOST_PP_IS_BEGIN_PARENS(ns_),                                         \
-        BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(ns_),                              \
-                        KL_ENUM_REFLECTOR_FOR_EACH_IN_TUPLE,                   \
-                        (ns_, KL_ENUM_REFLECTOR_NAMESPACE_SCOPE)))             \
-    name_
-
-#define KL_ENUM_REFLECTOR_NAMESPACE_SCOPE_STRING(ns_) BOOST_PP_STRINGIZE(ns_::)
-
-#define KL_ENUM_REFLECTOR_FULL_NAME_STRING(ns_, name_)                         \
-    BOOST_PP_EXPR_IF(                                                          \
-        BOOST_PP_IS_BEGIN_PARENS(ns_),                                         \
-        BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(ns_),                              \
-                        KL_ENUM_REFLECTOR_FOR_EACH_IN_TUPLE,                   \
-                        (ns_, KL_ENUM_REFLECTOR_NAMESPACE_SCOPE_STRING)))      \
-    BOOST_PP_STRINGIZE(name_)

@@ -14,6 +14,8 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/byte.hpp
     ${kl_SOURCE_DIR}/include/kl/ctti.hpp
     ${kl_SOURCE_DIR}/include/kl/defer.hpp
+    ${kl_SOURCE_DIR}/include/kl/describe_enum.hpp
+    ${kl_SOURCE_DIR}/include/kl/describe_record.hpp
     ${kl_SOURCE_DIR}/include/kl/enum_flags.hpp
     ${kl_SOURCE_DIR}/include/kl/enum_range.hpp
     ${kl_SOURCE_DIR}/include/kl/enum_reflector.hpp

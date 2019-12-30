@@ -86,7 +86,8 @@ TEST_CASE("json")
         REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
                             "type must be an integral but is kNullType\n"
                             "error when deserializing field r\n"
-                            "error when deserializing type inner_t");
+                            "error when deserializing type " +
+                                kl::ctti::name<inner_t>());
     }
 
     SECTION("deserialize inner_t - one additional field")
@@ -216,19 +217,22 @@ TEST_CASE("json")
         REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
                             "type must be a string-enum but is kNumberType\n"
                             "error when deserializing field e3\n"
-                            "error when deserializing type enums");
+                            "error when deserializing type " +
+                                kl::ctti::name<enums>());
 
         j = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref2", "e3": 0})"_json;
         REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
                             "invalid enum value: oe_one_ref2\n"
                             "error when deserializing field e2\n"
-                            "error when deserializing type enums");
+                            "error when deserializing type " +
+                                kl::ctti::name<enums>());
 
         j = R"({"e0": 0, "e1": true, "e2": "oe_one_ref", "e3": "one"})"_json;
         REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
                             "type must be a number-enum but is kTrueType\n"
                             "error when deserializing field e1\n"
-                            "error when deserializing type enums");
+                            "error when deserializing type " +
+                                kl::ctti::name<enums>());
     }
 
     SECTION("skip serializing optional fields")
@@ -294,7 +298,8 @@ TEST_CASE("json")
         REQUIRE_THROWS_WITH(json::deserialize<optional_test>(j),
                             "type must be an integral but is kStringType\n"
                             "error when deserializing field opt\n"
-                            "error when deserializing type optional_test");
+                            "error when deserializing type " +
+                                kl::ctti::name<optional_test>());
     }
 
     SECTION("serialize complex structure with std/boost containers")
@@ -442,13 +447,15 @@ TEST_CASE("json")
         REQUIRE_THROWS_WITH(
             json::deserialize<inner_t>(j),
             "array size is greater than declared struct's field count\n"
-            "error when deserializing type inner_t");
+            "error when deserializing type " +
+                kl::ctti::name<inner_t>());
 
         j = R"([3])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
                             "type must be a floating-point but is kNullType\n"
                             "error when deserializing element 1\n"
-                            "error when deserializing type inner_t");
+                            "error when deserializing type " +
+                                kl::ctti::name<inner_t>());
     }
 
     SECTION("deserialize to struct from an array - tail optional fields")
@@ -465,13 +472,15 @@ TEST_CASE("json")
         REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
                             "type must be a floating-point but is kStringType\n"
                             "error when deserializing element 1\n"
-                            "error when deserializing type inner_t");
+                            "error when deserializing type " +
+                                kl::ctti::name<inner_t>());
 
         j = R"([false,4])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
                             "type must be an integral but is kFalseType\n"
                             "error when deserializing element 0\n"
-                            "error when deserializing type inner_t");
+                            "error when deserializing type " +
+                                kl::ctti::name<inner_t>());
     }
 
     SECTION("optional<string>")

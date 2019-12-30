@@ -8,7 +8,7 @@
 #include <array>
 #include <sstream>
 
-namespace {
+namespace test {
 
 struct A
 {
@@ -16,8 +16,8 @@ struct A
     std::vector<int> y;
     int z; // Not reflectable
 };
+KL_DESCRIBE_FIELDS(A, (x, y))
 
-namespace ns {
 struct S
 {
     int a;
@@ -25,9 +25,12 @@ struct S
     std::array<float, 3> c;
     A aa;
 };
+KL_DESCRIBE_FIELDS(S, (a, b, c, aa))
 
+namespace ns {
 namespace inner {
-class T : public ::A, public S
+
+class T : public A, public S
 {
 public:
     explicit T(std::string d, std::vector<std::string> e)
@@ -36,17 +39,26 @@ public:
     }
 
 private:
-    friend struct kl::type_info<T>; // because `d` and `e` are private
+    // because `d` and `e` are private
+    template <typename Self>
+    friend constexpr auto describe_fields(T*, Self&&) noexcept;
     std::string d;
     std::vector<std::string> e;
 };
+KL_DESCRIBE_BASES(T, (A, S))
+KL_DESCRIBE_FIELDS(T, (d, e))
 } // namespace inner
-} // namespace ns
 
 struct B : A
 {
     int zzz;
 };
+KL_DESCRIBE_BASES(B, (A))
+KL_DESCRIBE_FIELDS(B, (zzz))
+} // namespace ns
+} // namespace test
+
+namespace {
 
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
@@ -59,64 +71,51 @@ std::ostream& operator<<(std::ostream& os, const std::array<T, N>& v)
 {
     return os << kl::stream_join(v);
 }
-} // namespace anonymous
 
-KL_DEFINE_REFLECTABLE(std, string, _)
-KL_DEFINE_REFLECTABLE(A, (x, y))
-KL_DEFINE_REFLECTABLE(ns, S, (a, b, c, aa))
-KL_DEFINE_REFLECTABLE_DERIVED(ns::inner, T, (A, ns::S), (d, e))
-KL_DEFINE_REFLECTABLE_DERIVED(B, A, (zzz))
+template <typename T>
+std::ostream& trampoline_operator(std::ostream& os, const T& obj)
+{
+    os << obj;
+    return os;
+}
+} // namespace
 
-namespace {
+namespace test {
 
 std::ostream& operator<<(std::ostream& os, const A& a)
 {
     kl::ctti::reflect(a, [&os](auto fi) {
-        os << fi.name() << ": " << fi.get() << "\n";
+        os << fi.name() << ": ";
+        // This is used so GCC 7 and 8 will also consider `operator<<` for
+        // vector<T> and array<T,N> defined above (see
+        // https://godbolt.org/z/dw9DdN)
+        trampoline_operator(os, fi.get());
+        os << "\n";
     });
     return os;
 }
-} // namespace anonymous
+} // namespace test
 
 TEST_CASE("ctti")
 {
     using namespace std::string_literals;
+    using namespace test;
 
     SECTION("type not registered")
     {
         using T = std::vector<int>;
-        REQUIRE(!kl::ctti::is_reflectable<T>());
-        REQUIRE(kl::ctti::num_fields<T>() == 0);
-        REQUIRE(kl::ctti::total_num_fields<T>() == 0);
-        REQUIRE(kl::ctti::full_name<T>() == typeid(T).name());
-        REQUIRE(kl::ctti::name<T>() == typeid(T).name());
+        REQUIRE(!kl::ctti::is_reflectable<T>);
 
         static_assert(
             std::is_same<kl::ctti::base_types<T>, kl::type_pack<>>::value,
             "???");
     }
 
-    SECTION("std::string")
-    {
-        REQUIRE(kl::ctti::is_reflectable<std::string>());
-        REQUIRE(kl::ctti::num_fields<std::string>() == 0);
-        REQUIRE(kl::ctti::total_num_fields<std::string>() == 0);
-        REQUIRE(kl::ctti::full_name<std::string>() == "std::string"s);
-        REQUIRE(kl::ctti::name<std::string>() == "string"s);
-
-        std::string v = "test";
-        kl::ctti::reflect(v, [](auto fi) {
-            REQUIRE(false);
-        });
-    }
-
     SECTION("global type A")
     {
-        REQUIRE(kl::ctti::is_reflectable<A>());
+        REQUIRE(kl::ctti::is_reflectable<A>);
         REQUIRE(kl::ctti::num_fields<A>() == 2);
         REQUIRE(kl::ctti::total_num_fields<A>() == 2);
-        REQUIRE(kl::ctti::full_name<A>() == "A"s);
-        REQUIRE(kl::ctti::name<A>() == "A"s);
 
         static_assert(
             std::is_same<kl::ctti::base_types<A>, kl::type_pack<>>::value,
@@ -133,15 +132,16 @@ TEST_CASE("ctti")
 
     SECTION("global type B, derives from A")
     {
-        REQUIRE(kl::ctti::is_reflectable<B>());
+        using B = ns::B;
+
+        REQUIRE(kl::ctti::is_reflectable<B>);
         REQUIRE(kl::ctti::num_fields<B>() == 1);
         REQUIRE(kl::ctti::total_num_fields<B>() == 3);
-        REQUIRE(kl::ctti::full_name<B>() == "B"s);
-        REQUIRE(kl::ctti::name<B>() == "B"s);
 
         static_assert(
             std::is_same<kl::ctti::base_types<B>, kl::type_pack<A>>::value,
             "???");
+        REQUIRE(kl::ctti::base_types<B>::value == 1);
 
         std::ostringstream ss;
         B b;
@@ -154,17 +154,34 @@ TEST_CASE("ctti")
         });
 
         REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
+
+    }
+
+    SECTION("const value of type B which derives from A")
+    {
+        using B = ns::B;
+        B b;
+        b.x = "QWE";
+        b.y = {0, 1337};
+        b.zzz = 123;
+        b.z = 0;
+        const B& ref_b = b;
+
+        std::ostringstream ss;
+        kl::ctti::reflect(ref_b, [&ss](auto fi) {
+            ss << fi.name() << ": " << fi.get() << "\n";
+        });
+
+        REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
     }
 
     SECTION("type S in namespace ns with std::array<>")
     {
-        REQUIRE(kl::ctti::is_reflectable<ns::S>());
-        REQUIRE(kl::ctti::num_fields<ns::S>() == 4);
-        REQUIRE(kl::ctti::total_num_fields<ns::S>() == 4);
-        REQUIRE(kl::ctti::full_name<ns::S>() == "ns::S"s);
-        REQUIRE(kl::ctti::name<ns::S>() == "S"s);
+        REQUIRE(kl::ctti::is_reflectable<S>);
+        REQUIRE(kl::ctti::num_fields<S>() == 4);
+        REQUIRE(kl::ctti::total_num_fields<S>() == 4);
 
-        const ns::S s = {5, false, {3.14f}, A{"ZXC", {1, 2, 3, 4, 5, 6}, 0}};
+        const S s = {5, false, {3.14f}, A{"ZXC", {1, 2, 3, 4, 5, 6}, 0}};
 
         std::ostringstream ss;
         ss << std::boolalpha;
@@ -180,11 +197,9 @@ TEST_CASE("ctti")
     {
         using T = ns::inner::T;
 
-        REQUIRE(kl::ctti::is_reflectable<T>());
+        REQUIRE(kl::ctti::is_reflectable<T>);
         REQUIRE(kl::ctti::num_fields<T>() == 2);
         REQUIRE(kl::ctti::total_num_fields<T>() == 2 + 2+ 4);
-        REQUIRE(kl::ctti::full_name<T>() == "ns::inner::T"s);
-        REQUIRE(kl::ctti::name<T>() == "T"s);
 
         T t{"HELLO",{"WORLD", "Hello"}};
         t.a = 2;
