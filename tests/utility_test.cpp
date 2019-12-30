@@ -7,11 +7,8 @@ TEST_CASE("utility")
     SECTION("countof")
     {
         int arr[3];
-        std::array<bool, 4> stdarr;
         static_assert(kl::countof(arr) == 3, "");
-        static_assert(kl::countof(stdarr) == 4, "");
         (void)arr;
-        (void)stdarr;
     }
 
     SECTION("bitwise_cast")

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include <type_traits>
 #include <cstring>
 
@@ -16,12 +15,6 @@ constexpr auto underlying_cast(Enum e) noexcept
 
 template <typename T, std::size_t N>
 constexpr auto countof(const T (&arr)[N]) noexcept
-{
-    return N;
-}
-
-template <typename T, std::size_t N>
-constexpr auto countof(const std::array<T, N>& arr) noexcept
 {
     return N;
 }
