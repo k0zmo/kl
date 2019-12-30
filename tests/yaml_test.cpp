@@ -172,7 +172,7 @@ TEST_CASE("yaml")
         REQUIRE(std::get<2>(obj) == colour_space::rgb);
         REQUIRE(std::get<3>(obj) == true);
 
-        y = R"([7, 13, true])"_yaml;
+        y = R"([7, 13, hls])"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
                             "type must be a scalar but is Null");
 

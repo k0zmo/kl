@@ -181,7 +181,7 @@ TEST_CASE("json")
         REQUIRE(std::get<2>(obj) == colour_space::rgb);
         REQUIRE(std::get<3>(obj) == true);
 
-        j = R"([7, 13, true])"_json;
+        j = R"([7, 13, "hls"])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
                             "type must be a bool but is kNullType");
 
