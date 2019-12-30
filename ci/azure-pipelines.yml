@@ -1,5 +1,5 @@
 jobs:
-  - job: ubuntu16_gcc6
+  - job: ubuntu16_gcc5
     pool:
       vmImage: 'ubuntu-16.04'
     strategy:
@@ -9,9 +9,6 @@ jobs:
         AddressSanitizer:
           BuildType: ASan
     steps:
-      - template: templates/install-gcc.yml
-        parameters:
-          version: '6'
       - script: |
           which g++ && g++ --version
           cmake --version
