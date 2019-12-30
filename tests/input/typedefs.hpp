@@ -1,7 +1,7 @@
 #pragma once
 
-#include "kl/ctti.hpp"
-#include "kl/enum_reflector.hpp"
+#include "kl/describe_record.hpp"
+#include "kl/describe_enum.hpp"
 #include "kl/enum_flags.hpp"
 
 #include <boost/optional/optional.hpp>
