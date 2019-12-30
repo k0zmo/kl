@@ -18,8 +18,6 @@ struct A
 };
 KL_DESCRIBE_FIELDS(A, (x, y))
 
-namespace ns {
-
 struct S
 {
     int a;
@@ -29,6 +27,7 @@ struct S
 };
 KL_DESCRIBE_FIELDS(S, (a, b, c, aa))
 
+namespace ns {
 namespace inner {
 
 class T : public A, public S
@@ -49,7 +48,6 @@ private:
 KL_DESCRIBE_BASES(T, (A, S))
 KL_DESCRIBE_FIELDS(T, (d, e))
 } // namespace inner
-} // namespace ns
 
 struct B : A
 {
@@ -57,6 +55,7 @@ struct B : A
 };
 KL_DESCRIBE_BASES(B, (A))
 KL_DESCRIBE_FIELDS(B, (zzz))
+} // namespace ns
 } // namespace test
 
 namespace {
@@ -133,6 +132,8 @@ TEST_CASE("ctti")
 
     SECTION("global type B, derives from A")
     {
+        using B = ns::B;
+
         REQUIRE(kl::ctti::is_reflectable<B>);
         REQUIRE(kl::ctti::num_fields<B>() == 1);
         REQUIRE(kl::ctti::total_num_fields<B>() == 3);
@@ -157,11 +158,11 @@ TEST_CASE("ctti")
 
     SECTION("type S in namespace ns with std::array<>")
     {
-        REQUIRE(kl::ctti::is_reflectable<ns::S>);
-        REQUIRE(kl::ctti::num_fields<ns::S>() == 4);
-        REQUIRE(kl::ctti::total_num_fields<ns::S>() == 4);
+        REQUIRE(kl::ctti::is_reflectable<S>);
+        REQUIRE(kl::ctti::num_fields<S>() == 4);
+        REQUIRE(kl::ctti::total_num_fields<S>() == 4);
 
-        const ns::S s = {5, false, {3.14f}, A{"ZXC", {1, 2, 3, 4, 5, 6}, 0}};
+        const S s = {5, false, {3.14f}, A{"ZXC", {1, 2, 3, 4, 5, 6}, 0}};
 
         std::ostringstream ss;
         ss << std::boolalpha;
