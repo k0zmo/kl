@@ -154,6 +154,25 @@ TEST_CASE("ctti")
         });
 
         REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
+
+    }
+
+    SECTION("const value of type B which derives from A")
+    {
+        using B = ns::B;
+        B b;
+        b.x = "QWE";
+        b.y = {0, 1337};
+        b.zzz = 123;
+        b.z = 0;
+        const B& ref_b = b;
+
+        std::ostringstream ss;
+        kl::ctti::reflect(ref_b, [&ss](auto fi) {
+            ss << fi.name() << ": " << fi.get() << "\n";
+        });
+
+        REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
     }
 
     SECTION("type S in namespace ns with std::array<>")

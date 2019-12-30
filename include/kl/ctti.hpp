@@ -31,6 +31,36 @@ struct base_types<T, true>
 {
     using type = decltype(describe_bases(null<T>));
 };
+
+template <typename T, typename U>
+struct mirror_referenceness
+{
+    using type = U;
+};
+
+template <typename T, typename U>
+struct mirror_referenceness<T&, U>
+{
+    using type = U&;
+};
+
+template <typename T, typename U>
+struct mirror_referenceness<const T&, U>
+{
+    using type = const U&;
+};
+
+template <typename T, typename U>
+struct mirror_referenceness<T&&, U>
+{
+    using type = U&&;
+};
+
+template <typename T, typename U>
+struct mirror_referenceness<const T&&, U>
+{
+    using type = const U&&;
+};
 } // namespace detail
 
 template <typename T>
@@ -106,7 +136,12 @@ private:
     static constexpr void reflect_bases(Reflectable&& r, Visitor&& v,
                                         type_pack<Head, Tail...>)
     {
-        reflect(std::forward<Head>(r), v);
+        static_assert(
+            std::is_base_of<Head, std::remove_reference_t<Reflectable>>::value,
+            "Head is not a base of Reflectable");
+        using head_type =
+            typename detail::mirror_referenceness<Reflectable, Head>::type;
+        reflect(static_cast<head_type>(r), v);
         reflect_bases(std::forward<Reflectable>(r), v, type_pack<Tail...>{});
     }
 
