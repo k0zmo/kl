@@ -152,7 +152,7 @@ private:
 };
 
 template <typename Enum>
-constexpr enum_reflector<Enum> reflect()
+constexpr enum_reflector<Enum> reflect() noexcept
 {
     static_assert(is_enum_reflectable<Enum>::value,
                   "E must be a reflectable enum - defined using "
@@ -161,13 +161,13 @@ constexpr enum_reflector<Enum> reflect()
 }
 
 template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
-const char* to_string(Enum e)
+const char* to_string(Enum e) noexcept
 {
     return enum_reflector<Enum>::to_string(e);
 }
 
 template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
-boost::optional<Enum> from_string(gsl::cstring_span<> str)
+boost::optional<Enum> from_string(gsl::cstring_span<> str) noexcept
 {
     return enum_reflector<Enum>::from_string(str);
 }
@@ -181,7 +181,7 @@ boost::optional<Enum> from_string(gsl::cstring_span<> str)
         counter_)[] = {                                                        \
         KL_DESCRIBE_ENUM_VALUE_NAME_PAIRS(                                     \
             name_, (KL_DESCRIBE_ENUM_ARGS_TO_TUPLES(values_)))};               \
-    constexpr auto describe_enum(name_)                                        \
+    constexpr auto describe_enum(name_) noexcept                               \
     {                                                                          \
         return ::kl::make_range(KL_DESCRIBE_ENUM_VAR_NAME(counter_));          \
     }

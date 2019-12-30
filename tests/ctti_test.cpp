@@ -42,7 +42,7 @@ public:
 private:
     // because `d` and `e` are private
     template <typename Self>
-    friend constexpr auto describe_fields(T*, Self&&);
+    friend constexpr auto describe_fields(T*, Self&&) noexcept;
     std::string d;
     std::vector<std::string> e;
 };

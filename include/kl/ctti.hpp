@@ -62,13 +62,14 @@ public:
     using type = detail::make_const_t<Parent, MemberData>;
 
 public:
-    constexpr field_info(type& ref, const char* name) : name_{name}, ref_{ref}
+    constexpr field_info(type& ref, const char* name) noexcept
+        : name_{name}, ref_{ref}
     {
     }
 
-    constexpr const char* name() const { return name_; }
-    constexpr type& get() { return ref_; }
-    constexpr std::add_const_t<type&> get() const { return ref_; }
+    constexpr const char* name() const noexcept { return name_; }
+    constexpr type& get() noexcept { return ref_; }
+    constexpr std::add_const_t<type&> get() const noexcept { return ref_; }
 
 private:
     const char* name_;
@@ -81,7 +82,7 @@ struct field_info_builder
     using parent_type = std::remove_reference_t<Parent>;
 
     template <typename MemberData>
-    static constexpr auto add(MemberData&& field, const char* name)
+    static constexpr auto add(MemberData&& field, const char* name) noexcept
     {
         return field_info<parent_type, std::remove_reference_t<MemberData>>{
             field, name};
@@ -92,13 +93,13 @@ template <typename T>
 using is_reflectable = detail::has_describe_fields<T>;
 
 template <typename T>
-constexpr auto describe_fields(T&& obj)
+constexpr auto describe_fields(T&& obj) noexcept
 {
     return describe_fields(detail::null<T>, std::forward<T>(obj));
 }
 
 template <typename T>
-constexpr auto describe_bases()
+constexpr auto describe_bases() noexcept
 {
     return describe_bases(detail::null<T>);
 }
@@ -113,7 +114,7 @@ struct ctti
         kl::is_reflectable<Reflectable>::value;
 
     template <typename Reflectable>
-    static std::string name()
+    static std::string name() noexcept
     {
         return boost::typeindex::type_id<Reflectable>().pretty_name();
     }
@@ -132,7 +133,7 @@ struct ctti
     }
 
     template <typename Reflectable>
-    static constexpr std::size_t num_fields()
+    static constexpr std::size_t num_fields() noexcept
     {
         static_assert(
             detail::has_describe_fields<Reflectable>::value,
@@ -144,7 +145,7 @@ struct ctti
     }
 
     template <typename Reflectable>
-    static constexpr std::size_t total_num_fields()
+    static constexpr std::size_t total_num_fields() noexcept
     {
         return num_fields<Reflectable>() +
                base_num_fields(base_types<Reflectable>{});
@@ -165,10 +166,14 @@ private:
         reflect_bases(std::forward<Reflectable>(r), v, type_pack<Tail...>{});
     }
 
-    static constexpr std::size_t base_num_fields(type_pack<>) { return 0; }
+    static constexpr std::size_t base_num_fields(type_pack<>) noexcept
+    {
+        return 0;
+    }
 
     template <typename Head, typename... Tail>
-    static constexpr std::size_t base_num_fields(type_pack<Head, Tail...>)
+    static constexpr std::size_t
+        base_num_fields(type_pack<Head, Tail...>) noexcept
     {
         return total_num_fields<Head>() + base_num_fields(type_pack<Tail...>{});
     }
@@ -176,14 +181,14 @@ private:
 } // namespace kl
 
 #define KL_DESCRIBE_BASES(type_, bases_)                                       \
-    constexpr auto describe_bases(type_*)                                      \
+    constexpr auto describe_bases(type_*) noexcept                             \
     {                                                                          \
         return ::kl::type_pack<BOOST_PP_REMOVE_PARENS(bases_)>{};              \
     }
 
 #define KL_DESCRIBE_FIELDS(type_, fields_)                                     \
     template <typename Self>                                                   \
-    constexpr auto describe_fields(type_*, Self&& self)                        \
+    constexpr auto describe_fields(type_*, Self&& self) noexcept               \
     {                                                                          \
         using builder = ::kl::field_info_builder<Self>;                        \
         return std::make_tuple(                                                \
