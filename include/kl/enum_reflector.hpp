@@ -107,7 +107,7 @@ struct enum_reflector
         {
             const auto len = std::strlen(vn.name);
             if (len == static_cast<std::size_t>(str.length()) &&
-                !std::strcmp(vn.name, str.data()))
+                !std::strncmp(vn.name, str.data(), len))
             {
                 return {vn.value};
             }

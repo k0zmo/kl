@@ -162,6 +162,11 @@ TEST_CASE("enum_reflector")
         {
             REQUIRE(reflector::from_string("PREFIX_TWO"));
             REQUIRE(reflector::from_string("PREFIX_TWO").get() == prefix_two);
+
+            gsl::cstring_span<> str{"PREFIX_TWO bla bla"};
+            REQUIRE(reflector::from_string(str.subspan(0, 10)));
+            REQUIRE(reflector::from_string(str.subspan(0, 10)).get() ==
+                    prefix_two);
         }
 
         auto values = reflector::values();
