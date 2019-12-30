@@ -11,8 +11,8 @@ FetchContent_Declare(yamlcpp
     URL_HASH SHA1=3e4f9d6d78dd4258569bc498c97027096d5d74fc
 )
 FetchContent_Declare(GSL
-    URL https://github.com/Microsoft/GSL/archive/v1.0.0.zip
-    URL_HASH SHA1=e9824bf3693bf34f17850915a744deec905c90be
+    URL https://github.com/Microsoft/GSL/archive/v2.0.0.zip
+    URL_HASH SHA256=837f35a9f00b2543bada8ae680e5c56af84709d36d48cdc3ed8db69df043f5b2
 )
 if(KL_TEST)
     FetchContent_Declare(Catch2
