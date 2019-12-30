@@ -55,4 +55,9 @@ struct type_t {};
 template <typename T>
 constexpr type_t<T> type{};
 #endif
+
+// Instantiate printer<T> deep in template territory to get compile error
+// message with a T name
+template <typename T>
+struct printer;
 } // namespace kl
