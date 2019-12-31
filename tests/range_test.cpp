@@ -2,6 +2,25 @@
 
 #include <catch2/catch.hpp>
 #include <vector>
+#include <type_traits>
+
+namespace {
+
+struct fake_vec
+{
+    struct iterator
+    {
+        using iterator_category = std::random_access_iterator_tag;
+        using value_type = int;
+        using difference_type = std::ptrdiff_t;
+        using pointer = int*;
+        using reference = int&;
+    };
+
+    iterator begin() noexcept(false) { return {}; }
+    iterator end() noexcept(false) { return {}; }
+};
+} // namespace
 
 TEST_CASE("range")
 {
@@ -12,6 +31,13 @@ TEST_CASE("range")
         REQUIRE(rng.size() == 3);
         static_assert(std::is_same<decltype(rng)::value_type, int>::value, "");
         static_assert(std::is_same<decltype(rng)::reference, int&>::value, "");
+        static_assert(noexcept(kl::make_range(vec)), "");
+        static_assert(noexcept(rng.begin()), "");
+
+        fake_vec v2;
+        static_assert(!noexcept(kl::make_range(v2)), "");
+        auto rng2 = kl::make_range(v2);
+        static_assert(noexcept(rng2.begin()), "");
 
         auto crng = kl::make_range(static_cast<const std::vector<int>&>(vec));
         REQUIRE(rng.size() == 3);
@@ -40,6 +66,7 @@ TEST_CASE("range")
 
         static_assert(std::is_same<decltype(rng)::value_type, bool>::value, "");
         static_assert(std::is_same<decltype(rng)::reference, bool&>::value, "");
+        static_assert(noexcept(kl::make_range(arr)), "");
 
         const bool carr[4]{};
         auto crng = kl::make_range(carr);

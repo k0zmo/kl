@@ -22,6 +22,7 @@ public:
         : first_{}, last_{}
     {
     }
+
     constexpr range(Iterator first, Iterator last) noexcept(
         std::is_nothrow_move_constructible<Iterator>::value)
         : first_{std::move(first)}, last_{std::move(last)}
