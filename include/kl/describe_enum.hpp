@@ -13,6 +13,43 @@
 #include <boost/preprocessor/tuple/size.hpp>
 #include <boost/preprocessor/tuple/push_back.hpp>
 
+/*
+ * Requirements: boost 1.57+, C++14 compiler and preprocessor
+ * Sample usage:
+
+namespace ns {
+
+enum class enum_
+{
+    A, B, C
+};
+KL_DESCRIBE_ENUM(enum_, (A, (B, bb), C))
+}
+
+ * First argument is unqualified enum type name
+ * Second argument is a tuple of enum values. Each value can be optionally a
+   tuple (pair) of its real name and name used for to-from string conversions
+ * Macro should be placed inside the same namespace as the enum type
+
+ * Use kl::enum_reflector<ns::enum_> to query enum properties:
+     kl::enum_reflector<ns::enum_>::to_string(ns::enum_{C});
+     kl::enum_reflector<ns::enum_>::from_string("bb");
+     kl::enum_reflector<ns::enum_>::count();
+     kl::enum_reflector<ns::enum_>::values();
+
+ * Remarks: Macro KL_DESCRIBE_ENUM works for unscoped as well as scoped
+   enums
+
+ * Above definition is expanded to:
+
+     static constexpr ::kl::enum_value_name<enum_> kl_enum_description356[] = {
+         {enum_::A, "A"}, {enum_::B, "bb"}, {enum_::C, "C"}};
+     constexpr auto describe_enum(enum_) noexcept
+     {
+         return ::kl::make_range(kl_enum_description356);
+     }
+ */
+
 namespace kl {
 
 template <typename Enum>

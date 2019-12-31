@@ -1,28 +1,5 @@
 #pragma once
 
-/*
- * Requirements: boost 1.57+, C++14 compiler and preprocessor
- * Sample usage:
-
-namespace ns {
-namespace detail {
-enum class enum_
-{
-    A, B, C
-};
-KL_DESCRIBE_ENUM(enum_, (A, (B, b), C))
-}
-}
-
- * First argument is unqualified enum type name
- * Second argument is a tuple of enum values. Each value can be optionally a
-   tuple (pair) of its real name and name used for to-from string conversions
- * Macro should be placed inside the same namespace as the enum type
-
- * Remarks: Macro KL_DESCRIBE_ENUM works for unscoped as well as scoped
-   enums and requires C++17 (both for preprocessor and unscoped enum handling)
-*/
-
 #include "kl/type_traits.hpp"
 #include "kl/describe_enum.hpp"
 
@@ -101,13 +78,15 @@ struct enum_reflector
 
     static constexpr const char* to_string(enum_type value) noexcept
     {
-        // NOTE: for-range loop with describe_enum(...) causes MSVC2017/2019 to
-        // go haywire. `auto&&` is the culprit here though `const auto` is ok.
+        // NOTE: MSVC2017/2019 goes haywire here when we loop directly over the
+        // expression which under the table uses `auto&&` to extend the lifetime
+        // of it. Thus we assign the expression to `auto` and only then we loop
+        // over it.
         const auto rng = describe_enum(value);
-        for (auto it = rng.begin(); it != rng.end(); ++it)
+        for (auto& vn : rng)
         {
-            if (it->value == value)
-                return it->name;
+            if (vn.value == value)
+                return vn.name;
         }
         return "(unknown)";
     }

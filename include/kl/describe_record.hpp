@@ -11,6 +11,77 @@
 #include <tuple>
 #include <type_traits>
 
+/*
+ * Requirements: boost 1.57+, C++14 compiler and preprocessor
+ * Sample usage:
+
+namespace ns {
+
+struct A
+{
+    int i;
+    bool b;
+    double d;
+};
+KL_DESCRIBE_FIELDS(A, (i, b, d))
+
+struct B : A
+{
+    std::string str;
+};
+KL_DESCRIBE_BASES(B, (A))
+KL_DESCRIBE_FIELDS(B, (str))
+}
+
+ KL_DESCRIBE_FIELDS
+ ==================
+
+ * First argument is unqualified type name
+ * Second argument is a tuple of all fields that need to be visible by kl::ctti
+ * Macro should be placed in the same namespace as the type
+ * Above definitions are expanded to:
+
+     template <typename Self>
+     constexpr auto describe_fields(A*, Self&& self) noexcept
+     {
+         using builder = ::kl::field_info_builder<Self>;
+         return std::make_tuple(builder::add(self.i, "i"),
+                                builder::add(self.b, "b"),
+                                builder::add(self.d, "d"));
+     }
+
+     template <typename Self>
+     constexpr auto describe_fields(B*, Self&& self) noexcept
+     {
+         using builder = ::kl::field_info_builder<Self>;
+         return std::make_tuple(builder::add(self.str, "str"));
+     }
+
+ KL_DESCRIBE_BASES
+ =================
+
+ * First argument is unqualified type name
+ * Second argument is a tuple of all _direct_ base classes of the type
+ * Similarly, macro should be placed in the same namespace as the type
+ * Above definition is expanded to:
+
+     constexpr auto describe_bases(B*) noexcept
+     {
+         return ::kl::type_pack<A>{};
+     }
+
+
+ * Use kl::ctti to query type's fields and base class(es):
+     ns::B b = ...
+     kl::ctti::reflect(b, [](auto fi) {
+        // Called four times, once for each field
+        // Use fi.name() and/or fi.get() to get a name
+        // and reference to the field
+     });
+     static_assert(kl::ctti::num_fields<ns::B>() == 1, "?");
+     static_assert(kl::ctti::total_num_fields<ns::B>() == 4, "?");
+ */
+
 namespace kl {
 
 namespace detail {
