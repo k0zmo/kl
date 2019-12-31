@@ -70,7 +70,8 @@ TEST_CASE("yaml")
                           yaml::deserialize_error);
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>({}),
                             "type must be a sequence or map but is Null\n"
-                            "error when deserializing type inner_t");
+                            "error when deserializing type " +
+                                kl::ctti::name<inner_t>());
     }
 
     SECTION("deserialize inner_t - missing one field")
@@ -81,7 +82,8 @@ TEST_CASE("yaml")
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y),
                             "type must be a scalar but is Null\n"
                             "error when deserializing field r\n"
-                            "error when deserializing type inner_t");
+                            "error when deserializing type " +
+                                kl::ctti::name<inner_t>());
     }
 
     SECTION("deserialize inner_t - one additional field")
@@ -207,26 +209,30 @@ TEST_CASE("yaml")
         REQUIRE_THROWS_WITH(yaml::deserialize<enums>(y),
                             "invalid enum value: 0\n"
                             "error when deserializing field e3\n"
-                            "error when deserializing type enums");
+                            "error when deserializing type " +
+                                kl::ctti::name<enums>());
 
         y = "{e0: 0, e1: 0, e2: oe_one_ref2, e3: 0}"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<enums>(y),
                             "invalid enum value: oe_one_ref2\n"
                             "error when deserializing field e2\n"
-                            "error when deserializing type enums");
+                            "error when deserializing type " +
+                                kl::ctti::name<enums>());
 
         y = "{e0: 0, e1: true, e2: oe_one_ref, e3: one}"_yaml;
         REQUIRE_THROWS_WITH(
             yaml::deserialize<enums>(y),
             "yaml-cpp: error at line 1, column 13: bad conversion\n"
             "error when deserializing field e1\n"
-            "error when deserializing type enums");
+            "error when deserializing type " +
+                kl::ctti::name<enums>());
 
         y = "{e0: 0, e1: 0, e2: oe_one_ref, e3: []}"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<enums>(y),
                             "type must be a scalar but is Sequence\n"
                             "error when deserializing field e3\n"
-                            "error when deserializing type enums");
+                            "error when deserializing type " +
+                                kl::ctti::name<enums>());
     }
 
     SECTION("skip serializing optional fields")
@@ -293,7 +299,8 @@ TEST_CASE("yaml")
             yaml::deserialize<optional_test>(y),
             "yaml-cpp: error at line 1, column 20: bad conversion\n"
             "error when deserializing field opt\n"
-            "error when deserializing type optional_test");
+            "error when deserializing type " +
+                kl::ctti::name<optional_test>());
     }
 
     SECTION("serialize complex structure with std/boost containers")
@@ -433,13 +440,15 @@ tup:
         REQUIRE_THROWS_WITH(
             yaml::deserialize<inner_t>(y),
             "sequence size is greater than declared struct's field count\n"
-            "error when deserializing type inner_t");
+            "error when deserializing type " +
+                kl::ctti::name<inner_t>());
 
         y = "- 3"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y),
                             "type must be a scalar but is Null\n"
                             "error when deserializing element 1\n"
-                            "error when deserializing type inner_t");
+                            "error when deserializing type " +
+                                kl::ctti::name<inner_t>());
     }
 
     SECTION("deserialize to struct from an array - tail optional fields")
@@ -457,14 +466,16 @@ tup:
             yaml::deserialize<inner_t>(y),
             "yaml-cpp: error at line 1, column 4: bad conversion\n"
             "error when deserializing element 1\n"
-            "error when deserializing type inner_t");
+            "error when deserializing type " +
+                kl::ctti::name<inner_t>());
 
         y = "[false,4]"_yaml;
         REQUIRE_THROWS_WITH(
             yaml::deserialize<inner_t>(y),
             "yaml-cpp: error at line 1, column 2: bad conversion\n"
             "error when deserializing element 0\n"
-            "error when deserializing type inner_t");
+            "error when deserializing type " +
+                kl::ctti::name<inner_t>());
     }
 
     SECTION("optional<string>")

@@ -4,20 +4,20 @@ set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL ON)
 
 FetchContent_Declare(rapidjson
     URL https://github.com/Tencent/rapidjson/archive/v1.1.0.zip
-    URL_HASH SHA1=0fe7b4f7b83df4b3d517f4a202f3a383af7a0818
+    URL_HASH SHA256=8e00c38829d6785a2dfb951bb87c6974fa07dfe488aa5b25deec4b8bc0f6a3ab
 )
 FetchContent_Declare(yamlcpp
     URL https://github.com/jbeder/yaml-cpp/archive/0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip
-    URL_HASH SHA1=3e4f9d6d78dd4258569bc498c97027096d5d74fc
+    URL_HASH SHA256=ff55e0cc373295b8503faf52a5e9569b950d8ec3e704508a62fe9159c37185bc
 )
 FetchContent_Declare(GSL
-    URL https://github.com/Microsoft/GSL/archive/v1.0.0.zip
-    URL_HASH SHA1=e9824bf3693bf34f17850915a744deec905c90be
+    URL https://github.com/Microsoft/GSL/archive/v2.0.0.zip
+    URL_HASH SHA256=837f35a9f00b2543bada8ae680e5c56af84709d36d48cdc3ed8db69df043f5b2
 )
 if(KL_TEST)
     FetchContent_Declare(Catch2
-        URL https://github.com/catchorg/Catch2/archive/v2.4.0.zip
-        URL_HASH SHA1=0c24c01df55aa8f06f5dfb47db27179aa24441c2
+        URL https://github.com/catchorg/Catch2/archive/v2.9.1.zip
+        URL_HASH SHA256=9a79099873c8b3156a8f7937d7976ef85bf35f46e3f0a963117be44bc9bbc5f8
     )
 endif()
 
