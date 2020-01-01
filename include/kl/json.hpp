@@ -19,8 +19,8 @@
 
 namespace rapidjson {
 
-KL_DESCRIBE_ENUM(Type, (kNullType, kFalseType, kTrueType, kObjectType,
-                        kArrayType, kStringType, kNumberType))
+KL_DESCRIBE_ENUM(Type, kNullType, kFalseType, kTrueType, kObjectType,
+                 kArrayType, kStringType, kNumberType)
 } // namespace rapidjson
 
 namespace kl {

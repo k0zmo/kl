@@ -12,6 +12,7 @@
 #include <boost/preprocessor/tuple/elem.hpp>
 #include <boost/preprocessor/tuple/size.hpp>
 #include <boost/preprocessor/tuple/push_back.hpp>
+#include <boost/preprocessor/variadic/to_tuple.hpp>
 
 /*
  * Requirements: boost 1.57+, C++14 compiler and preprocessor
@@ -23,11 +24,11 @@ enum class enum_
 {
     A, B, C
 };
-KL_DESCRIBE_ENUM(enum_, (A, (B, bb), C))
+KL_DESCRIBE_ENUM(enum_, A, (B, bb), C)
 }
 
  * First argument is unqualified enum type name
- * Second argument is a tuple of enum values. Each value can be optionally a
+ * The rest is a list of enum values. Each value can be optionally a
    tuple (pair) of its real name and name used for to-from string conversions
  * Macro should be placed inside the same namespace as the enum type
 
@@ -60,10 +61,13 @@ struct enum_value_name
 };
 } // namespace kl
 
-#define KL_DESCRIBE_ENUM(name_, values_)                                       \
-    KL_DESCRIBE_ENUM_IMPL(name_, values_, __COUNTER__)
+#define KL_DESCRIBE_ENUM(name_, ...)                                           \
+    KL_DESCRIBE_ENUM_TUPLE(name_, BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__))
 
-#define KL_DESCRIBE_ENUM_IMPL(name_, values_, counter_)                        \
+#define KL_DESCRIBE_ENUM_TUPLE(name_, values_)                                 \
+    KL_DESCRIBE_ENUM_BASE(name_, values_, __COUNTER__)
+
+#define KL_DESCRIBE_ENUM_BASE(name_, values_, counter_)                        \
     static constexpr ::kl::enum_value_name<name_> KL_DESCRIBE_ENUM_VAR_NAME(   \
         counter_)[] = {                                                        \
         KL_DESCRIBE_ENUM_VALUE_NAME_PAIRS(                                     \

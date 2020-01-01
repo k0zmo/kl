@@ -16,7 +16,7 @@ struct A
     std::vector<int> y;
     int z; // Not reflectable
 };
-KL_DESCRIBE_FIELDS(A, (x, y))
+KL_DESCRIBE_FIELDS(A, x, y)
 
 struct S
 {
@@ -25,7 +25,7 @@ struct S
     std::array<float, 3> c;
     A aa;
 };
-KL_DESCRIBE_FIELDS(S, (a, b, c, aa))
+KL_DESCRIBE_FIELDS(S, a, b, c, aa)
 
 namespace ns {
 namespace inner {
@@ -45,16 +45,16 @@ private:
     std::string d;
     std::vector<std::string> e;
 };
-KL_DESCRIBE_BASES(T, (A, S))
-KL_DESCRIBE_FIELDS(T, (d, e))
+KL_DESCRIBE_BASES(T, A, S)
+KL_DESCRIBE_FIELDS(T, d, e)
 } // namespace inner
 
 struct B : A
 {
     int zzz;
 };
-KL_DESCRIBE_BASES(B, (A))
-KL_DESCRIBE_FIELDS(B, (zzz))
+KL_DESCRIBE_BASES(B, A)
+KL_DESCRIBE_FIELDS(B, zzz)
 } // namespace ns
 } // namespace test
 

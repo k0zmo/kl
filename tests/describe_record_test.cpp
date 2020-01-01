@@ -12,14 +12,14 @@ struct A
     bool b;
     double d;
 };
-KL_DESCRIBE_FIELDS(A, (i, b, d))
+KL_DESCRIBE_FIELDS(A, i, b, d)
 
 struct B : A
 {
     unsigned long long ull;
 };
-KL_DESCRIBE_BASES(B, (A))
-KL_DESCRIBE_FIELDS(B, (ull))
+KL_DESCRIBE_BASES(B, A)
+KL_DESCRIBE_FIELDS(B, ull)
 }
 
 TEST_CASE("describe record")

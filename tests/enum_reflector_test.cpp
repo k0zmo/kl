@@ -19,7 +19,7 @@ enum class colour_space
     hls,
     luv
 };
-KL_DESCRIBE_ENUM(colour_space, (rgb, xyz, ycrcb, hsv, lab, hls, luv))
+KL_DESCRIBE_ENUM(colour_space, rgb, xyz, ycrcb, hsv, lab, hls, luv)
 } // namespace inner
 } // namespace ns
 
@@ -30,14 +30,14 @@ enum class access_mode
     read_only,
     max
 };
-KL_DESCRIBE_ENUM(access_mode, (read_write, write_only, read_only, max))
+KL_DESCRIBE_ENUM(access_mode, read_write, write_only, read_only, max)
 
 enum unscoped_enum_type
 {
     prefix_one,
     prefix_two
 };
-KL_DESCRIBE_ENUM(unscoped_enum_type, (prefix_one, (prefix_two, PREFIX_TWO)))
+KL_DESCRIBE_ENUM(unscoped_enum_type, prefix_one, (prefix_two, PREFIX_TWO))
 
 enum class non_reflectable { one, two, three };
 } // namespace
