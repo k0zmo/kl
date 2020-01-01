@@ -100,10 +100,9 @@ struct ctti
             detail::has_describe_fields<Reflectable>::value,
             "Can't reflect this type. Define describe_fields function");
 
-        reflect_bases(std::forward<Reflectable>(r), v,
-                      base_types<Reflectable>{});
+        reflect_bases(r, v, base_types<Reflectable>{});
         tuple::for_each_fn::call(describe_fields(std::forward<Reflectable>(r)),
-                                 v);
+                                 std::forward<Visitor>(v));
     }
 
     template <typename Reflectable>
@@ -126,23 +125,23 @@ struct ctti
     }
 
 private:
-    template <typename Reflectable, typename Visitor>
-    static constexpr void reflect_bases(Reflectable&&, Visitor&&, type_pack<>)
-    {
-    }
-
-    template <typename Reflectable, typename Visitor, typename Head,
-              typename... Tail>
-    static constexpr void reflect_bases(Reflectable&& r, Visitor&& v,
-                                        type_pack<Head, Tail...>)
+    template <typename Base, typename Reflectable, typename Visitor>
+    static constexpr void reflect_base(Reflectable&& r, Visitor&& v)
     {
         static_assert(
-            std::is_base_of<Head, std::remove_reference_t<Reflectable>>::value,
-            "Head is not a base of Reflectable");
-        using head_type =
-            typename detail::mirror_referenceness<Reflectable, Head>::type;
-        reflect(static_cast<head_type>(r), v);
-        reflect_bases(std::forward<Reflectable>(r), v, type_pack<Tail...>{});
+            std::is_base_of<Base, std::remove_reference_t<Reflectable>>::value,
+            "Base is not a base of Reflectable");
+        using base_type =
+            typename detail::mirror_referenceness<Reflectable, Base>::type;
+        reflect(static_cast<base_type>(r), std::forward<Visitor>(v));
+    }
+
+    template <typename Reflectable, typename Visitor, typename... Bases>
+    static constexpr void reflect_bases(Reflectable&& r, Visitor&& v,
+                                        type_pack<Bases...>)
+    {
+        using swallow = std::initializer_list<int>;
+        (void)swallow{(reflect_base<Bases>(r, v), 0)...};
     }
 
     static constexpr std::size_t base_num_fields(type_pack<>) noexcept
