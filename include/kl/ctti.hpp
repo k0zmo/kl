@@ -80,64 +80,63 @@ constexpr auto describe_bases() noexcept
 
 struct ctti
 {
-    template <typename Reflectable>
-    using base_types = typename detail::base_types<Reflectable>::type;
+    template <typename T>
+    static constexpr bool is_reflectable = kl::is_reflectable<T>::value;
 
-    template <typename Reflectable>
-    static constexpr bool is_reflectable =
-        kl::is_reflectable<Reflectable>::value;
+    template <typename Reflected>
+    using base_types = typename detail::base_types<Reflected>::type;
 
-    template <typename Reflectable>
+    template <typename Reflected>
     static std::string name() noexcept
     {
-        return boost::typeindex::type_id<Reflectable>().pretty_name();
+        return boost::typeindex::type_id<Reflected>().pretty_name();
     }
 
-    template <typename Reflectable, typename Visitor>
-    static constexpr void reflect(Reflectable&& r, Visitor&& v)
+    template <typename Reflected, typename Visitor>
+    static constexpr void reflect(Reflected&& r, Visitor&& v)
     {
         static_assert(
-            detail::has_describe_fields<Reflectable>::value,
+            detail::has_describe_fields<Reflected>::value,
             "Can't reflect this type. Define describe_fields function");
 
-        reflect_bases(r, v, base_types<Reflectable>{});
-        tuple::for_each_fn::call(describe_fields(std::forward<Reflectable>(r)),
+        reflect_bases(r, v, base_types<Reflected>{});
+        tuple::for_each_fn::call(describe_fields(std::forward<Reflected>(r)),
                                  std::forward<Visitor>(v));
     }
 
-    template <typename Reflectable>
+    template <typename Reflected>
     static constexpr std::size_t num_fields() noexcept
     {
         static_assert(
-            detail::has_describe_fields<Reflectable>::value,
+            detail::has_describe_fields<Reflected>::value,
             "Can't reflect this type. Define describe_fields function");
 
         using field_desc =
-            decltype(describe_fields(std::declval<Reflectable&>()));
+            decltype(describe_fields(std::declval<Reflected&>()));
         return std::tuple_size<field_desc>::value;
     }
 
-    template <typename Reflectable>
+    template <typename Reflected>
     static constexpr std::size_t total_num_fields() noexcept
     {
-        return num_fields<Reflectable>() +
-               base_num_fields(base_types<Reflectable>{});
+        return num_fields<Reflected>() +
+               base_num_fields(base_types<Reflected>{});
     }
 
 private:
-    template <typename Base, typename Reflectable, typename Visitor>
-    static constexpr void reflect_base(Reflectable&& r, Visitor&& v)
+    template <typename Base, typename Reflected, typename Visitor>
+    static constexpr void reflect_base(Reflected&& r, Visitor&& v)
     {
         static_assert(
-            std::is_base_of<Base, std::remove_reference_t<Reflectable>>::value,
-            "Base is not a base of Reflectable");
+            std::is_base_of<Base, std::remove_reference_t<Reflected>>::value,
+            "Base is not a base of Reflected");
         using base_type =
-            typename detail::mirror_referenceness<Reflectable, Base>::type;
+            typename detail::mirror_referenceness<Reflected, Base>::type;
         reflect(static_cast<base_type>(r), std::forward<Visitor>(v));
     }
 
-    template <typename Reflectable, typename Visitor, typename... Bases>
-    static constexpr void reflect_bases(Reflectable&& r, Visitor&& v,
+    template <typename Reflected, typename Visitor, typename... Bases>
+    static constexpr void reflect_bases(Reflected&& r, Visitor&& v,
                                         type_pack<Bases...>)
     {
         using swallow = std::initializer_list<int>;
