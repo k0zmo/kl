@@ -45,17 +45,17 @@ KL_DESCRIBE_FIELDS(B, str)
      template <typename Self>
      constexpr auto describe_fields(A*, Self&& self) noexcept
      {
-         using builder = ::kl::field_info_builder<Self>;
-         return std::make_tuple(builder::add(self.i, "i"),
-                                builder::add(self.b, "b"),
-                                builder::add(self.d, "d"));
+         return std::make_tuple(
+            ::kl::make_field_info<decltype(self.i)>(self, self.i, "i"),
+            ::kl::make_field_info<decltype(self.b)>(self, self.b, "b"),
+            ::kl::make_field_info<decltype(self.d)>(self, self.d, "d"));
      }
 
      template <typename Self>
      constexpr auto describe_fields(B*, Self&& self) noexcept
      {
-         using builder = ::kl::field_info_builder<Self>;
-         return std::make_tuple(builder::add(self.str, "str"));
+         return std::make_tuple(
+            ::kl::make_field_info<decltype(self.str)>(self, self.str, "str"));
      }
 
  KL_DESCRIBE_BASES
@@ -110,7 +110,8 @@ public:
     using original_type = MemberData;
     using class_type = Parent;
     // If `Parent` is const we make `type` also const
-    using type = detail::make_const_t<Parent, MemberData>;
+    using type =
+        detail::make_const_t<Parent, std::remove_reference_t<MemberData>>;
 
 public:
     constexpr field_info(type& ref, const char* name) noexcept
@@ -127,18 +128,22 @@ private:
     type& ref_;
 };
 
-template <typename Parent>
-struct field_info_builder
+template <typename MemberData, typename Parent>
+constexpr auto make_field_info(Parent&&, MemberData& field,
+                               const char* name) noexcept
+{
+    // parent_type can be `T` or `const T`
+    using parent_type = std::remove_reference_t<Parent>;
+    return field_info<parent_type, MemberData>{field, name};
+}
+
+template <typename MemberData, typename Parent>
+constexpr auto make_field_info(Parent&&, const MemberData& field,
+                               const char* name) noexcept
 {
     using parent_type = std::remove_reference_t<Parent>;
-
-    template <typename MemberData>
-    static constexpr auto add(MemberData&& field, const char* name) noexcept
-    {
-        return field_info<parent_type, std::remove_reference_t<MemberData>>{
-            field, name};
-    }
-};
+    return field_info<parent_type, const MemberData>{field, name};
+}
 } // namespace kl
 
 #define KL_DESCRIBE_BASES(type_, ...)                                          \
@@ -157,7 +162,6 @@ struct field_info_builder
     template <typename Self>                                                   \
     constexpr auto describe_fields(type_*, Self&& self) noexcept               \
     {                                                                          \
-        using builder = ::kl::field_info_builder<Self>;                        \
         return std::make_tuple(                                                \
             KL_DESCRIBE_FIELDS_BUILD_FIELD_INFO_LIST(fields_));                \
     }
@@ -168,7 +172,8 @@ struct field_info_builder
                   (fields_, KL_DESCRIBE_FIELDS_ADD_FIELD_INFO))
 
 #define KL_DESCRIBE_FIELDS_ADD_FIELD_INFO(name_)                               \
-    builder::add(self.name_, BOOST_PP_STRINGIZE(name_))
+    ::kl::make_field_info<decltype(self.name_)>(self, self.name_,              \
+                                                BOOST_PP_STRINGIZE(name_))
 
 // tuple_macro is ((tuple), macro)
 #define KL_DESCRIBE_FIELDS_FOR_EACH_IN_TUPLE(_, index_, tuple_macro_)          \

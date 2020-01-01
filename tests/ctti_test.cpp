@@ -56,6 +56,15 @@ struct B : A
 KL_DESCRIBE_BASES(B, A)
 KL_DESCRIBE_FIELDS(B, zzz)
 } // namespace ns
+
+struct ZZZ
+{
+    int a;
+    const int b;
+    int& ref_a = a;
+    const int& ref_b = b;
+};
+KL_DESCRIBE_FIELDS(ZZZ, a, b, ref_a, ref_b)
 } // namespace test
 
 namespace {
@@ -215,4 +224,28 @@ TEST_CASE("ctti")
                             "1.67\naa: x: \ny: .\n\nd: HELLO\ne: WORLD, "
                             "Hello\n");
     }
+
+    using field_desc_type = decltype(kl::describe_fields(
+                                std::declval<test::ZZZ>()));
+
+    static_assert(
+        std::is_same<
+            typename std::tuple_element_t<0, field_desc_type>::original_type,
+            int>::value,
+        "");
+    static_assert(
+        std::is_same<
+            typename std::tuple_element_t<1, field_desc_type>::original_type,
+            const int>::value,
+        "");
+    static_assert(
+        std::is_same<
+            typename std::tuple_element_t<2, field_desc_type>::original_type,
+            int&>::value,
+        "");
+    static_assert(
+        std::is_same<
+            typename std::tuple_element_t<3, field_desc_type>::original_type,
+            const int&>::value,
+        "");
 }
