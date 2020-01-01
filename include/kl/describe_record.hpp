@@ -7,6 +7,7 @@
 #include <boost/preprocessor/repetition/enum.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
 #include <boost/preprocessor/tuple/size.hpp>
+#include <boost/preprocessor/variadic/to_tuple.hpp>
 
 #include <tuple>
 #include <type_traits>
@@ -23,21 +24,21 @@ struct A
     bool b;
     double d;
 };
-KL_DESCRIBE_FIELDS(A, (i, b, d))
+KL_DESCRIBE_FIELDS(A, i, b, d)
 
 struct B : A
 {
     std::string str;
 };
-KL_DESCRIBE_BASES(B, (A))
-KL_DESCRIBE_FIELDS(B, (str))
+KL_DESCRIBE_BASES(B, A)
+KL_DESCRIBE_FIELDS(B, str)
 }
 
  KL_DESCRIBE_FIELDS
  ==================
 
  * First argument is unqualified type name
- * Second argument is a tuple of all fields that need to be visible by kl::ctti
+ * The rest is a list of all fields that need to be visible by kl::ctti
  * Macro should be placed in the same namespace as the type
  * Above definitions are expanded to:
 
@@ -61,7 +62,7 @@ KL_DESCRIBE_FIELDS(B, (str))
  =================
 
  * First argument is unqualified type name
- * Second argument is a tuple of all _direct_ base classes of the type
+ * The rest is a list of all _direct_ base classes of the type
  * Similarly, macro should be placed in the same namespace as the type
  * Above definition is expanded to:
 
@@ -140,13 +141,19 @@ struct field_info_builder
 };
 } // namespace kl
 
-#define KL_DESCRIBE_BASES(type_, bases_)                                       \
+#define KL_DESCRIBE_BASES(type_, ...)                                          \
+    KL_DESCRIBE_BASES_TUPLE(type_, BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__))
+
+#define KL_DESCRIBE_FIELDS(type_, ...)                                         \
+    KL_DESCRIBE_FIELDS_TUPLE(type_, BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__))
+
+#define KL_DESCRIBE_BASES_TUPLE(type_, bases_)                                 \
     constexpr auto describe_bases(type_*) noexcept                             \
     {                                                                          \
         return ::kl::type_pack<BOOST_PP_REMOVE_PARENS(bases_)>{};              \
     }
 
-#define KL_DESCRIBE_FIELDS(type_, fields_)                                     \
+#define KL_DESCRIBE_FIELDS_TUPLE(type_, fields_)                               \
     template <typename Self>                                                   \
     constexpr auto describe_fields(type_*, Self&& self) noexcept               \
     {                                                                          \

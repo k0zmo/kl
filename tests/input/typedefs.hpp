@@ -16,14 +16,14 @@ struct optional_test
     int non_opt;
     boost::optional<int> opt;
 };
-KL_DESCRIBE_FIELDS(optional_test, (non_opt, opt))
+KL_DESCRIBE_FIELDS(optional_test, non_opt, opt)
 
 struct inner_t
 {
     int r = 1337;
     double d = 3.145926;
 };
-KL_DESCRIBE_FIELDS(inner_t, (r, d))
+KL_DESCRIBE_FIELDS(inner_t, r, d)
 
 enum class colour_space
 {
@@ -35,7 +35,7 @@ enum class colour_space
     hls,
     luv
 };
-KL_DESCRIBE_ENUM(colour_space, (rgb, xyz, ycrcb, hsv, lab, hls, luv))
+KL_DESCRIBE_ENUM(colour_space, rgb, xyz, ycrcb, hsv, lab, hls, luv)
 
 enum class device_type
 {
@@ -46,7 +46,7 @@ enum class device_type
     custom = (1 << 4)
 };
 KL_DESCRIBE_ENUM(device_type,
-                 ((default_, default), cpu, gpu, accelerator, custom))
+                 (default_, default), cpu, gpu, accelerator, custom)
 using device_flags = kl::enum_flags<device_type>;
 
 // on GCC underlying_type(ordinary_enum) => unsigned
@@ -55,8 +55,8 @@ enum class scope_enum { one };
 enum ordinary_enum_reflectable { oe_one_ref };
 enum class scope_enum_reflectable { one };
 
-KL_DESCRIBE_ENUM(ordinary_enum_reflectable, (oe_one_ref))
-KL_DESCRIBE_ENUM(scope_enum_reflectable, (one))
+KL_DESCRIBE_ENUM(ordinary_enum_reflectable, oe_one_ref)
+KL_DESCRIBE_ENUM(scope_enum_reflectable, one)
 
 struct enums
 {
@@ -65,7 +65,7 @@ struct enums
     ordinary_enum_reflectable e2 = ordinary_enum_reflectable::oe_one_ref;
     scope_enum_reflectable e3 = scope_enum_reflectable::one;
 };
-KL_DESCRIBE_FIELDS(enums, (e0, e1, e2, e3))
+KL_DESCRIBE_FIELDS(enums, e0, e1, e2, e3)
 
 struct test_t
 {
@@ -86,8 +86,7 @@ struct test_t
 
     inner_t inner;
 };
-KL_DESCRIBE_FIELDS(test_t,
-                      (hello, t, f, n, i, pi, a, ad, space, tup, map, inner))
+KL_DESCRIBE_FIELDS(test_t, hello, t, f, n, i, pi, a, ad, space, tup, map, inner)
 
 struct unsigned_test
 {
@@ -96,7 +95,7 @@ struct unsigned_test
     unsigned int u32{std::numeric_limits<unsigned int>::max()};
     std::uint64_t u64{std::numeric_limits<std::uint64_t>::max()};
 };
-KL_DESCRIBE_FIELDS(unsigned_test, (u8, u16, u32, u64))
+KL_DESCRIBE_FIELDS(unsigned_test, u8, u16, u32, u64)
 
 struct chrono_test
 {
@@ -104,7 +103,7 @@ struct chrono_test
     std::chrono::seconds sec;
     std::vector<std::chrono::seconds> secs;
 };
-KL_DESCRIBE_FIELDS(chrono_test, (t, sec, secs))
+KL_DESCRIBE_FIELDS(chrono_test, t, sec, secs)
 
 struct global_struct {};
 
@@ -125,7 +124,7 @@ struct aggregate
     my::none_t n;
     my::value_wrapper<int> w;
 };
-KL_DESCRIBE_FIELDS(aggregate, (g, n, w))
+KL_DESCRIBE_FIELDS(aggregate, g, n, w)
 
 struct struct_with_blacklisted
 {
@@ -133,4 +132,4 @@ struct struct_with_blacklisted
     float secret{3.2f};
     bool other_non_secret{true};
 };
-KL_DESCRIBE_FIELDS(struct_with_blacklisted, (value, secret, other_non_secret))
+KL_DESCRIBE_FIELDS(struct_with_blacklisted, value, secret, other_non_secret)

@@ -13,7 +13,7 @@ enum class A
     c
 };
 
-KL_DESCRIBE_ENUM(A, (a, (b, BB), c))
+KL_DESCRIBE_ENUM(A, a, (b, BB), c)
 } // namespace
 
 TEST_CASE("describe enum")

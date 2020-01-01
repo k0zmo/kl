@@ -15,7 +15,7 @@
 
 namespace YAML {
 
-KL_DESCRIBE_ENUM(NodeType::value, (Undefined, Null, Scalar, Sequence, Map))
+KL_DESCRIBE_ENUM(NodeType::value, Undefined, Null, Scalar, Sequence, Map)
 } // namespace YAML
 
 namespace kl {
