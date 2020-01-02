@@ -466,6 +466,13 @@ TEST_CASE("json")
         REQUIRE(!obj.opt);
     }
 
+    SECTION("deserialize floating-point number to int")
+    {
+        auto j = R"(3.0)"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<int>(j),
+                            "type must be an integral but is kNumberType");
+    }
+
     SECTION("deserialize to struct from an array - type mismatch")
     {
         auto j = R"([3,"QWE"])"_json;
