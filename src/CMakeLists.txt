@@ -53,19 +53,32 @@ endif()
 
 target_include_directories(kl
     PUBLIC $<BUILD_INTERFACE:${kl_SOURCE_DIR}/include>
+    PUBLIC ${RAPIDJSON_INCLUDE_DIRS}
 )
 target_link_libraries(kl
     PUBLIC
         Boost::boost
-        rapidjson::rapidjson
-        GSL::gsl
-        yaml::yaml-cpp
+        GSL::GSL
+        yaml-cpp
         kl_cxx_flags
     PRIVATE
         Boost::disable_autolinking
 )
+target_compile_definitions(kl PUBLIC RAPIDJSON_HAS_STDSTRING=1)
+set_target_properties(kl PROPERTIES DEBUG_POSTFIX d)
 
 get_target_property(sources_list kl SOURCES)
 source_group(TREE ${kl_SOURCE_DIR} FILES ${sources_list})
 
 add_library(kl::kl ALIAS kl)
+
+install(TARGETS kl kl_cxx_flags 
+    EXPORT   klTarget
+    RUNTIME  DESTINATION ${CMAKE_INSTALL_BINDIR}
+    LIBRARY  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    ARCHIVE  DESTINATION ${CMAKE_INSTALL_LIBDIR}
+    INCLUDES DESTINATION include
+)
+install(DIRECTORY ${kl_SOURCE_DIR}/include/kl
+    DESTINATION include
+)

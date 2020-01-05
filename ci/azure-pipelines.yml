@@ -1,3 +1,9 @@
+# specific branch build
+trigger:
+  branches:
+    exclude:
+    - cmake-install
+
 jobs:
   - job: ubuntu16_gcc5
     pool:

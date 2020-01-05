@@ -2,6 +2,10 @@ version: "1.0.{build}"
 
 os: Visual Studio 2017
 
+branches:
+  except:
+     - cmake-install
+
 environment:
   global:
     BOOST_INCLUDEDIR: "C:/Libraries/boost_1_67_0"
