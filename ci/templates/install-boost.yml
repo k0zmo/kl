@@ -10,11 +10,11 @@ steps:
   #     chmod +x bootstrap.sh && ./bootstrap.sh
   #     sudo ./b2 -d0 -j4 toolset=gcc variant=release link=static --with-system install
   #   displayName: 'Build Boost'
-  #   condition: ne(variables['Agent.OS'], 'Windows NT')
+  #   condition: ne(variables['Agent.OS'], 'Windows_NT')
 
   # - script: |
   #     cd boost_*
   #     call .\bootstrap.bat
   #     .\b2 -d0 -j4 variant=release link=static --with-system install
   #   displayName: 'Build Boost'
-  #   condition: eq(variables['Agent.OS'], 'Windows NT')
+  #   condition: eq(variables['Agent.OS'], 'Windows_NT')

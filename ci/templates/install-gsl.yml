@@ -1,0 +1,9 @@
+steps:
+  - bash: |
+      rootdir=$(pwd)
+      mkdir -p _deps/buildtrees && cd _deps/buildtrees
+      curl -L https://github.com/Microsoft/GSL/archive/v2.0.0.zip -o GSL-2.0.0.zip
+      unzip GSL-2.0.0.zip
+      mkdir -p ${rootdir}/_deps
+      cp -R GSL-2.0.0/include ${rootdir}/_deps/include
+    displayName: 'Install GSL'

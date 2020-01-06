@@ -1,9 +1,3 @@
-# specific branch build
-trigger:
-  branches:
-    exclude:
-    - cmake-install
-
 jobs:
   - job: ubuntu16_gcc5
     pool:
@@ -20,9 +14,12 @@ jobs:
           cmake --version
         displayName: 'Check environment'
       - template: templates/install-boost.yml
+      - template: templates/install-gsl.yml
+      - template: templates/install-rapidjson.yml
+      - template: templates/install-yaml-cpp.yml
       - script: |
           export LDFLAGS="-fuse-ld=gold"
-          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH="_deps/boost_1_67_0;_deps" -DCMAKE_BUILD_TYPE=$(BuildType)
           cmake --build _build --parallel 4
         displayName: 'Build kl'
       - script: |
@@ -46,9 +43,12 @@ jobs:
           cmake --version
         displayName: 'Check environment'
       - template: templates/install-boost.yml
+      - template: templates/install-gsl.yml
+      - template: templates/install-rapidjson.yml
+      - template: templates/install-yaml-cpp.yml
       - script: |
           export LDFLAGS="-fuse-ld=gold"
-          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH="_deps/boost_1_67_0;_deps" -DCMAKE_BUILD_TYPE=$(BuildType)
           cmake --build _build --parallel 4
         displayName: 'Build kl'
       - script: |
@@ -70,11 +70,14 @@ jobs:
           pip install --user codecov
         displayName: 'Install codecov'
       - template: templates/install-boost.yml
+      - template: templates/install-gsl.yml
+      - template: templates/install-rapidjson.yml
+      - template: templates/install-yaml-cpp.yml
       - template: templates/install-lcov.yml
       - script: |
           export LDFLAGS="-fuse-ld=gold"
           export PATH=$(pwd)/_deps/lcov/bin:$PATH
-          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Coverage
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH="_deps/boost_1_67_0;_deps" -DCMAKE_BUILD_TYPE=Coverage
           cmake --build _build --parallel 4
         displayName: 'Build kl'
       - script: |
@@ -93,8 +96,11 @@ jobs:
           Architecture: x64
     steps:
       - template: templates/install-boost.yml
+      - template: templates/install-gsl.yml
+      - template: templates/install-rapidjson.yml
+      - template: templates/install-yaml-cpp.yml
       - script: |
-          cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 15 2017" -A $(Architecture)
+          cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH="_deps/boost_1_67_0;_deps" -G "Visual Studio 15 2017" -A $(Architecture)
           cmake.exe --build _build --parallel 4 --config Release
         displayName: 'Build kl'
       - script: |

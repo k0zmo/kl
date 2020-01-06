@@ -1,0 +1,25 @@
+steps:
+  - bash: |
+      mkdir -p _deps/buildtrees && cd _deps/buildtrees
+      curl -L https://github.com/Tencent/rapidjson/archive/v1.1.0.zip -o rapidjson-1.1.0.zip
+      unzip rapidjson-1.1.0.zip
+    displayName: 'Download RapidJSON'
+
+  - script: |
+      set rootdir=%cd%
+      cd _deps/buildtrees/rapidjson-1.1.0
+      cmake -S . -B _build -G "Visual Studio 15 2017" -A $(Architecture) -DCMAKE_INSTALL_PREFIX="%rootdir%\_deps" -DRAPIDJSON_BUILD_TESTS=OFF -DRAPIDJSON_BUILD_EXAMPLES=OFF
+      cmake --build _build --target install --config Release
+    displayName: 'Build RapidJSON'
+    condition: eq(variables['Agent.OS'], 'Windows_NT')
+
+  - script: |
+      rootdir=$(pwd)
+      cd _deps/buildtrees/rapidjson-1.1.0
+      cmake -H. -B_build -DCMAKE_BUILD_TYPE=$(BuildType) \
+                         -DCMAKE_INSTALL_PREFIX=${rootdir}/_deps \
+                         -DRAPIDJSON_BUILD_TESTS=OFF \
+                         -DRAPIDJSON_BUILD_EXAMPLES=OFF
+      cmake --build _build --target install
+    displayName: 'Build RapidJSON'
+    condition: ne(variables['Agent.OS'], 'Windows_NT')

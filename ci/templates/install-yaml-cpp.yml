@@ -1,0 +1,24 @@
+steps:
+  - bash: |
+      mkdir -p _deps/buildtrees && cd _deps/buildtrees
+      curl -L https://github.com/jbeder/yaml-cpp/archive/0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip -o yaml-cpp-0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip
+      unzip yaml-cpp-0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip
+    displayName: 'Download yaml-cpp'
+
+  - script: |
+      set rootdir=%cd%
+      cd _deps/buildtrees/yaml-cpp-0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79
+      cmake -S . -B _build -G "Visual Studio 15 2017" -A $(Architecture) -DCMAKE_INSTALL_PREFIX="%rootdir%\_deps\yaml-cpp" -DYAML_CPP_BUILD_TESTS=OFF
+      cmake --build _build --target install --config Release
+    displayName: 'Build yaml-cpp'
+    condition: eq(variables['Agent.OS'], 'Windows_NT')
+
+  - script: |
+      rootdir=$(pwd)
+      cd _deps/buildtrees/yaml-cpp-0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79
+      cmake -H. -B_build -DCMAKE_BUILD_TYPE=$(BuildType) \
+                         -DCMAKE_INSTALL_PREFIX=${rootdir}/_deps/yaml-cpp \
+                         -DYAML_CPP_BUILD_TESTS=OFF
+      cmake --build _build --target install
+    displayName: 'Build yaml-cpp'
+    condition: ne(variables['Agent.OS'], 'Windows_NT')
