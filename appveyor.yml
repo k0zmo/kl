@@ -2,10 +2,6 @@ version: "1.0.{build}"
 
 os: Visual Studio 2017
 
-branches:
-  except:
-     - cmake-install
-
 environment:
   global:
     BOOST_INCLUDEDIR: "C:/Libraries/boost_1_67_0"
@@ -19,10 +15,29 @@ init:
   - cmd: cmake --version
   - cmd: msbuild /version
 
+install:
+  - cmd: |
+      appveyor DownloadFile "https://github.com/Microsoft/GSL/archive/v2.0.0.zip" -FileName GSL-2.0.0.zip
+      7z x GSL-2.0.0.zip -oC:\Projects\deps > nul
+      move C:\Projects\deps\GSL-2.0.0\include C:\Projects\deps
+  - cmd: |
+      appveyor DownloadFile "https://github.com/Tencent/rapidjson/archive/v1.1.0.zip" -FileName rapidjson-1.1.0.zip
+      7z x rapidjson-1.1.0.zip -oC:\Projects\deps\buildtrees > nul
+      cd C:\Projects\deps\buildtrees\rapidjson-1.1.0
+      cmake -H. -B_build -G "%CMAKE_GENERATOR_NAME%" -DCMAKE_INSTALL_PREFIX=C:\Projects\deps -DRAPIDJSON_BUILD_TESTS=OFF -DRAPIDJSON_BUILD_EXAMPLES=OFF
+      cmake --build _build --target install --config Release
+  - cmd: |
+      appveyor DownloadFile "https://github.com/jbeder/yaml-cpp/archive/0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip" -FileName yaml-cpp-0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip
+      7z x yaml-cpp-0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip -oC:\Projects\deps\buildtrees > nul
+      cd C:\Projects\deps\buildtrees\yaml-cpp-0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79
+      cmake -H. -B_build -G "%CMAKE_GENERATOR_NAME%" -DCMAKE_INSTALL_PREFIX=C:\Projects\deps\yaml-cpp -DYAML_CPP_BUILD_TESTS=OFF
+      cmake --build _build --target install --config Release
+      cd %APPVEYOR_BUILD_FOLDER%
+      
 before_build:
   - cmd: mkdir build
   - cmd: cd build
-  - cmd: cmake -G "%CMAKE_GENERATOR_NAME%" ..
+  - cmd: cmake -G "%CMAKE_GENERATOR_NAME%" -DCMAKE_PREFIX_PATH=C:\Projects\deps ..
 
 build_script:
   - cmd: cmake --build . --config Release -- /verbosity:minimal /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
