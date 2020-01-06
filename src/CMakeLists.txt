@@ -53,18 +53,17 @@ endif()
 
 target_include_directories(kl
     PUBLIC $<BUILD_INTERFACE:${kl_SOURCE_DIR}/include>
-    PUBLIC ${RAPIDJSON_INCLUDE_DIRS}
 )
 target_link_libraries(kl
     PUBLIC
         Boost::boost
         GSL::GSL
         yaml-cpp
+        RapidJSON::RapidJSON
         kl_cxx_flags
     PRIVATE
         Boost::disable_autolinking
 )
-target_compile_definitions(kl PUBLIC RAPIDJSON_HAS_STDSTRING=1)
 set_target_properties(kl PROPERTIES DEBUG_POSTFIX d)
 
 get_target_property(sources_list kl SOURCES)
