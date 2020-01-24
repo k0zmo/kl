@@ -360,7 +360,7 @@ public:
     signal& operator=(const signal&) = delete;
 
     signal(signal&& other) noexcept
-        : slots_{std::exchange(other.slots_, nullptr)}, id_{other.id_}
+        : slots_{std::exchange(other.slots_, nullptr)}, next_id_{other.next_id_}
     {
         rebind();
     }
@@ -378,7 +378,7 @@ public:
             return {};
 
         auto connection_info =
-            std::make_shared<detail::connection_info>(this, ++id_);
+            std::make_shared<detail::connection_info>(this, ++next_id_);
 
         // Create proxy slot that would add connection as a first argument
         auto connection = make_connection(connection_info);
@@ -415,7 +415,7 @@ public:
         if (!slot)
             return {};
         auto connection_info =
-            std::make_shared<detail::connection_info>(this, ++id_);
+            std::make_shared<detail::connection_info>(this, ++next_id_);
         insert_new_slot(new signal::slot(connection_info, std::move(slot)), at);
         return make_connection(std::move(connection_info));
     }
@@ -470,7 +470,7 @@ public:
     friend void swap(signal& left, signal& right) noexcept
     {
         using std::swap;
-        swap(left.id_, right.id_);
+        swap(left.next_id_, right.next_id_);
         swap(left.slots_, right.slots_);
 
         left.rebind();
@@ -604,7 +604,7 @@ private:
     };
 
     slot* slots_{nullptr};
-    int id_{0};
+    int next_id_{0};
 
 private:
     void insert_new_slot(slot* new_slot, connect_position at) noexcept
