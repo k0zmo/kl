@@ -13,23 +13,23 @@ if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
     return()
 endif()
 
-include(kl/DefineBuildType)
+include(DefineBuildType)
 
-define_build_type(ASan
+kl_define_build_type(ASan
     COMPILER_FLAGS "-O1 -g -fsanitize=address -fno-omit-frame-pointer -DNDEBUG"
     LINKER_FLAGS "-fsanitize=address -fuse-ld=gold"
 )
-define_build_type(UBSan
+kl_define_build_type(UBSan
     COMPILER_FLAGS "-O1 -g -fsanitize=undefined -fno-omit-frame-pointer -DNDEBUG"
     LINKER_FLAGS "-fsanitize=undefined"
 )
-define_build_type(TSan
+kl_define_build_type(TSan
     COMPILER_FLAGS "-O1 -g -fsanitize=thread -DNDEBUG"
     LINKER_FLAGS "-fsanitize=thread"
 )
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    define_build_type(MSan
+    kl_define_build_type(MSan
         "-O2 -g -fsanitize=memory -fno-omit-frame-pointer -DNDEBUG"
         "-fsanitize=memory"
     )

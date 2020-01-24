@@ -1,4 +1,4 @@
-function(__define_build_type_impl _name)
+function(__kl_define_build_type_impl _name)
     if(CMAKE_CONFIGURATION_TYPES)
         list(APPEND CMAKE_CONFIGURATION_TYPES ${_name})
         list(REMOVE_DUPLICATES CMAKE_CONFIGURATION_TYPES)
@@ -15,7 +15,7 @@ function(__define_build_type_impl _name)
     endif()
 endfunction()
 
-function(define_build_type _name)
+function(kl_define_build_type _name)
     string(TOUPPER ${_name} uc_name)
 
     set(options "")
@@ -102,5 +102,5 @@ function(define_build_type _name)
         CMAKE_MODULE_LINKER_FLAGS_${uc_name}
     )
 
-    __define_build_type_impl(${_name})
+    __kl_define_build_type_impl(${_name})
 endfunction()

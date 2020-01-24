@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.11)
 project(kl LANGUAGES CXX VERSION 0.1)
 
 # Set CMake modules path
-list(APPEND CMAKE_MODULE_PATH "${kl_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${kl_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 
 include(CMakeDependentOption)
 
@@ -26,9 +26,9 @@ if(kl_master_project)
     # Don't use any extensions (GNU or MSVC)
     set(CMAKE_CXX_EXTENSIONS OFF)
 
-    include(kl/Sanitizers)
+    include(Sanitizers)
 endif()
-include(kl/SourceGroup)
+include(SourceGroup)
 
 find_package(Boost 1.61.0 REQUIRED COMPONENTS)
 

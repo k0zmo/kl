@@ -2,7 +2,7 @@ add_library(kl_cxx_flags INTERFACE)
 target_compile_features(kl_cxx_flags INTERFACE cxx_std_14)
 
 if(KL_DEV_BUILD)
-    include(kl/DevFlags)
+    include(DevFlags)
     target_link_libraries(kl_cxx_flags INTERFACE
         $<BUILD_INTERFACE:kl::dev_flags>
     )
@@ -64,6 +64,6 @@ target_link_libraries(kl
     PRIVATE
         Boost::disable_autolinking
 )
-target_source_group(kl TREE ${kl_SOURCE_DIR})
+kl_source_group(kl TREE ${kl_SOURCE_DIR})
 
 add_library(kl::kl ALIAS kl)
