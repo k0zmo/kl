@@ -28,6 +28,7 @@ if(kl_master_project)
 
     include(kl/Sanitizers)
 endif()
+include(kl/SourceGroup)
 
 find_package(Boost 1.61.0 REQUIRED COMPONENTS)
 

@@ -64,8 +64,6 @@ target_link_libraries(kl
     PRIVATE
         Boost::disable_autolinking
 )
-
-get_target_property(sources_list kl SOURCES)
-source_group(TREE ${kl_SOURCE_DIR} FILES ${sources_list})
+target_source_group(kl TREE ${kl_SOURCE_DIR})
 
 add_library(kl::kl ALIAS kl)

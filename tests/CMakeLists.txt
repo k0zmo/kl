@@ -31,11 +31,9 @@ target_link_libraries(kl-tests PRIVATE
     kl::kl
     Catch2::Catch2
 )
-
-get_target_property(sources_list kl-tests SOURCES)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
+target_source_group(kl-tests 
+    TREE ${CMAKE_CURRENT_SOURCE_DIR}
     PREFIX kl
-    FILES ${sources_list}
 )
 
 foreach(test_file ${test_files})
