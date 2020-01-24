@@ -57,13 +57,33 @@ target_include_directories(kl
 target_link_libraries(kl
     PUBLIC
         Boost::boost
-        rapidjson::rapidjson
         GSL::gsl
-        yaml::yaml-cpp
         kl_cxx_flags
     PRIVATE
         Boost::disable_autolinking
 )
 kl_source_group(kl TREE ${kl_SOURCE_DIR})
 
+add_library(kl-json
+    ${kl_SOURCE_DIR}/include/kl/json.hpp
+    json.cpp
+)
+target_link_libraries(kl-json PUBLIC
+    kl
+    rapidjson::rapidjson
+)
+kl_source_group(kl-json TREE ${kl_SOURCE_DIR})
+
+add_library(kl-yaml
+    ${kl_SOURCE_DIR}/include/kl/yaml.hpp
+    yaml.cpp
+)
+target_link_libraries(kl-yaml PUBLIC
+    kl
+    yaml::yaml-cpp
+)
+kl_source_group(kl-yaml TREE ${kl_SOURCE_DIR})
+
 add_library(kl::kl ALIAS kl)
+add_library(kl::json ALIAS kl-json)
+add_library(kl::yaml ALIAS kl-yaml)

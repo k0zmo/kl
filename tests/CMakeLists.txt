@@ -29,6 +29,8 @@ set(test_files
 target_sources(kl-tests PRIVATE ${test_files} input/typedefs.hpp)
 target_link_libraries(kl-tests PRIVATE
     kl::kl
+    kl::json
+    kl::yaml
     Catch2::Catch2
 )
 kl_source_group(kl-tests 
