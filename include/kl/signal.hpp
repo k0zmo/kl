@@ -430,12 +430,7 @@ public:
             return false;
         });
 
-        if (!emits_)
-        {
-            // No one else is emitting the signal so we can now clean up all
-            // invalidated slots
-            cleanup_invalidated_slots();
-        }
+        cleanup_invalidated_slots();
     }
 
     // Emits signal and sinks signal return values
@@ -447,8 +442,7 @@ public:
             return invoker::call(std::forward<Sink>(sink), s, args...);
         });
 
-        if (!emits_)
-            cleanup_invalidated_slots();
+        cleanup_invalidated_slots();
     }
 
     // Disconnects all slots bound to this signal
@@ -462,6 +456,7 @@ public:
             delete prev;
         }
         slots_ = nullptr;
+        emits_ = 0;
     }
 
     // Retrieves number of slots connected to this signal
@@ -503,15 +498,15 @@ private:
             // that case it would lead to removal of connection (proxy slot
             // keeps the copy) that is invoking this very function.
             iter->invalidate();
-            if (!emits_)
-                cleanup_invalidated_slots();
+            emits_ |= should_cleanup;
+            cleanup_invalidated_slots();
             return;
         }
     }
 
     void rebind() noexcept
     {
-        cleanup_invalidated_slots();
+        cleanup_invalidated_slots_impl();
 
         // Rebind back-pointer to new signal
         for (auto iter = slots_; iter; iter = iter->next)
@@ -566,10 +561,21 @@ private:
         }
     }
 
+    void cleanup_invalidated_slots_impl()
+    {
+        assert(emits_ == 0 || emits_ == should_cleanup);
+        remove_slots_if([](slot& s) { return !s.valid(); });
+    }
+
     void cleanup_invalidated_slots()
     {
-        assert(emits_ == 0);
-        remove_slots_if([](slot& s) { return !s.valid(); });
+        // We can free dead slots only when we're not in the middle of an
+        // emission and also there's anything to cleanup
+        if (emits_ == should_cleanup)
+        {
+            cleanup_invalidated_slots_impl();
+            emits_ = 0;
+        }
     }
 
     int highest_connection_id() const
@@ -635,7 +641,12 @@ private:
 
     slot* slots_{nullptr};
     int next_id_{0};
+    // On most significant bit we store if there are any invalidated slots that
+    // need to be cleanup
     unsigned emits_{0};
+    // If emits_ equals to should_cleanup we know there's no emission in place
+    // and there are invalidated slots
+    static constexpr unsigned should_cleanup = 0x80000000;
 
 private:
     void insert_new_slot(slot* new_slot, connect_position at) noexcept
