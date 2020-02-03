@@ -360,7 +360,9 @@ public:
     signal& operator=(const signal&) = delete;
 
     signal(signal&& other) noexcept
-        : slots_{std::exchange(other.slots_, nullptr)}, next_id_{other.next_id_}
+        : slots_{std::exchange(other.slots_, nullptr)},
+          next_id_{other.next_id_},
+          emits_{other.emits_}
     {
         rebind();
     }
@@ -427,6 +429,13 @@ public:
             s(args...);
             return false;
         });
+
+        if (!emits_)
+        {
+            // No one else is emitting the signal so we can now clean up all
+            // invalidated slots
+            cleanup_invalidated_slots();
+        }
     }
 
     // Emits signal and sinks signal return values
@@ -437,6 +446,9 @@ public:
             using invoker = detail::sink_invoker<return_type>;
             return invoker::call(std::forward<Sink>(sink), s, args...);
         });
+
+        if (!emits_)
+            cleanup_invalidated_slots();
     }
 
     // Disconnects all slots bound to this signal
@@ -472,6 +484,7 @@ public:
         using std::swap;
         swap(left.next_id_, right.next_id_);
         swap(left.slots_, right.slots_);
+        swap(left.emits_, right.emits_);
 
         left.rebind();
         right.rebind();
@@ -482,21 +495,23 @@ private:
     {
         for (auto iter = slots_; iter; iter = iter->next)
         {
-            if (iter->connection_info().id == id)
-            {
-                // We can't delete the node here since we could be in the middle
-                // of signal emission or we are called from extended slot. In
-                // that case it would lead to removal of connection (proxy slot
-                // keeps the copy) that is invoking this very function.
-                iter->invalidate();
-                return;
-            }
+            if (iter->connection_info().id != id)
+                continue;
+
+            // We can't delete the node here since we could be in the middle
+            // of signal emission or we are called from extended slot. In
+            // that case it would lead to removal of connection (proxy slot
+            // keeps the copy) that is invoking this very function.
+            iter->invalidate();
+            if (!emits_)
+                cleanup_invalidated_slots();
+            return;
         }
     }
 
     void rebind() noexcept
     {
-        remove_slots_if([](slot& s) { return !s.valid(); });
+        cleanup_invalidated_slots();
 
         // Rebind back-pointer to new signal
         for (auto iter = slots_; iter; iter = iter->next)
@@ -509,11 +524,19 @@ private:
     template <typename Func>
     void call_each_slot(Func&& func)
     {
-        remove_slots_if([](slot& s) { return !s.prepare(); });
-
-        for (auto iter = slots_; iter; iter = iter->next)
+        struct decrement_op
         {
-            if (!iter->is_blocked() && iter->is_prepared())
+            unsigned& value;
+            ~decrement_op() { --value; }
+        } op{++emits_};
+
+        const auto highest_id = highest_connection_id();
+
+        for (auto iter = slots_;
+             iter && iter->connection_info().id <= highest_id;
+             iter = iter->next)
+        {
+            if (!iter->is_blocked() && iter->valid())
             {
                 if (func(*iter))
                     break;
@@ -543,6 +566,23 @@ private:
         }
     }
 
+    void cleanup_invalidated_slots()
+    {
+        assert(emits_ == 0);
+        remove_slots_if([](slot& s) { return !s.valid(); });
+    }
+
+    int highest_connection_id() const
+    {
+        int ret = -1;
+        for (auto iter = slots_; iter; iter = iter->next)
+        {
+            if (iter->valid() && iter->connection_info().id > ret)
+                ret = iter->connection_info().id;
+        }
+        return ret;
+    }
+
 private:
     class slot final
     {
@@ -567,14 +607,6 @@ private:
             return impl_(args...);
         }
 
-        bool prepare() noexcept
-        {
-            if (!valid())
-                return false;
-            prepared_ = true;
-            return true;
-        }
-
         void invalidate() noexcept { connection_info().parent = nullptr; }
 
         const detail::connection_info& connection_info() const noexcept
@@ -595,16 +627,15 @@ private:
         {
             return connection_info().blocking > 0;
         }
-        bool is_prepared() const noexcept { return valid() && prepared_; }
 
     private:
         std::shared_ptr<detail::connection_info> connection_info_;
         slot_type impl_;
-        bool prepared_{false};
     };
 
     slot* slots_{nullptr};
     int next_id_{0};
+    unsigned emits_{0};
 
 private:
     void insert_new_slot(slot* new_slot, connect_position at) noexcept

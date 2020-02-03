@@ -584,6 +584,107 @@ TEST_CASE("connect/disconnect during signal emission")
             (std::vector<int>{0, 99, 2, 99, 0, 99, 2, 99, 4, 99, 4, 99}));
 }
 
+TEST_CASE("one-time slot connection with a next emission in a handler")
+{
+    kl::signal<void()> s;
+    kl::connection c;
+    int i = 0;
+
+    SECTION("base case")
+    {
+        c = s.connect([&] {
+            c.disconnect();
+            ++i;
+        });
+        s.connect([&] { ++i; });
+        s.connect([&] { ++i; });
+
+        s();
+        CHECK(i == 3);
+        s();
+        CHECK(i == 5);
+    }
+
+    SECTION("emit after disconnect")
+    {
+        bool re_emit = true;
+        c = s.connect([&] {
+            ++i;
+            if (re_emit)
+            {
+                re_emit = false;
+                s();
+            }
+        });
+
+        s.connect([&] { ++i; });
+        s.connect([&] { ++i; });
+
+        s();
+        CHECK(i == 6);
+    }
+
+    SECTION("emit after disconnect")
+    {
+        c = s.connect([&] {
+            c.disconnect();
+            ++i;
+            s();
+        });
+
+        s.connect([&] { ++i; });
+        s.connect([&] { ++i; });
+
+        s();
+        CHECK(i == 5);
+    }
+}
+
+TEST_CASE("add slot to signal during emission")
+{
+    kl::signal<void()> s;
+    kl::connection c;
+    int i = 0;
+
+    SECTION("add at back")
+    {
+        s.connect([&] {
+            ++i;
+            s.connect([&] { ++i; });
+        });
+        s.connect([&] { ++i; });
+        s.connect([&] { ++i; });
+
+        s();
+        CHECK(i == 3);
+
+        s();
+        CHECK(i == 7);
+
+        s();
+        CHECK(i == 12);
+    }
+
+    SECTION("add at front")
+    {
+        s.connect([&] {
+            ++i;
+            s.connect([&] { ++i; }, kl::at_front);
+        });
+        s.connect([&] { ++i; });
+        s.connect([&] { ++i; });
+
+        s();
+        CHECK(i == 3);
+
+        s();
+        CHECK(i == 7);
+
+        s();
+        CHECK(i == 12);
+    }
+}
+
 TEST_CASE("by value vs by const ref")
 {
     using kl::signal;
