@@ -285,8 +285,7 @@ public:
     static bool call(Sink&& sink, const Slot& slot, const Args&... args)
     {
         using is_sink_return_type_void = std::integral_constant<
-            bool, std::is_same<void, std::result_of_t<Sink(
-                                         typename Slot::return_type)>>::value>;
+            bool, std::is_same<void, std::result_of_t<Sink(Ret)>>::value>;
 
         return sink_invoker::call_impl(is_sink_return_type_void{},
                                        std::forward<Sink>(sink), slot, args...);
@@ -486,7 +485,7 @@ public:
     }
 
 private:
-    virtual void disconnect(int id) noexcept override
+    void disconnect(int id) noexcept override
     {
         for (auto iter = slots_; iter; iter = iter->next)
         {
@@ -593,7 +592,6 @@ private:
     class slot final
     {
     public:
-        using return_type = typename signal::return_type;
         slot* next{nullptr};
 
     public:
