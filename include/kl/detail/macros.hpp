@@ -5,17 +5,41 @@
 #include <boost/preprocessor/control/if.hpp>
 #include <boost/preprocessor/punctuation/remove_parens.hpp>
 #include <boost/preprocessor/repetition/repeat.hpp>
+#include <boost/preprocessor/seq/elem.hpp>
+#include <boost/preprocessor/seq/size.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
 #include <boost/preprocessor/tuple/push_back.hpp>
 #include <boost/preprocessor/tuple/size.hpp>
 #include <boost/preprocessor/variadic/to_tuple.hpp>
+#include <boost/preprocessor/variadic/to_seq.hpp>
 
 // Stringize the argument: arg -> "arg"
 #define KL_STRINGIZE(arg_) BOOST_PP_STRINGIZE(arg_)
 
 // Concatenates two identifiers
 #define KL_CONCAT(a_, b_) BOOST_PP_CAT(a_, b_)
+
+// Turns a, b, c into (a)(b)(c)
+#define KL_VARIADIC_TO_SEQ(...) BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)
+
+// Returns the size of the sequence
+#define KL_SEQ_SIZE(seq_) BOOST_PP_SEQ_SIZE(seq_)
+
+// Returns the sequence element of given index
+#define KL_SEQ_ELEM(index_, seq_) BOOST_PP_SEQ_ELEM(index_, seq_)
+
+// Does the for-each for the sequence.
+// Body is a macro invoked with (arg_, tuple_[i])
+#define KL_SEQ_FOR_EACH2(arg_, seq_, body_)                                    \
+    BOOST_PP_REPEAT(KL_SEQ_SIZE(seq_), KL_SEQ_LOOP_INVOKER2,                   \
+                    (arg_)(seq_)(body_))
+
+// seq_macro_ is (arg_)(tuple_)(body_)
+#define KL_SEQ_LOOP_INVOKER2(_, index_, seq_macro_)                            \
+    KL_SEQ_ELEM(2, seq_macro_)                                                 \
+    (KL_SEQ_ELEM(0, seq_macro_),                                               \
+     KL_SEQ_ELEM(index_, KL_SEQ_ELEM(1, seq_macro_)))
 
 // Makes sure arg is a tuple (works for tuples and single arg)
 #define KL_ARG_TO_TUPLE(arg_) (BOOST_PP_REMOVE_PARENS(arg_))
@@ -50,12 +74,14 @@
     BOOST_PP_IF(KL_TUPLE_SIZE_MINUS_ONE(tuple_), tuple_,                       \
                 KL_TUPLE_PUSH_BACK(tuple_, KL_TUPLE_ELEM(0, tuple_)))
 
-// Does the for each for tuple. Body is a macro invoked with (tuple_[i])
+// Does the for -each for the tuple.
+// Body is a macro invoked with (tuple_[i])
 #define KL_TUPLE_FOR_EACH(tuple_, body_)                                       \
     BOOST_PP_REPEAT(KL_TUPLE_SIZE(tuple_), KL_TUPLE_LOOP_INVOKER,              \
                     (tuple_, body_))
 
-// Does the for each for tuple. Body is a macro invoked with (arg_, tuple_[i])
+// Does the for-each for the tuple.
+// Body is a macro invoked with (arg_, tuple_[i])
 #define KL_TUPLE_FOR_EACH2(arg_, tuple_, body_)                                \
     BOOST_PP_REPEAT(KL_TUPLE_SIZE(tuple_), KL_TUPLE_LOOP_INVOKER2,             \
                     (arg_, tuple_, body_))
