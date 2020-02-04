@@ -544,7 +544,10 @@ private:
 template <typename Integral, enable_if<std::is_integral<Integral>> = true>
 Integral from_json(type_t<Integral>, const rapidjson::Value& value)
 {
-    if (!value.IsNumber())
+    const bool is_integral =
+        value.IsNumber() && (value.IsInt() || value.IsUint() ||
+                             value.IsInt64() || value.IsUint64());
+    if (!is_integral)
         throw deserialize_error{"type must be an integral but is " +
                                 json_type_name(value)};
 

@@ -1,7 +1,7 @@
 jobs:
-  - job: ubuntu16_gcc7
+  - job: ubuntu18_gcc7
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-18.04'
     strategy:
       matrix:
         Release: 
@@ -11,9 +11,6 @@ jobs:
         UndefinedBehaviourSanitizer:
           BuildType: UBSan
     steps:
-      - template: templates/install-gcc.yml
-        parameters:
-          version: '7'
       - script: |
           which g++ && g++ --version
           cmake --version
@@ -28,13 +25,13 @@ jobs:
           cd _build && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: ubuntu16_gcc7_coverage
+  - job: ubuntu18_gcc9_coverage
     pool:
-      vmImage: 'ubuntu-16.04'
+      vmImage: 'ubuntu-18.04'
     steps:
       - template: templates/install-gcc.yml
         parameters:
-          version: '7'
+          version: '9'
       - script: |
           which g++ && g++ --version
           cmake --version

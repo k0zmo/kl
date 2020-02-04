@@ -1,33 +1,34 @@
 cmake_minimum_required(VERSION 3.11)
-
-# Determine if kl is build as a subproject (using add_subdirectory)
-# or if it is the master project.
-set(master_project OFF)
-if(NOT DEFINED PROJECT_NAME)
-    set(master_project ON)
-endif()
-
 project(kl LANGUAGES CXX VERSION 0.1)
 
 # Set CMake modules path
-list(APPEND CMAKE_MODULE_PATH "${kl_SOURCE_DIR}/cmake")
+set(CMAKE_MODULE_PATH "${kl_SOURCE_DIR}/cmake;${CMAKE_MODULE_PATH}")
 
 include(CMakeDependentOption)
 
-cmake_dependent_option(KL_TEST "Generate the test target." ON
-    "${master_project}" OFF)
-cmake_dependent_option(KL_DEV_BUILD "Enable compiler flags useful while developing kl." ON
-    "${master_project}" OFF)
-cmake_dependent_option(KL_USE_OPENCPPCOVERAGE "Use OpenCppCoverage to calculate code coverage." OFF
-    "${master_project}" OFF)
+# Determine if kl is build as a subproject (using add_subdirectory)
+# or if it is the master project.
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    set(kl_master_project ON)
+else()
+    set(kl_master_project OFF)
+endif()
 
-if(master_project)
+cmake_dependent_option(KL_TEST "Generate the test target." ON
+    "${kl_master_project}" OFF)
+cmake_dependent_option(KL_DEV_BUILD "Enable compiler flags useful while developing kl." ON
+    "${kl_master_project}" OFF)
+cmake_dependent_option(KL_USE_OPENCPPCOVERAGE "Use OpenCppCoverage to calculate code coverage." OFF
+    "${kl_master_project}" OFF)
+
+if(kl_master_project)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     # Don't use any extensions (GNU or MSVC)
     set(CMAKE_CXX_EXTENSIONS OFF)
 
-    include(kl/Sanitizers)
+    include(Sanitizers)
 endif()
+include(SourceGroup)
 
 find_package(Boost 1.61.0 REQUIRED COMPONENTS)
 

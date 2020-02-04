@@ -459,6 +459,13 @@ tup:
         REQUIRE(!obj.opt);
     }
 
+    SECTION("deserialize floating-point number to int")
+    {
+        auto y = R"(3.0)"_yaml;
+        REQUIRE_THROWS_WITH(yaml::deserialize<int>(y),
+                            "yaml-cpp: error at line 1, column 1: bad conversion");
+    }
+
     SECTION("deserialize to struct from an array - type mismatch")
     {
         auto y = "[3,QWE]"_yaml;

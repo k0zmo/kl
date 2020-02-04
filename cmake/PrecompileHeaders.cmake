@@ -1,4 +1,4 @@
-function(__filter_source_files_pch _target _excluded _out)
+function(__kl_filter_source_files_pch _target _excluded _out)
     get_target_property(source_files ${_target} SOURCES)
     foreach(source_file IN ITEMS ${source_files})
         get_source_file_property(is_header ${source_file} HEADER_FILE_ONLY)
@@ -20,7 +20,7 @@ function(__filter_source_files_pch _target _excluded _out)
     set(${_out} ${out} PARENT_SCOPE)
 endfunction()
 
-function(target_precompile_headers _target)
+function(kl_precompile_headers _target)
     set(enabled_option_name ${PROJECT_NAME}_USE_PRECOMPILED_HEADER)
     string(TOUPPER ${enabled_option_name} enabled_option_name)
 
@@ -36,11 +36,11 @@ function(target_precompile_headers _target)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT arg_PREFIX_FILE AND NOT arg_HEADERS)
-        message(FATAL_ERROR "No PREFIX_FILE or HEADERS specified in target_precompile_headers(${_target})")
+        message(FATAL_ERROR "No PREFIX_FILE or HEADERS specified in kl_precompile_headers(${_target})")
     endif()
 
     if(arg_PREFIX_FILE AND arg_HEADERS)
-        message(FATAL_ERROR "Specify either PREFIX_FILE or HEADERS but not both in target_precompile_headers(${_target})")
+        message(FATAL_ERROR "Specify either PREFIX_FILE or HEADERS but not both in kl_precompile_headers(${_target})")
     endif()
 
     if(arg_HEADERS)
@@ -82,7 +82,7 @@ function(target_precompile_headers _target)
             /Zm170
         )
 
-        __filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
+        __kl_filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
         foreach(source_file IN ITEMS ${source_files})
             set_property(SOURCE ${source_file}
                 APPEND_STRING PROPERTY COMPILE_OPTIONS ";${source_file_flags};"
@@ -162,7 +162,7 @@ function(target_precompile_headers _target)
         add_dependencies(${_target}.pch-symlink ${_target}.pch)
 
         # Finally, append proper compile flags for each not-excluded source file
-        __filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
+        __kl_filter_source_files_pch(${_target} "${arg_EXCLUDE}" source_files)
         foreach(source_file IN ITEMS ${source_files})
             set_property(SOURCE ${source_file}
                 APPEND_STRING PROPERTY COMPILE_OPTIONS ";-include;${host_file_native};-Winvalid-pch;"

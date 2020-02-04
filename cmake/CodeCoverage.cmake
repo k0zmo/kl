@@ -1,6 +1,6 @@
 # CodeCoverage
 #
-#   add_coverage_target_lcov(<target_name>
+#   kl_add_coverage_target_lcov(<target_name>
 #       COMMAND <runner>
 #       [OUTPUT_NAME <output_name>]
 #       [BRANCHES]
@@ -8,7 +8,7 @@
 #       [ARGS <arg>...]
 #   )
 #
-#   add_coverage_target_gcovr(<target_name>
+#   kl_add_coverage_target_gcovr(<target_name>
 #       COMMAND <runner>
 #       [OUTPUT_NAME <output_name>]
 #       [XML]
@@ -21,9 +21,9 @@
 #   # Executable under the coverage test
 #   add_executable(sample-tests all-tests.cpp)
 #   # ...
-#   include(kl/CodeCoverage)
+#   include(CodeCoverage)
 #   if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
-#       add_coverage_target_lcov(sample-coverage
+#       kl_add_coverage_target_lcov(sample-coverage
 #           COMMAND sample-tests # Or ${CMAKE_CTEST_EXECUTABLE}
 #           OUTPUT_NAME coverage
 #           BRANCHES
@@ -33,7 +33,7 @@
 #       )
 #   endif()
 
-macro(ignore_errors_call _out)
+macro(kl_ignore_errors_call _out)
     if(WIN32)
         find_program(TRUE_EXECUTABLE true)
         mark_as_advanced(TRUE_EXECUTABLE)
@@ -47,7 +47,7 @@ macro(ignore_errors_call _out)
     endif()
 endmacro()
 
-function(add_coverage_target_lcov _target)
+function(kl_add_coverage_target_lcov _target)
     find_program(LCOV_EXECUTABLE lcov)
     mark_as_advanced(LCOV_EXECUTABLE)
     if(NOT LCOV_EXECUTABLE)
@@ -66,7 +66,7 @@ function(add_coverage_target_lcov _target)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT arg_COMMAND)
-        message(FATAL_ERROR "No COMMAND specified in add_coverage_target_lcov(${_target})")
+        message(FATAL_ERROR "No COMMAND specified in kl_add_coverage_target_lcov(${_target})")
     endif()
 
     set(output_name ${_target})
@@ -83,7 +83,7 @@ function(add_coverage_target_lcov _target)
     endif()
 
     if(arg_IGNORE_COMMAND_ERRORS)
-        ignore_errors_call(ignore_errors)
+        kl_ignore_errors_call(ignore_errors)
     endif()
 
     list(APPEND cmd COMMAND ${LCOV_EXECUTABLE} -q --zerocounters --directory .)
@@ -125,7 +125,7 @@ function(add_coverage_target_lcov _target)
     )
 endfunction()
 
-function(add_coverage_target_gcovr _target)
+function(kl_add_coverage_target_gcovr _target)
     find_program(GCOVR_EXECUTABLE gcovr)
     mark_as_advanced(GCOVR_EXECUTABLE)
     if(NOT GCOVR_EXECUTABLE)
@@ -138,7 +138,7 @@ function(add_coverage_target_gcovr _target)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT arg_COMMAND)
-        message(FATAL_ERROR "No COMMAND specified in add_coverage_target_gcovr(${_target})")
+        message(FATAL_ERROR "No COMMAND specified in kl_add_coverage_target_gcovr(${_target})")
     endif()
 
     set(output_name ${_target})
@@ -196,7 +196,7 @@ function(add_coverage_target_gcovr _target)
     endif()
 
     if(arg_IGNORE_COMMAND_ERRORS)
-        ignore_errors_call(ignore_errors)
+        kl_ignore_errors_call(ignore_errors)
     endif()
 
     list(APPEND cmd COMMAND ${arg_COMMAND} ${arg_ARGS} ${ignore_errors})
@@ -221,7 +221,7 @@ function(add_coverage_target_gcovr _target)
     )
 endfunction()
 
-function(add_coverage_target_occ _target)
+function(kl_add_coverage_target_occ _target)
     find_program(OPEN_CPP_COVERAGE_EXECUTABLE OpenCppCoverage)
     mark_as_advanced(OPEN_CPP_COVERAGE_EXECUTABLE)
     if(NOT OPEN_CPP_COVERAGE_EXECUTABLE)
@@ -234,7 +234,7 @@ function(add_coverage_target_occ _target)
     cmake_parse_arguments(arg "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
     if(NOT arg_RUNNER)
-        message(FATAL_ERROR "No RUNNER specified in add_coverage_target_occ(${_target})")
+        message(FATAL_ERROR "No RUNNER specified in kl_add_coverage_target_occ(${_target})")
     endif()
 
     if(arg_FILTERS)
@@ -267,7 +267,7 @@ function(add_coverage_target_occ _target)
     endif()
 
     if(arg_IGNORE_RUNNER_ERRORS)
-        ignore_errors_call(ignore_errors)
+        kl_ignore_errors_call(ignore_errors)
         if(MSVC_IDE)
             # MSBuild parses process stdout and stderr and looks for 'error:' which is common when tests fail
             set(ignore_errors ">NUL;2>NUL;${ignore_errors}")
@@ -290,8 +290,8 @@ if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
    NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
     message(STATUS "No coverage build type for compiler: ${CMAKE_CXX_COMPILER_ID}")
 else()
-    include(kl/DefineBuildType)
-    define_build_type(Coverage
+    include(DefineBuildType)
+    kl_define_build_type(Coverage
         BASE Debug
         COMPILER_FLAGS "--coverage"
     )

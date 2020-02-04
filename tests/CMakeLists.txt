@@ -29,14 +29,15 @@ set(test_files
 target_sources(kl-tests PRIVATE ${test_files} input/typedefs.hpp)
 target_link_libraries(kl-tests PRIVATE
     kl::kl
+    kl::json
+    kl::yaml
     Catch2::Catch2
 )
-
-get_target_property(sources_list kl-tests SOURCES)
-source_group(TREE ${CMAKE_CURRENT_SOURCE_DIR}
+kl_source_group(kl-tests
+    TREE ${CMAKE_CURRENT_SOURCE_DIR}
     PREFIX kl
-    FILES ${sources_list}
 )
+set_target_properties(kl-tests PROPERTIES FOLDER kl.tests)
 
 foreach(test_file ${test_files})
     get_filename_component(no_ext ${test_file} NAME_WE)
@@ -47,22 +48,22 @@ foreach(test_file ${test_files})
 endforeach()
 
 # Add kl-coverage target for calculating test coverage
-include(kl/CodeCoverage)
+include(CodeCoverage)
 if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
-    add_coverage_target_lcov(kl-coverage
+    kl_add_coverage_target_lcov(kl-coverage
         COMMAND kl-tests
         FILTERS
             '${kl_SOURCE_DIR}/src/*'
             '${kl_SOURCE_DIR}/include/*'
     )
-    # add_coverage_target_gcovr(kl-coverage
+    # kl_add_coverage_target_gcovr(kl-coverage
     #     COMMAND kl-tests
     #     FILTERS
     #        ${kl_SOURCE_DIR}/src/
     #        ${kl_SOURCE_DIR}/include/
     # )
 elseif(KL_USE_OPENCPPCOVERAGE)
-    add_coverage_target_occ(kl-coverage
+    kl_add_coverage_target_occ(kl-coverage
         RUNNER kl-tests
         FILTERS
             ${kl_SOURCE_DIR}/src
@@ -70,8 +71,8 @@ elseif(KL_USE_OPENCPPCOVERAGE)
     )
 endif()
 
-include(kl/PrecompileHeaders)
-target_precompile_headers(kl-tests
+include(PrecompileHeaders)
+kl_precompile_headers(kl-tests
     HEADERS
         string
         vector
