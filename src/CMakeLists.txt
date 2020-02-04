@@ -63,6 +63,7 @@ target_link_libraries(kl
         Boost::disable_autolinking
 )
 kl_source_group(kl TREE ${kl_SOURCE_DIR})
+set_target_properties(kl PROPERTIES FOLDER kl)
 
 add_library(kl-json
     ${kl_SOURCE_DIR}/include/kl/json.hpp
@@ -73,6 +74,7 @@ target_link_libraries(kl-json PUBLIC
     rapidjson::rapidjson
 )
 kl_source_group(kl-json TREE ${kl_SOURCE_DIR})
+set_target_properties(kl-json PROPERTIES FOLDER kl)
 
 add_library(kl-yaml
     ${kl_SOURCE_DIR}/include/kl/yaml.hpp
@@ -83,6 +85,7 @@ target_link_libraries(kl-yaml PUBLIC
     yaml::yaml-cpp
 )
 kl_source_group(kl-yaml TREE ${kl_SOURCE_DIR})
+set_target_properties(kl-yaml PROPERTIES FOLDER kl)
 
 add_library(kl::kl ALIAS kl)
 add_library(kl::json ALIAS kl-json)

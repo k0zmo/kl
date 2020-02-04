@@ -33,10 +33,11 @@ target_link_libraries(kl-tests PRIVATE
     kl::yaml
     Catch2::Catch2
 )
-kl_source_group(kl-tests 
+kl_source_group(kl-tests
     TREE ${CMAKE_CURRENT_SOURCE_DIR}
     PREFIX kl
 )
+set_target_properties(kl-tests PROPERTIES FOLDER kl.tests)
 
 foreach(test_file ${test_files})
     get_filename_component(no_ext ${test_file} NAME_WE)
