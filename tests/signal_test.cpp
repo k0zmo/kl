@@ -777,3 +777,27 @@ TEST_CASE("make_slot and KL_SLOT macro inside class contructor")
     REQUIRE(c.cnt == 2);
 #endif
 }
+
+TEST_CASE("disconnect all slots during emission")
+{
+    kl::signal<void()> s;
+    kl::connection c1;
+    kl::connection c2;
+    int i = 0;
+
+    SECTION("add at back")
+    {
+        auto callback = [&] {
+            s.disconnect_all_slots();
+            ++i;
+        };
+        c1 = s.connect(callback);
+        c2 = s.connect(callback);
+
+        s();
+        CHECK(i == 1);
+
+        s();
+        CHECK(i == 1);
+    }
+}
