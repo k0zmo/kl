@@ -33,12 +33,12 @@ private:
 
 struct connection_info final
 {
-    connection_info(signal_base* parent, int id) noexcept
-        : parent{parent}, id{id}
+    connection_info(signal_base* sender, int id) noexcept
+        : sender{sender}, id{id}
     {
     }
 
-    signal_base* parent;
+    signal_base* sender;
     const int id;
     unsigned blocking{0};
 };
@@ -84,12 +84,12 @@ public:
     {
         if (!connected())
             return;
-        impl_->parent->disconnect(impl_->id);
+        impl_->sender->disconnect(impl_->id);
         impl_ = nullptr;
     }
 
     // Returns true if connection is valid
-    bool connected() const { return impl_ && impl_->parent; }
+    bool connected() const { return impl_ && impl_->sender; }
 
     size_t hash() const noexcept
     {
@@ -508,8 +508,8 @@ private:
         // Rebind back-pointer to new signal
         for (auto iter = slots_; iter; iter = iter->next)
         {
-            assert(iter->connection_info().parent);
-            iter->connection_info().parent = this;
+            assert(iter->connection_info().sender);
+            iter->connection_info().sender = this;
         }
     }
 
@@ -605,7 +605,7 @@ private:
             return impl_(args...);
         }
 
-        void invalidate() noexcept { connection_info().parent = nullptr; }
+        void invalidate() noexcept { connection_info().sender = nullptr; }
 
         const detail::connection_info& connection_info() const noexcept
         {
@@ -619,7 +619,7 @@ private:
 
         bool valid() const noexcept
         {
-            return connection_info().parent != nullptr;
+            return connection_info().sender != nullptr;
         }
         bool is_blocked() const noexcept
         {
