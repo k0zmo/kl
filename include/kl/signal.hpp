@@ -447,15 +447,13 @@ public:
     // Disconnects all slots bound to this signal
     void disconnect_all_slots() noexcept
     {
-        for (auto iter = slots_; iter;)
+        for (auto iter = slots_; iter; iter = iter->next)
         {
             iter->invalidate();
-            auto prev = iter;
-            iter = iter->next;
-            delete prev;
+            emits_ |= should_cleanup;
         }
-        slots_ = nullptr;
-        emits_ = 0;
+
+        cleanup_invalidated_slots();
     }
 
     // Retrieves number of slots connected to this signal
@@ -538,15 +536,17 @@ private:
         }
     }
 
-    template <typename Pred>
-    void remove_slots_if(Pred&& pred) noexcept
+    void cleanup_invalidated_slots_impl()
     {
-        for (auto iter = slots_, prev = slots_; iter;)
+        assert(emits_ == 0 || emits_ == should_cleanup);
+
+        for (slot *iter = slots_, *prev = nullptr; iter;)
         {
-            if (pred(*iter))
+            if (!iter->valid())
             {
                 auto next = iter->next;
-                prev->next = next;
+                if (prev)
+                    prev->next = next;
                 if (slots_ == iter)
                     slots_ = next;
                 delete iter;
@@ -558,12 +558,6 @@ private:
                 iter = iter->next;
             }
         }
-    }
-
-    void cleanup_invalidated_slots_impl()
-    {
-        assert(emits_ == 0 || emits_ == should_cleanup);
-        remove_slots_if([](slot& s) { return !s.valid(); });
     }
 
     void cleanup_invalidated_slots()

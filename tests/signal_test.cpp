@@ -781,23 +781,35 @@ TEST_CASE("make_slot and KL_SLOT macro inside class contructor")
 TEST_CASE("disconnect all slots during emission")
 {
     kl::signal<void()> s;
-    kl::connection c1;
-    kl::connection c2;
     int i = 0;
 
-    SECTION("add at back")
+    SECTION("disconnect on first slot")
     {
         auto callback = [&] {
             s.disconnect_all_slots();
             ++i;
         };
-        c1 = s.connect(callback);
-        c2 = s.connect(callback);
+        s.connect(callback);
+        s.connect(callback);
 
         s();
         CHECK(i == 1);
 
         s();
         CHECK(i == 1);
+    }
+
+    SECTION("disconnect in the middle")
+    {
+        s.connect([&] { ++i; });
+        s.connect([&] { ++i; s.disconnect_all_slots(); });
+        s.connect([&] { ++i; });
+
+        s();
+        CHECK(i == 2);
+        CHECK(s.num_slots() == 0);
+
+        s();
+        CHECK(i == 2);
     }
 }
