@@ -61,7 +61,7 @@ public:
 };
 
 // Transforms tuple of dereferencable to tuple of references:
-//   tuple<int*, boost::optional<double>, std::vector<short>::const_iterator> ->
+//   tuple<int*, std::optional<double>, std::vector<short>::const_iterator> ->
 //   tuple<int&, double&, const short&>
 struct transform_ref_fn
 {
@@ -87,7 +87,7 @@ public:
 };
 
 // Transforms tuple of dereferencable to tuple of dereferenced values:
-//   tuple<int*, boost::optional<double>, std::vector<short>::const_iterator> ->
+//   tuple<int*, std::optional<double>, std::vector<short>::const_iterator> ->
 //   tuple<int, double, short>
 struct transform_deref_fn
 {

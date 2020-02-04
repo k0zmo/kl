@@ -72,14 +72,14 @@ struct table_initializer
 bool is_base64(byte b) { return b <= 0x3F; }
 } // namespace
 
-boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
+std::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
 {
     // Invert lookup table used for encoding
     static base64_lut table = {};
     static table_initializer _{table};
     auto lookup = [](char index) { return table[static_cast<size_t>(index)]; };
 
-    boost::optional<std::vector<byte>> ret;
+    std::optional<std::vector<byte>> ret;
 
     if ((str.length() / 4) * 4 != str.length())
         return ret;
@@ -116,7 +116,7 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
             !is_base64(lut4[2]) ||
             !is_base64(lut4[3]))
         {
-            ret = boost::none;
+            ret = std::nullopt;
             return ret;
         }
 
@@ -132,7 +132,7 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
         if (!is_base64(lookup(src[0])) ||
             !is_base64(lookup(src[1])))
         {
-            ret = boost::none;
+            ret = std::nullopt;
             return ret;
         }
 
@@ -144,7 +144,7 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
             !is_base64(lookup(src[1])) ||
             !is_base64(lookup(src[2])))
         {
-            ret = boost::none;
+            ret = std::nullopt;
             return ret;
         }
 

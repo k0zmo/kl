@@ -81,13 +81,11 @@ TEST_CASE("enum_reflector")
 
         SECTION("from_string")
         {
-            REQUIRE(!!reflector::from_string("read_write"));
-            REQUIRE(reflector::from_string("read_write").get() ==
+            REQUIRE(reflector::from_string("read_write").value() ==
                     access_mode::read_write);
 
             REQUIRE(!reflector::from_string("read_writ"));
-            REQUIRE(!!reflector::from_string("max"));
-            REQUIRE(reflector::from_string("max").get() == access_mode::max);
+            REQUIRE(reflector::from_string("max").value() == access_mode::max);
         }
 
         auto values = reflector::values();
@@ -124,8 +122,7 @@ TEST_CASE("enum_reflector")
 
         SECTION("from_string")
         {
-            REQUIRE(!!refl.from_string("ycrcb"));
-            REQUIRE(refl.from_string("ycrcb").get() ==
+            REQUIRE(refl.from_string("ycrcb").value() ==
                     ns::inner::colour_space::ycrcb);
         }
 
@@ -160,12 +157,10 @@ TEST_CASE("enum_reflector")
 
         SECTION("from_string")
         {
-            REQUIRE(reflector::from_string("PREFIX_TWO"));
-            REQUIRE(reflector::from_string("PREFIX_TWO").get() == prefix_two);
+            REQUIRE(reflector::from_string("PREFIX_TWO").value() == prefix_two);
 
             gsl::cstring_span<> str{"PREFIX_TWO bla bla"};
-            REQUIRE(reflector::from_string(str.subspan(0, 10)));
-            REQUIRE(reflector::from_string(str.subspan(0, 10)).get() ==
+            REQUIRE(reflector::from_string(str.subspan(0, 10)).value() ==
                     prefix_two);
         }
 
@@ -184,8 +179,7 @@ TEST_CASE("enum_reflector")
         CHECK(kl::to_string(prefix_one) == "prefix_one"s);
         CHECK(kl::to_string(ns::inner::colour_space::rgb) == "rgb"s);
 
-        REQUIRE(!!kl::from_string<access_mode>("read_write"));
-        CHECK(kl::from_string<access_mode>("read_write").get() ==
+        CHECK(kl::from_string<access_mode>("read_write").value() ==
               access_mode::read_write);
     }
 }

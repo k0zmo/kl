@@ -40,29 +40,18 @@ TEST_CASE("base64")
 
     SECTION("decode")
     {
-        REQUIRE(!!base64_decode("SGVsbG8="));
-        REQUIRE(base64_decode("SGVsbG8=").get() == as_vector("Hello"));
-
-        REQUIRE(!!base64_decode("SGVsbG8g"));
-        REQUIRE(base64_decode("SGVsbG8g").get() == as_vector("Hello "));
-
-        REQUIRE(!!base64_decode("SGVsbG8gVw=="));
-        REQUIRE(base64_decode("SGVsbG8gVw==").get() == as_vector("Hello W"));
-
-        REQUIRE(!!base64_decode("SGVsbG8gV28="));
-        REQUIRE(base64_decode("SGVsbG8gV28=").get() == as_vector("Hello Wo"));
-
-        REQUIRE(!!base64_decode("SGVsbG8gV29y"));
-        REQUIRE(base64_decode("SGVsbG8gV29y").get() == as_vector("Hello Wor"));
-
-        REQUIRE(!!base64_decode("SGVsbG8gV29ybA=="));
-        REQUIRE(base64_decode("SGVsbG8gV29ybA==").get() == as_vector("Hello Worl"));
-
-        REQUIRE(!!base64_decode("SGVsbG8gV29ybGQ="));
-        REQUIRE(base64_decode("SGVsbG8gV29ybGQ=").get() == as_vector("Hello World"));
-
-        REQUIRE(!!base64_decode("SGVsbG8gV29ybGQh"));
-        REQUIRE(base64_decode("SGVsbG8gV29ybGQh").get() == as_vector("Hello World!"));
+        REQUIRE(base64_decode("SGVsbG8=").value() == as_vector("Hello"));
+        REQUIRE(base64_decode("SGVsbG8g").value() == as_vector("Hello "));
+        REQUIRE(base64_decode("SGVsbG8gVw==").value() == as_vector("Hello W"));
+        REQUIRE(base64_decode("SGVsbG8gV28=").value() == as_vector("Hello Wo"));
+        REQUIRE(base64_decode("SGVsbG8gV29y").value() ==
+                as_vector("Hello Wor"));
+        REQUIRE(base64_decode("SGVsbG8gV29ybA==").value() ==
+                as_vector("Hello Worl"));
+        REQUIRE(base64_decode("SGVsbG8gV29ybGQ=").value() ==
+                as_vector("Hello World"));
+        REQUIRE(base64_decode("SGVsbG8gV29ybGQh").value() ==
+                as_vector("Hello World!"));
     }
 
     SECTION("range>127")
@@ -74,8 +63,8 @@ TEST_CASE("base64")
         auto sps_decoded = base64_decode(sps);
         auto pps_decoded = base64_decode(pps);
 
-        REQUIRE(base64_encode(sps_decoded.get()) == sps);
-        REQUIRE(base64_encode(pps_decoded.get()) == pps);
+        REQUIRE(base64_encode(sps_decoded.value()) == sps);
+        REQUIRE(base64_encode(pps_decoded.value()) == pps);
     }
 
     SECTION("malformed")

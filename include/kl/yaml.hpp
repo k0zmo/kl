@@ -7,9 +7,9 @@
 #include "kl/tuple.hpp"
 #include "kl/utility.hpp"
 
-#include <boost/optional.hpp>
 #include <yaml-cpp/yaml.h>
 
+#include <optional>
 #include <exception>
 #include <string>
 
@@ -28,7 +28,7 @@ template <typename T>
 bool is_null_value(const T& value) { return false; }
 
 template <typename T>
-bool is_null_value(const boost::optional<T>& value) { return !value; }
+bool is_null_value(const std::optional<T>& value) { return !value; }
 
 class dump_context
 {
@@ -264,7 +264,7 @@ void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 }
 
 template <typename T, typename Context>
-void encode(const boost::optional<T>& opt, Context& ctx)
+void encode(const std::optional<T>& opt, Context& ctx)
 {
     if (!opt)
         ctx.emitter() << YAML::Null;
@@ -388,7 +388,7 @@ YAML::Node to_yaml(const std::tuple<Ts...>& tuple, Context& ctx)
 }
 
 template <typename T, typename Context>
-YAML::Node to_yaml(const boost::optional<T>& opt, Context& ctx)
+YAML::Node to_yaml(const std::optional<T>& opt, Context& ctx)
 {
     if (opt)
         return yaml::serialize(*opt, ctx);
@@ -591,7 +591,7 @@ Enum enum_from_yaml(const YAML::Node& value,
         throw deserialize_error{"type must be a scalar but is " +
                                 yaml_type_name(value)};
     if (auto enum_value = kl::from_string<Enum>(value.Scalar()))
-        return enum_value.get();
+        return *enum_value;
     throw deserialize_error{"invalid enum value: " + value.Scalar()};
 }
 
@@ -646,8 +646,7 @@ std::tuple<Ts...> from_yaml(type_t<std::tuple<Ts...>>, const YAML::Node& value)
 }
 
 template <typename T>
-boost::optional<T> from_yaml(type_t<boost::optional<T>>,
-                             const YAML::Node& value)
+std::optional<T> from_yaml(type_t<std::optional<T>>, const YAML::Node& value)
 {
     if (!value || value.IsNull())
         return {};

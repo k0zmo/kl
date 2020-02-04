@@ -3,13 +3,12 @@
 #include "kl/type_traits.hpp"
 #include "kl/describe_enum.hpp"
 
-#include <boost/optional/optional.hpp>
-
 #include <gsl/string_span>
 
 #include <type_traits>
 #include <cstring>
 #include <array>
+#include <optional>
 
 namespace kl {
 
@@ -57,7 +56,7 @@ struct enum_reflector
     }
 
     // Could be constexpr with std optional and string_view
-    static boost::optional<enum_type>
+    static std::optional<enum_type>
         from_string(gsl::cstring_span<> str) noexcept
     {
         for (const auto& vn : describe_enum(enum_type{}))
@@ -69,7 +68,7 @@ struct enum_reflector
                 return {vn.value};
             }
         }
-        return boost::none;
+        return std::nullopt;
     }
 
     static constexpr const char* to_string(enum_type value) noexcept
@@ -126,7 +125,7 @@ const char* to_string(Enum e) noexcept
 }
 
 template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
-boost::optional<Enum> from_string(gsl::cstring_span<> str) noexcept
+std::optional<Enum> from_string(gsl::cstring_span<> str) noexcept
 {
     return enum_reflector<Enum>::from_string(str);
 }

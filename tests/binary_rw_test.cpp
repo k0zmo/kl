@@ -8,10 +8,10 @@
 #include "kl/binary_rw/vector.hpp"
 
 #include <catch2/catch.hpp>
-#include <boost/optional/optional_io.hpp>
 #include <gsl/string_span>
 
 #include <cstring>
+#include <optional>
 
 TEST_CASE("binary_reader")
 {
@@ -179,7 +179,7 @@ TEST_CASE("binary_reader - optional")
     SECTION("empty buffer")
     {
         binary_reader r{gsl::span<const byte>{}};
-        auto ret = r.read<boost::optional<int>>();
+        auto ret = r.read<std::optional<int>>();
         REQUIRE(r.err());
     }
 
@@ -188,7 +188,7 @@ TEST_CASE("binary_reader - optional")
         std::array<byte, 1> buf = {0};
         binary_reader r{buf};
 
-        auto ret = r.read<boost::optional<int>>();
+        auto ret = r.read<std::optional<int>>();
         REQUIRE(!ret);
         REQUIRE(!r.err());
     }
@@ -198,7 +198,7 @@ TEST_CASE("binary_reader - optional")
         std::array<byte, 2> buf = {1, 0};
         binary_reader r{buf};
 
-        auto ret = r.read<boost::optional<int>>();
+        auto ret = r.read<std::optional<int>>();
         REQUIRE(r.err());
     }
 
@@ -207,7 +207,7 @@ TEST_CASE("binary_reader - optional")
         std::array<byte, 1 + 4 + 1> buf = {1, 1, 0, 0, 0, '!'};
         binary_reader r{buf};
 
-        auto ret = r.read<boost::optional<std::string>>();
+        auto ret = r.read<std::optional<std::string>>();
         REQUIRE(!r.err());
         REQUIRE(ret);
         REQUIRE(*ret == "!");
@@ -600,7 +600,7 @@ TEST_CASE("binary_writer - optional")
     SECTION("empty buffer")
     {
         binary_writer w{gsl::span<byte>{}};
-        w << boost::optional<int>{44};
+        w << std::optional<int>{44};
         REQUIRE(w.err());
     }
 
@@ -609,7 +609,7 @@ TEST_CASE("binary_writer - optional")
         std::array<byte, 2> buf{};
         binary_writer w{buf};
 
-        w << boost::optional<int>{32};
+        w << std::optional<int>{32};
         REQUIRE(w.err());
         REQUIRE(w.pos() == 1);
         REQUIRE(buf[0] == 1);
@@ -620,7 +620,7 @@ TEST_CASE("binary_writer - optional")
         std::array<byte, 1> buf{};
         binary_writer w{buf};
 
-        w << boost::optional<int>{};
+        w << std::optional<int>{};
         REQUIRE(!w.err());
         REQUIRE(w.empty());
         REQUIRE(buf[0] == 0);
@@ -631,13 +631,13 @@ TEST_CASE("binary_writer - optional")
         std::array<byte, 7> buf{};
         binary_writer w{buf};
 
-        w << boost::optional<std::string>{"!?"};
+        w << std::optional<std::string>{"!?"};
         REQUIRE(!w.err());
         REQUIRE(w.empty());
 
         binary_reader r{buf};
         REQUIRE("!?" ==
-                r.read<boost::optional<std::string>>().get_value_or("ZZ"));
+                r.read<std::optional<std::string>>().value_or("ZZ"));
         REQUIRE(r.left() == 0);
     }
 }

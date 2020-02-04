@@ -4,17 +4,17 @@
 #include "kl/describe_enum.hpp"
 #include "kl/enum_flags.hpp"
 
-#include <boost/optional/optional.hpp>
 
 #include <vector>
 #include <map>
 #include <string>
+#include <optional>
 #include <chrono>
 
 struct optional_test
 {
     int non_opt;
-    boost::optional<int> opt;
+    std::optional<int> opt;
 };
 KL_DESCRIBE_FIELDS(optional_test, non_opt, opt)
 
@@ -72,7 +72,7 @@ struct test_t
     std::string hello = "world";
     bool t = true;
     bool f = false;
-    boost::optional<int> n;
+    std::optional<int> n;
     int i = 123;
     float pi = 3.1416f;
     std::vector<int> a = {1, 2, 3, 4};

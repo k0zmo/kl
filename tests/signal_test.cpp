@@ -1,11 +1,10 @@
 #include "kl/signal.hpp"
 
 #include <catch2/catch.hpp>
-#include <boost/optional.hpp>
-#include <boost/optional/optional_io.hpp>
 
 #include <vector>
 #include <memory>
+#include <optional>
 
 namespace test {
 
@@ -446,10 +445,10 @@ TEST_CASE("signal combiners")
 
     SECTION("optional last value")
     {
-        // The default combiner returns a boost::optional containing the return
+        // The default combiner returns a std::optional containing the return
         // value of the last slot in the slot list, in this case the
         // difference function.
-        boost::optional<float> srv;
+        std::optional<float> srv;
         sig(5, 3, [&](float v) { srv = v; });
         REQUIRE(srv);
         REQUIRE(*srv == 2);

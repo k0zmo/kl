@@ -4,7 +4,6 @@
 #include "input/typedefs.hpp"
 
 #include <catch2/catch.hpp>
-#include <boost/optional/optional_io.hpp>
 
 #include <string>
 #include <vector>
@@ -14,6 +13,7 @@
 #include <deque>
 #include <list>
 #include <map>
+#include <optional>
 
 TEST_CASE("yaml")
 {
@@ -488,18 +488,18 @@ tup:
     SECTION("optional<string>")
     {
         auto y = "~"_yaml;
-        auto a = yaml::deserialize<boost::optional<std::string>>(y);
+        auto a = yaml::deserialize<std::optional<std::string>>(y);
         REQUIRE(!a);
 
         y = "asd"_yaml;
-        auto b = yaml::deserialize<boost::optional<std::string>>(y);
+        auto b = yaml::deserialize<std::optional<std::string>>(y);
         REQUIRE(b);
-        REQUIRE(b.get() == "asd");
+        REQUIRE(b.value() == "asd");
     }
 
     SECTION("tuple with tail optionals")
     {
-        using tuple_t = std::tuple<int, bool, boost::optional<std::string>>;
+        using tuple_t = std::tuple<int, bool, std::optional<std::string>>;
 
         auto y = "[4]"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<tuple_t>(y),
@@ -509,7 +509,7 @@ tup:
         auto t = yaml::deserialize<tuple_t>(y);
         REQUIRE(std::get<0>(t) == 4);
         REQUIRE(std::get<1>(t));
-        REQUIRE(!std::get<2>(t).is_initialized());
+        REQUIRE(!std::get<2>(t).has_value());
     }
 
     SECTION("to std containers")
