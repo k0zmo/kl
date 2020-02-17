@@ -36,22 +36,22 @@ public:
 
     constexpr enum_flags operator~() const noexcept
     {
-        return enum_flags(~value_);
+        return enum_flags{static_cast<enum_type>(~value_)};
     }
 
     constexpr enum_flags operator&(enum_flags f) const noexcept
     {
-        return enum_flags{value_ & f.value_};
+        return enum_flags{static_cast<enum_type>(value_ & f.value_)};
     }
 
     constexpr enum_flags operator|(enum_flags f) const noexcept
     {
-        return enum_flags{value_ | f.value_};
+        return enum_flags{static_cast<enum_type>(value_ | f.value_)};
     }
 
     constexpr enum_flags operator^(enum_flags f) const noexcept
     {
-        return enum_flags{value_ ^ f.value_};
+        return enum_flags{static_cast<enum_type>(value_ ^ f.value_)};
     }
 
     constexpr enum_flags& operator&=(enum_flags f) noexcept
