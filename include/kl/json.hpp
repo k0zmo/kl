@@ -71,17 +71,15 @@ struct serializer;
 class serialize_context
 {
 public:
-    explicit serialize_context(rapidjson::Document& doc,
+    using allocator_type = rapidjson::Document::AllocatorType;
+
+    explicit serialize_context(allocator_type& allocator,
                                bool skip_null_fields = true)
-        : doc_{doc}, skip_null_fields_{skip_null_fields}
+        : allocator_{allocator}, skip_null_fields_{skip_null_fields}
     {
     }
 
-    rapidjson::Document& document() { return doc_; }
-    rapidjson::MemoryPoolAllocator<>& allocator()
-    {
-        return doc_.GetAllocator();
-    }
+    rapidjson::MemoryPoolAllocator<>& allocator() { return allocator_; }
 
     template <typename Key, typename Value>
     bool skip_field(const Key&, const Value& value)
@@ -90,7 +88,7 @@ public:
     }
 
 private:
-    rapidjson::Document& doc_;
+    allocator_type& allocator_;
     bool skip_null_fields_;
 };
 
@@ -921,7 +919,7 @@ rapidjson::Document serialize(const T& obj)
 {
     rapidjson::Document doc;
     rapidjson::Value& v = doc;
-    serialize_context ctx{doc};
+    serialize_context ctx{doc.GetAllocator()};
     v = json::serialize(obj, ctx);
     return doc;
 }

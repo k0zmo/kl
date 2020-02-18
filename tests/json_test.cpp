@@ -256,7 +256,7 @@ TEST_CASE("json")
         t.non_opt = 23;
 
         rapidjson::Document doc;
-        json::serialize_context ctx{doc, false};
+        json::serialize_context ctx{doc.GetAllocator(), false};
 
         REQUIRE(json::serialize(t, ctx).IsObject());
         REQUIRE(json::serialize(t, ctx).MemberCount() == 2);

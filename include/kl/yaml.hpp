@@ -63,12 +63,10 @@ struct serializer;
 class serialize_context
 {
 public:
-    explicit serialize_context(YAML::Node& node, bool skip_null_fields = true)
-        : node_{node}, skip_null_fields_{skip_null_fields}
+    explicit serialize_context(bool skip_null_fields = true)
+        : skip_null_fields_{skip_null_fields}
     {
     }
-
-    YAML::Node& node() { return node_; }
 
     template <typename Key, typename Value>
     bool skip_field(const Key&, const Value& value)
@@ -77,7 +75,6 @@ public:
     }
 
 private:
-    YAML::Node& node_;
     bool skip_null_fields_;
 };
 
@@ -762,8 +759,7 @@ void dump(const T& obj, Context& ctx)
 template <typename T>
 YAML::Node serialize(const T& obj)
 {
-    YAML::Node node;
-    serialize_context ctx{node};
+    serialize_context ctx{};
     return serialize(obj, ctx);
 }
 

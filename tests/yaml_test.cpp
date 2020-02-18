@@ -255,8 +255,7 @@ TEST_CASE("yaml")
         optional_test t;
         t.non_opt = 23;
 
-        YAML::Node doc;
-        yaml::serialize_context ctx{doc, false};
+        yaml::serialize_context ctx{false};
 
         REQUIRE(yaml::serialize(t, ctx).IsMap());
         REQUIRE(yaml::serialize(t, ctx).size() == 2);
