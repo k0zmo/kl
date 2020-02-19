@@ -22,7 +22,6 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/enum_traits.hpp
     ${kl_SOURCE_DIR}/include/kl/file_view.hpp
     ${kl_SOURCE_DIR}/include/kl/hash.hpp
-    ${kl_SOURCE_DIR}/include/kl/json.hpp
     ${kl_SOURCE_DIR}/include/kl/match.hpp
     ${kl_SOURCE_DIR}/include/kl/meta.hpp
     ${kl_SOURCE_DIR}/include/kl/range.hpp
@@ -32,7 +31,6 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/tuple.hpp
     ${kl_SOURCE_DIR}/include/kl/type_traits.hpp
     ${kl_SOURCE_DIR}/include/kl/utility.hpp
-    ${kl_SOURCE_DIR}/include/kl/yaml.hpp
     ${kl_SOURCE_DIR}/include/kl/zip.hpp
     # binary_rw (WIP)
     ${kl_SOURCE_DIR}/include/kl/binary_rw/endian.hpp
@@ -64,29 +62,32 @@ target_link_libraries(kl
 )
 kl_source_group(kl TREE ${kl_SOURCE_DIR})
 set_target_properties(kl PROPERTIES FOLDER kl)
-
-add_library(kl-json
-    ${kl_SOURCE_DIR}/include/kl/json.hpp
-    json.cpp
-)
-target_link_libraries(kl-json PUBLIC
-    kl
-    rapidjson::rapidjson
-)
-kl_source_group(kl-json TREE ${kl_SOURCE_DIR})
-set_target_properties(kl-json PROPERTIES FOLDER kl)
-
-add_library(kl-yaml
-    ${kl_SOURCE_DIR}/include/kl/yaml.hpp
-    yaml.cpp
-)
-target_link_libraries(kl-yaml PUBLIC
-    kl
-    yaml::yaml-cpp
-)
-kl_source_group(kl-yaml TREE ${kl_SOURCE_DIR})
-set_target_properties(kl-yaml PROPERTIES FOLDER kl)
-
 add_library(kl::kl ALIAS kl)
-add_library(kl::json ALIAS kl-json)
-add_library(kl::yaml ALIAS kl-yaml)
+
+if(KL_ENABLE_JSON)
+    add_library(kl-json
+        ${kl_SOURCE_DIR}/include/kl/json.hpp
+        json.cpp
+    )
+    target_link_libraries(kl-json PUBLIC
+        kl
+        rapidjson::rapidjson
+    )
+    kl_source_group(kl-json TREE ${kl_SOURCE_DIR})
+    set_target_properties(kl-json PROPERTIES FOLDER kl)
+    add_library(kl::json ALIAS kl-json)
+endif()
+
+if(KL_ENABLE_YAML)
+    add_library(kl-yaml
+        ${kl_SOURCE_DIR}/include/kl/yaml.hpp
+        yaml.cpp
+    )
+    target_link_libraries(kl-yaml PUBLIC
+        kl
+        yaml::yaml-cpp
+    )
+    kl_source_group(kl-yaml TREE ${kl_SOURCE_DIR})
+    set_target_properties(kl-yaml PROPERTIES FOLDER kl)
+    add_library(kl::yaml ALIAS kl-yaml)
+endif()
