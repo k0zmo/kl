@@ -17,6 +17,10 @@
 #include <exception>
 #include <string>
 
+#if defined(GetObject)
+#undef GetObject
+#endif
+
 namespace rapidjson {
 
 KL_DESCRIBE_ENUM(Type, kNullType, kFalseType, kTrueType, kObjectType,
