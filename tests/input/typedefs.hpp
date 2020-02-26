@@ -92,8 +92,8 @@ struct unsigned_test
 {
     unsigned char u8{128};
     unsigned short u16{32768};
-    unsigned int u32{std::numeric_limits<unsigned int>::max()};
-    std::uint64_t u64{std::numeric_limits<std::uint64_t>::max()};
+    unsigned int u32{(std::numeric_limits<unsigned int>::max)()};
+    std::uint64_t u64{(std::numeric_limits<std::uint64_t>::max)()};
 };
 KL_DESCRIBE_FIELDS(unsigned_test, u8, u16, u32, u64)
 

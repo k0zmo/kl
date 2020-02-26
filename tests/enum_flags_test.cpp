@@ -23,6 +23,16 @@ enum device_type : std::uint32_t
     all = 0xffffffff
 };
 using device_flags = kl::enum_flags<device_type>;
+
+enum class memory_type : unsigned short
+{
+    unspecified = 0,
+    private_ = 0b1,
+    local_ = 0b10,
+    const_ = 0b100,
+    global_ = 0b1000
+};
+using memory_flags = kl::enum_flags<memory_type>;
 } // namespace
 
 TEST_CASE("enum_flags")
@@ -129,6 +139,57 @@ TEST_CASE("enum_flags")
             REQUIRE((~flags).test(type_qualifier::const_));
             REQUIRE((~flags).test(type_qualifier::restrict_));
             REQUIRE((~flags).test(type_qualifier::volatile_));
+        }
+    }
+
+    SECTION("short underlying type")
+    {
+        memory_flags flags;
+        CHECK(flags.underlying_value() == 0);
+        CHECK_FALSE(flags.test(memory_type::private_));
+        CHECK_FALSE(flags.test(memory_type::local_));
+        CHECK_FALSE(flags.test(memory_type::const_));
+        CHECK_FALSE(flags.test(memory_type::global_));
+
+        SECTION("or")
+        {
+            CHECK((flags | memory_type::const_).test(memory_type::const_));
+            CHECK((memory_type::const_ | flags).test(memory_type::const_));
+            flags |= memory_type::const_;
+            flags.test(memory_type::const_);
+        }
+
+        SECTION("and")
+        {
+            auto f = kl::make_flags(memory_type::const_) | memory_type::local_;
+            CHECK((f & memory_type::private_).value() ==
+                  memory_type::unspecified);
+            CHECK((memory_type::const_ & f).value() == memory_type::const_);
+
+            f &= memory_type::const_;
+            CHECK(f.underlying_value() == 4);
+
+            f &= memory_type::unspecified;
+            CHECK(f.underlying_value() == 0);
+        }
+
+        SECTION("xor")
+        {
+            CHECK((flags ^ memory_type::const_ ^ memory_type::private_)
+                      .test(memory_type::const_));
+            flags ^= memory_type::private_;
+            flags ^= memory_type::local_;
+
+            CHECK(flags.test(memory_type::private_));
+            CHECK_FALSE(flags.test(memory_type::const_));
+        }
+
+        SECTION("not")
+        {
+            CHECK((~flags).test(memory_type::const_));
+            CHECK((~flags).test(memory_type::private_));
+            CHECK((~flags).test(memory_type::local_));
+            CHECK((~flags).test(memory_type::global_));
         }
     }
 }

@@ -20,6 +20,8 @@ cmake_dependent_option(KL_DEV_BUILD "Enable compiler flags useful while developi
     "${kl_master_project}" OFF)
 cmake_dependent_option(KL_USE_OPENCPPCOVERAGE "Use OpenCppCoverage to calculate code coverage." OFF
     "${kl_master_project}" OFF)
+option(KL_ENABLE_JSON "Enable kl-json target and fetch its dependencies (RapidJSON)." ON)
+option(KL_ENABLE_YAML "Enable kl-yaml target and fetch its dependencies (yaml-cpp)." ON)
 
 if(kl_master_project)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)

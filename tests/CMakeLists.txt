@@ -13,7 +13,6 @@ set(test_files
     enum_traits_test.cpp
     file_view_test.cpp
     hash_test.cpp
-    json_test.cpp
     match_test.cpp
     meta_test.cpp
     range_test.cpp
@@ -23,16 +22,23 @@ set(test_files
     tuple_test.cpp
     type_traits_test.cpp
     utility_test.cpp
-    yaml_test.cpp
     zip_test.cpp
 )
 target_sources(kl-tests PRIVATE ${test_files} input/typedefs.hpp)
 target_link_libraries(kl-tests PRIVATE
     kl::kl
-    kl::json
-    kl::yaml
     Catch2::Catch2
 )
+
+if(KL_ENABLE_JSON)
+    target_sources(kl-tests PRIVATE json_test.cpp)
+    target_link_libraries(kl-tests PRIVATE kl::json)
+endif()
+if(KL_ENABLE_YAML)
+    target_sources(kl-tests PRIVATE yaml_test.cpp)
+    target_link_libraries(kl-tests PRIVATE kl::yaml)
+endif()
+
 kl_source_group(kl-tests
     TREE ${CMAKE_CURRENT_SOURCE_DIR}
     PREFIX kl
