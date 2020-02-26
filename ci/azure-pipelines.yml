@@ -108,9 +108,34 @@ jobs:
         Win64:
           Architecture: x64
     steps:
+      - script: |
+          cmake --version
+        displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
           cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 15 2017" -A $(Architecture)
+          cmake.exe --build _build --parallel 4 --config Release
+        displayName: 'Build kl'
+      - script: |
+          cd _build && ctest --build-config Release -VV --output-on-failure
+        displayName: 'Run CTest'
+
+  - job: windows_vc2019
+    pool:
+      vmImage: 'windows-2019'
+    strategy:
+      matrix:
+        Win32:
+          Architecture: Win32
+        Win64:
+          Architecture: x64
+    steps:
+      - script: |
+          cmake --version
+        displayName: 'Check environment'
+      - template: templates/install-boost.yml
+      - script: |
+          cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 16 2019" -A $(Architecture)
           cmake.exe --build _build --parallel 4 --config Release
         displayName: 'Build kl'
       - script: |
