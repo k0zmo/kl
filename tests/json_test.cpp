@@ -433,6 +433,82 @@ TEST_CASE("json")
         REQUIRE(obj.u64 == t.u64);
     }
 
+    SECTION("try to deserialize too big value to (u)intX_t")
+    {
+        auto j = R"(500)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::uint8_t>(j),
+            "value cannot be losslessly stored in the variable");
+
+        j = R"(200000000000)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::uint8_t>(j),
+            "value cannot be losslessly stored in the variable");
+
+        j = R"(70000)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::uint16_t>(j),
+            "value cannot be losslessly stored in the variable");
+
+        j = R"(-70000)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::uint32_t>(j),
+            "value cannot be losslessly stored in the variable");
+
+        j = R"(-70000)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::uint64_t>(j),
+            "value cannot be losslessly stored in the variable");
+
+        j = R"(200000000000)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::uint32_t>(j),
+            "value cannot be losslessly stored in the variable");
+
+        j = R"(9022337203623423400234234234234854775807)"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<std::uint32_t>(j),
+                            "type must be an integral but is kNumberType");
+
+        j = R"(9022337203623423400234234234234854775807)"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<std::uint64_t>(j),
+                            "type must be an integral but is kNumberType");
+
+        j = R"(-500)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::int8_t>(j),
+            "value cannot be losslessly stored in the variable");
+
+        j = R"(-70000)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::int16_t>(j),
+            "value cannot be losslessly stored in the variable");
+
+        j = R"(-200000000000)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::int32_t>(j),
+            "value cannot be losslessly stored in the variable");
+
+        j = R"(-9022337203623423400234234234234854775807)"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<std::int32_t>(j),
+                            "type must be an integral but is kNumberType");
+
+        j = R"(-9022337203623423400234234234234854775807)"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<std::int64_t>(j),
+                            "type must be an integral but is kNumberType");
+
+        j = R"(9443372036854775807)"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<std::int64_t>(j),
+            "value cannot be losslessly stored in the variable");
+    }
+
+    SECTION("deserialize floating-point value to integral")
+    {
+        auto j = R"(1e3)"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<int>(j),
+                            "type must be an integral but is kNumberType");
+    }
+
     SECTION("deserialize to struct from an array")
     {
         auto j = R"([3,4.0])"_json;

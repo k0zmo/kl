@@ -505,42 +505,93 @@ inline std::string json_type_name(const rapidjson::Value& value)
 template <typename T>
 struct is_64bit : kl::bool_constant<sizeof(T) == 8> {};
 
-class arithmetic_value_extractor
+[[noreturn]] inline void throw_lossy_conversion()
+{
+    throw deserialize_error{
+        "value cannot be losslessly stored in the variable"};
+}
+
+template <typename Target, typename Source>
+Target narrow(Source src)
+{
+    if (static_cast<Source>(static_cast<Target>(src)) != src)
+        throw_lossy_conversion();
+    return static_cast<Target>(src);
+}
+
+class integral_value_extractor
 {
 public:
-    explicit arithmetic_value_extractor(const rapidjson::Value& value)
+    explicit integral_value_extractor(const rapidjson::Value& value)
         : value_{value}
     {
     }
 
+    // int8, int16 and int32
     template <typename T,
               enable_if<std::is_signed<T>, negation<is_64bit<T>>> = true>
-    operator T() const
+    explicit operator T() const
     {
-        return static_cast<T>(value_.GetInt());
+        if (!value_.IsInt())
+        {
+            if (value_.IsInt64() || value_.IsUint64())
+                // Value to big but it is still an integral
+                throw_lossy_conversion();
+
+            throw deserialize_error{"type must be an integral but is " +
+                                    json_type_name(value_)};
+        }
+        return narrow<T>(value_.GetInt());
     }
 
+    // int64
+    // It's a template operator instead of a just int64_t operator because long
+    // and long long are distinct types on Linux (LP64)
     template <typename T, enable_if<std::is_signed<T>, is_64bit<T>> = true>
-    operator T() const
+    explicit operator T() const
     {
+        if (!value_.IsInt64())
+        {
+            if (value_.IsUint64())
+                // Value to big but it is still an integral
+                throw_lossy_conversion();
+
+            throw deserialize_error{"type must be an integral but is " +
+                                    json_type_name(value_)};
+        }
         return value_.GetInt64();
     }
 
+    // uint8, uint16 and uint32
     template <typename T,
               enable_if<std::is_unsigned<T>, negation<is_64bit<T>>> = true>
-    operator T() const
+    explicit operator T() const
     {
-        return static_cast<T>(value_.GetUint());
+        if (!value_.IsUint())
+        {
+            if (value_.IsUint64() || value_.IsInt64())
+                throw_lossy_conversion();
+
+            throw deserialize_error{"type must be an integral but is " +
+                                    json_type_name(value_)};
+        }
+        return narrow<T>(value_.GetUint());
     }
 
+    // uint64
     template <typename T, enable_if<std::is_unsigned<T>, is_64bit<T>> = true>
-    operator T() const
+    explicit operator T() const
     {
+        if (!value_.IsUint64())
+        {
+            if (value_.IsInt64())
+                throw_lossy_conversion();
+
+            throw deserialize_error{"type must be an integral but is " +
+                                    json_type_name(value_)};
+        }
         return value_.GetUint64();
     }
-
-    operator float() const { return value_.GetFloat(); }
-    operator double() const { return value_.GetDouble(); }
 
 private:
     const rapidjson::Value& value_;
@@ -549,14 +600,7 @@ private:
 template <typename Integral, enable_if<std::is_integral<Integral>> = true>
 Integral from_json(type_t<Integral>, const rapidjson::Value& value)
 {
-    const bool is_integral =
-        value.IsNumber() && (value.IsInt() || value.IsUint() ||
-                             value.IsInt64() || value.IsUint64());
-    if (!is_integral)
-        throw deserialize_error{"type must be an integral but is " +
-                                json_type_name(value)};
-
-    return static_cast<Integral>(arithmetic_value_extractor{value});
+    return static_cast<Integral>(integral_value_extractor{value});
 }
 
 template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
@@ -566,7 +610,7 @@ Floating from_json(type_t<Floating>, const rapidjson::Value& value)
         throw deserialize_error{"type must be a floating-point but is " +
                                 json_type_name(value)};
 
-    return static_cast<Floating>(arithmetic_value_extractor{value});
+    return static_cast<Floating>(value.GetDouble());
 }
 
 inline bool from_json(type_t<bool>, const rapidjson::Value& value)
