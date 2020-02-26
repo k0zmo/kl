@@ -341,9 +341,9 @@ TEST_CASE("yaml")
         REQUIRE(y["tup"].as<YAML::Node>()[1].as<double>() == Approx{3.14f});
         REQUIRE(y["tup"].as<YAML::Node>()[2].as<std::string>() == "QWE");
 
-         REQUIRE(y["map"].IsMap());
-         REQUIRE(y["map"].as<YAML::Node>()["1"].as<std::string>() == "hls");
-         REQUIRE(y["map"].as<YAML::Node>()["2"].as<std::string>() == "rgb");
+        REQUIRE(y["map"].IsMap());
+        REQUIRE(y["map"].as<YAML::Node>()["1"].as<std::string>() == "hls");
+        REQUIRE(y["map"].as<YAML::Node>()["2"].as<std::string>() == "rgb");
 
         REQUIRE(y["inner"].IsMap());
         const auto& inner = y["inner"].as<YAML::Node>();
@@ -425,6 +425,79 @@ tup:
         REQUIRE(obj.u64 == t.u64);
     }
 
+    SECTION("try to deserialize too big value to (u)intX_t")
+    {
+        auto y = R"(500)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::uint8_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(200000000000)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::uint8_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(70000)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::uint16_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(-70000)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::uint32_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(-70000)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::uint64_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(200000000000)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::uint32_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(9022337203623423400234234234234854775807)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::uint32_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(9022337203623423400234234234234854775807)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::uint64_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(-500)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::int8_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(-70000)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::int16_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(-200000000000)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::int32_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(-9022337203623423400234234234234854775807)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::int32_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(-9022337203623423400234234234234854775807)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::int64_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+
+        y = R"(9443372036854775807)"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<std::int64_t>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
+    }
+
     SECTION("deserialize to struct from an array")
     {
         auto y = "[3,4.0]"_yaml;
@@ -461,8 +534,9 @@ tup:
     SECTION("deserialize floating-point number to int")
     {
         auto y = R"(3.0)"_yaml;
-        REQUIRE_THROWS_WITH(yaml::deserialize<int>(y),
-                            "yaml-cpp: error at line 1, column 1: bad conversion");
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<int>(y),
+            "yaml-cpp: error at line 1, column 1: bad conversion");
     }
 
     SECTION("deserialize to struct from an array - type mismatch")
@@ -604,8 +678,7 @@ YAML::Node to_yaml(global_struct, Context& ctx)
     return kl::yaml::serialize("global_struct", ctx);
 }
 
-global_struct from_yaml(kl::type_t<global_struct>,
-                        const YAML::Node& value)
+global_struct from_yaml(kl::type_t<global_struct>, const YAML::Node& value)
 {
     return value.Scalar() == "global_struct"
                ? global_struct{}
@@ -718,16 +791,14 @@ TEST_CASE("yaml dump")
 
     SECTION("different types and 'modes' for enums")
     {
-        CHECK(yaml::dump(enums{}) ==
-              "e0: 0\ne1: 0\ne2: oe_one_ref\ne3: one");
+        CHECK(yaml::dump(enums{}) == "e0: 0\ne1: 0\ne2: oe_one_ref\ne3: one");
     }
 
     SECTION("test unsigned types")
     {
         auto res = yaml::dump(unsigned_test{});
-        CHECK(
-            res ==
-            "u8: \"\\x80\"\nu16: 32768\nu32: 4294967295\nu64: 18446744073709551615");
+        CHECK(res == "u8: \"\\x80\"\nu16: 32768\nu32: 4294967295\nu64: "
+                     "18446744073709551615");
     }
 
     SECTION("enum_flags")
@@ -784,9 +855,8 @@ TEST_CASE("yaml dump")
     SECTION("complex structure with std/boost containers")
     {
         auto res = yaml::dump(test_t{});
-        CHECK(
-            res ==
-            R"(hello: world
+        CHECK(res ==
+              R"(hello: world
 t: true
 f: false
 i: 123
@@ -848,10 +918,7 @@ namespace {
 class my_dump_context
 {
 public:
-    explicit my_dump_context(YAML::Emitter& emitter)
-        : emitter_{emitter}
-    {
-    }
+    explicit my_dump_context(YAML::Emitter& emitter) : emitter_{emitter} {}
 
     YAML::Emitter& emitter() const { return emitter_; }
 
