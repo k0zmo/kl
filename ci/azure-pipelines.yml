@@ -49,13 +49,10 @@ jobs:
           cd _build && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: ubuntu18_gcc9_coverage
+  - job: ubuntu18_gcc7_coverage
     pool:
       vmImage: 'ubuntu-18.04'
     steps:
-      - template: templates/install-gcc.yml
-        parameters:
-          version: '9'
       - script: |
           which g++ && g++ --version
           cmake --version
@@ -75,6 +72,31 @@ jobs:
           cd _build && cmake --build . --target kl-coverage
           ~/.local/bin/codecov -X gcov
         displayName: 'Send code coverage data'
+
+  - job: ubuntu18_gcc9
+    pool:
+      vmImage: 'ubuntu-18.04'
+    steps:
+      - template: templates/install-gcc.yml
+        parameters:
+          version: '9'
+      - script: |
+          which g++ && g++ --version
+          cmake --version
+        displayName: 'Check environment'
+      - script: |
+          pip install --user codecov
+        displayName: 'Install codecov'
+      - template: templates/install-boost.yml
+      - script: |
+          export LDFLAGS="-fuse-ld=gold"
+          export PATH=$(pwd)/_deps/lcov/bin:$PATH
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release
+          cmake --build _build --parallel 4
+        displayName: 'Build kl'
+      - script: |
+          cd _build && ctest -VV --output-on-failure
+        displayName: 'Run CTest'
 
   - job: windows_vc2017
     pool:
