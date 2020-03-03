@@ -1,9 +1,10 @@
 #pragma once
 
-#include "kl/byte.hpp"
 #include "kl/type_traits.hpp"
 
 #include <gsl/span>
+
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 
@@ -15,7 +16,7 @@ template <typename T>
 class cursor_base
 {
     // Expect T to differ only by CV-qualifier
-    static_assert(std::is_same<std::remove_cv_t<T>, byte>::value, "!!!");
+    static_assert(std::is_same<std::remove_cv_t<T>, std::byte>::value, "!!!");
 
 public:
     explicit cursor_base(gsl::span<T> buffer) noexcept
@@ -70,10 +71,10 @@ using is_simple =
 
 } // namespace detail
 
-class binary_reader : public detail::cursor_base<const byte>
+class binary_reader : public detail::cursor_base<const std::byte>
 {
 public:
-    using detail::cursor_base<const byte>::cursor_base;
+    using detail::cursor_base<const std::byte>::cursor_base;
 
     template <typename T>
     bool peek(T& value) noexcept
@@ -83,7 +84,7 @@ public:
         static_assert(std::is_trivially_copyable<T>::value,
                       "T must be a trivially copyable type");
 
-        return peek_impl(reinterpret_cast<byte*>(&value), sizeof(T));
+        return peek_impl(reinterpret_cast<std::byte*>(&value), sizeof(T));
     }
 
     template <typename T>
@@ -92,7 +93,7 @@ public:
         static_assert(std::is_trivially_copyable<T>::value,
                       "T must be a trivially copyable type");
 
-        return read_impl(reinterpret_cast<byte*>(&value), sizeof(T));
+        return read_impl(reinterpret_cast<std::byte*>(&value), sizeof(T));
     }
 
     template <typename T, std::ptrdiff_t Extent>
@@ -101,7 +102,7 @@ public:
         static_assert(std::is_trivially_copyable<T>::value,
                       "T must be a trivially copyable type");
 
-        return read_impl(reinterpret_cast<byte*>(span.data()),
+        return read_impl(reinterpret_cast<std::byte*>(span.data()),
                          span.size_bytes());
     }
 
@@ -134,14 +135,14 @@ public:
     }
 
     // Does not copy the data
-    gsl::span<const byte> span(std::size_t count, bool move_cursor = true)
+    gsl::span<const std::byte> span(std::size_t count, bool move_cursor = true)
     {
         if (count > static_cast<std::size_t>(left()))
             err_ = true;
         if (err_)
             return {};
 
-        gsl::span<const byte> ret(cursor(), count);
+        gsl::span<const std::byte> ret(cursor(), count);
         if (move_cursor)
             pos_ += count;
 
@@ -149,7 +150,7 @@ public:
     }
 
 private:
-    bool peek_impl(byte* data, std::size_t size) noexcept
+    bool peek_impl(std::byte* data, std::size_t size) noexcept
     {
         if (err_ || static_cast<std::size_t>(left()) < size)
             return false;
@@ -158,7 +159,7 @@ private:
         return true;
     }
 
-    bool read_impl(byte* data, std::size_t size) noexcept
+    bool read_impl(std::byte* data, std::size_t size) noexcept
     {
         if (peek_impl(data, size))
             pos_ += size;
@@ -198,10 +199,10 @@ binary_reader& operator>>(binary_reader& r, gsl::span<T, Extent> span)
     return r;
 }
 
-class binary_writer : public detail::cursor_base<byte>
+class binary_writer : public detail::cursor_base<std::byte>
 {
 public:
-    using detail::cursor_base<byte>::cursor_base;
+    using detail::cursor_base<std::byte>::cursor_base;
 
     template <typename T>
     bool write_raw(const T& value) noexcept
@@ -211,7 +212,8 @@ public:
         static_assert(std::is_trivially_copyable<T>::value,
                       "T must be a trivially copyable type");
 
-        return write_impl(reinterpret_cast<const byte*>(&value), sizeof(T));
+        return write_impl(reinterpret_cast<const std::byte*>(&value),
+                          sizeof(T));
     }
 
     template <typename T, std::ptrdiff_t Extent>
@@ -220,12 +222,12 @@ public:
         static_assert(std::is_trivially_copyable<T>::value,
                       "T must be a trivially copyable type");
 
-        return write_impl(reinterpret_cast<const byte*>(span.data()),
+        return write_impl(reinterpret_cast<const std::byte*>(span.data()),
                           span.size_bytes());
     }
 
 private:
-    bool write_impl(const byte* data, std::size_t size) noexcept
+    bool write_impl(const std::byte* data, std::size_t size) noexcept
     {
         if (err_ || static_cast<std::size_t>(left()) < size)
         {

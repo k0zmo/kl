@@ -22,14 +22,10 @@ void read_binary(kl::binary_reader& r, std::string& str)
     if (!size)
         return;
 
-    auto span = r.span(size);
-    if (r.err())
-        return;
-
     str.resize(size);
-    // Use span::data() so we get a raw pointer and thus memmove fast path
-    // NOTE: We can't r>>span like in vector because we don't have non-const
-    // string::data() until C++17.
-    std::copy_n(span.data(), size, str.begin());
+    r >> gsl::make_span(str);
+
+    if (r.err())
+        str.clear();
 }
 } // namespace kl

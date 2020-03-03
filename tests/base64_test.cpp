@@ -7,18 +7,18 @@
 namespace {
 
 template <std::size_t N>
-gsl::span<const kl::byte> as_span(const char (&str)[N])
+gsl::span<const std::byte> as_span(const char (&str)[N])
 {
-    return gsl::span<const kl::byte>(reinterpret_cast<const kl::byte*>(str),
-                                     N - 1); // get rid of trailing '\0'
+    return gsl::span<const std::byte>(reinterpret_cast<const std::byte*>(str),
+                                      N - 1); // get rid of trailing '\0'
 }
 
 template <size_t N>
-std::vector<std::uint8_t> as_vector(const char (&str)[N])
+std::vector<std::byte> as_vector(const char (&str)[N])
 {
-    return std::vector<std::uint8_t>{reinterpret_cast<const kl::byte*>(str),
-                                     reinterpret_cast<const kl::byte*>(str) +
-                                         N - 1}; // get rid of trailing '\0'
+    return std::vector<std::byte>{reinterpret_cast<const std::byte*>(str),
+                                  reinterpret_cast<const std::byte*>(str) + N -
+                                      1}; // get rid of trailing '\0'
 }
 } // namespace anonymous
 

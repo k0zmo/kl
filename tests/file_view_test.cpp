@@ -40,7 +40,8 @@ TEST_CASE("file_view")
 
         std::string str;
         str.resize(s.size_bytes());
-        std::copy_n(s.data(), s.size_bytes(), str.begin());
+        std::copy_n(reinterpret_cast<const char*>(s.data()), s.size_bytes(),
+                    str.begin());
 
         REQUIRE(str == "Test\nHello.");
     }

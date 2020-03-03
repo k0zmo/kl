@@ -11,7 +11,6 @@ endif()
 add_library(kl
     ${kl_SOURCE_DIR}/include/kl/base64.hpp
     ${kl_SOURCE_DIR}/include/kl/binary_rw.hpp
-    ${kl_SOURCE_DIR}/include/kl/byte.hpp
     ${kl_SOURCE_DIR}/include/kl/ctti.hpp
     ${kl_SOURCE_DIR}/include/kl/defer.hpp
     ${kl_SOURCE_DIR}/include/kl/describe_enum.hpp
