@@ -856,7 +856,7 @@ std::optional<T> from_json(type_t<std::optional<T>>,
                            const rapidjson::Value& value)
 {
     if (value.IsNull())
-        return {};
+        return std::nullopt;
     return json::deserialize<T>(value);
 }
 

@@ -4,7 +4,7 @@ jobs:
       vmImage: 'ubuntu-18.04'
     strategy:
       matrix:
-        Release: 
+        Release:
           BuildType: Release
         AddressSanitizer:
           BuildType: ASan
@@ -25,13 +25,10 @@ jobs:
           cd _build && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: ubuntu18_gcc9_coverage
+  - job: ubuntu18_gcc7_coverage
     pool:
       vmImage: 'ubuntu-18.04'
     steps:
-      - template: templates/install-gcc.yml
-        parameters:
-          version: '9'
       - script: |
           which g++ && g++ --version
           cmake --version
@@ -52,19 +49,69 @@ jobs:
           ~/.local/bin/codecov -X gcov
         displayName: 'Send code coverage data'
 
+  - job: ubuntu18_gcc9
+    pool:
+      vmImage: 'ubuntu-18.04'
+    steps:
+      - template: templates/install-gcc.yml
+        parameters:
+          version: '9'
+      - script: |
+          which g++ && g++ --version
+          cmake --version
+        displayName: 'Check environment'
+      - script: |
+          pip install --user codecov
+        displayName: 'Install codecov'
+      - template: templates/install-boost.yml
+      - script: |
+          export LDFLAGS="-fuse-ld=gold"
+          export PATH=$(pwd)/_deps/lcov/bin:$PATH
+          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release
+          cmake --build _build --parallel 4
+        displayName: 'Build kl'
+      - script: |
+          cd _build && ctest -VV --output-on-failure
+        displayName: 'Run CTest'
+
   - job: windows_vc2017
     pool:
       vmImage: 'vs2017-win2016'
     strategy:
       matrix:
-        Win32: 
+        Win32:
           Architecture: Win32
         Win64:
           Architecture: x64
     steps:
+      - script: |
+          cmake --version
+        displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
           cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 15 2017" -A $(Architecture)
+          cmake.exe --build _build --parallel 4 --config Release
+        displayName: 'Build kl'
+      - script: |
+          cd _build && ctest --build-config Release -VV --output-on-failure
+        displayName: 'Run CTest'
+
+  - job: windows_vc2019
+    pool:
+      vmImage: 'windows-2019'
+    strategy:
+      matrix:
+        Win32:
+          Architecture: Win32
+        Win64:
+          Architecture: x64
+    steps:
+      - script: |
+          cmake --version
+        displayName: 'Check environment'
+      - template: templates/install-boost.yml
+      - script: |
+          cmake.exe -S . -B _build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 16 2019" -A $(Architecture)
           cmake.exe --build _build --parallel 4 --config Release
         displayName: 'Build kl'
       - script: |

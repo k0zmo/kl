@@ -86,6 +86,13 @@ TEST_CASE("enum_flags")
             REQUIRE((~f).underlying_value() == 0);
             REQUIRE((~flags).value() == all);
         }
+
+        SECTION("operators eq/neq/lt")
+        {
+            REQUIRE(device_flags{all} == device_flags{all});
+            REQUIRE(device_flags{all} != device_flags{cpu});
+            REQUIRE(device_flags{cpu} < device_flags{gpu});
+        }
     }
 
     SECTION("scoped enum")
