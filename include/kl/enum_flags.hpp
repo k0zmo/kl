@@ -121,6 +121,21 @@ public:
         return enum_flags{a} ^ b;
     }
 
+    constexpr friend bool operator==(enum_flags a, enum_flags b)
+    {
+        return a.value_ == b.value_;
+    }
+
+    constexpr friend bool operator<(enum_flags a, enum_flags b)
+    {
+        return a.value_ < b.value_;
+    }
+
+    constexpr friend bool operator!=(enum_flags a, enum_flags b)
+    {
+        return !(a == b);
+    }
+
 private:
     Enum value_;
 };
