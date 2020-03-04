@@ -3,7 +3,6 @@
 #include "kl/byte.hpp"
 
 #include <gsl/span>
-#include <gsl/string_span>
 
 #include <memory>
 
