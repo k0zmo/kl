@@ -1,7 +1,6 @@
 #pragma once
 
 #include <gsl/span>
-#include <gsl/string_span>
 
 #include <cstddef>
 #include <memory>

@@ -8,6 +8,7 @@
 #include "kl/binary_rw/vector.hpp"
 
 #include <catch2/catch.hpp>
+#include <gsl/span>
 #include <gsl/string_span>
 
 #include <cstring>

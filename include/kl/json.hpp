@@ -797,7 +797,7 @@ Enum enum_from_json(const rapidjson::Value& value,
         throw deserialize_error{"type must be a string-enum but is " +
                                 json_type_name(value)};
     if (auto enum_value = kl::from_string<Enum>(
-            gsl::cstring_span<>(value.GetString(), value.GetStringLength())))
+            std::string_view{value.GetString(), value.GetStringLength()}))
     {
         return *enum_value;
     }

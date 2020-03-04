@@ -78,7 +78,7 @@ bool is_base64(std::byte b)
 }
 } // namespace
 
-std::optional<std::vector<std::byte>> base64_decode(gsl::cstring_span<> str)
+std::optional<std::vector<std::byte>> base64_decode(std::string_view str)
 {
     // Invert lookup table used for encoding
     static base64_lut table = {};
@@ -106,7 +106,7 @@ std::optional<std::vector<std::byte>> base64_decode(gsl::cstring_span<> str)
     auto src = str.begin();
     auto dst = ret->begin();
 
-    for (std::ptrdiff_t i = 0; i < full_quad; ++i)
+    for (std::size_t i = 0; i < full_quad; ++i)
     {
         const std::byte lut4[] = {lookup(src[0]), lookup(src[1]),
                                   lookup(src[2]), lookup(src[3])};

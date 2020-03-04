@@ -3,8 +3,7 @@
 #include "kl/type_traits.hpp"
 #include "kl/describe_enum.hpp"
 
-#include <gsl/string_span>
-
+#include <string_view>
 #include <type_traits>
 #include <cstring>
 #include <array>
@@ -55,18 +54,14 @@ struct enum_reflector
         return describe_enum(enum_type{}).size();
     }
 
-    // Could be constexpr with std optional and string_view
-    static std::optional<enum_type>
-        from_string(gsl::cstring_span<> str) noexcept
+    static constexpr std::optional<enum_type>
+        from_string(std::string_view str) noexcept
     {
-        for (const auto& vn : describe_enum(enum_type{}))
+        const auto rng = describe_enum(enum_type{});
+        for (const auto& vn : rng)
         {
-            const auto len = std::strlen(vn.name);
-            if (len == static_cast<std::size_t>(str.length()) &&
-                !std::strncmp(vn.name, str.data(), len))
-            {
+            if (str == vn.name)
                 return {vn.value};
-            }
         }
         return std::nullopt;
     }
@@ -78,7 +73,7 @@ struct enum_reflector
         // of it. Thus we assign the expression to `auto` and only then we loop
         // over it.
         const auto rng = describe_enum(value);
-        for (auto& vn : rng)
+        for (const auto& vn : rng)
         {
             if (vn.value == value)
                 return vn.name;
@@ -125,7 +120,7 @@ const char* to_string(Enum e) noexcept
 }
 
 template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
-std::optional<Enum> from_string(gsl::cstring_span<> str) noexcept
+std::optional<Enum> from_string(std::string_view str) noexcept
 {
     return enum_reflector<Enum>::from_string(str);
 }

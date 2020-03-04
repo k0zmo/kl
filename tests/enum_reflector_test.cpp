@@ -159,8 +159,8 @@ TEST_CASE("enum_reflector")
         {
             REQUIRE(reflector::from_string("PREFIX_TWO").value() == prefix_two);
 
-            gsl::cstring_span<> str{"PREFIX_TWO bla bla"};
-            REQUIRE(reflector::from_string(str.subspan(0, 10)).value() ==
+            std::string_view str{"PREFIX_TWO bla bla"};
+            REQUIRE(reflector::from_string(str.substr(0, 10)).value() ==
                     prefix_two);
         }
 
@@ -181,5 +181,18 @@ TEST_CASE("enum_reflector")
 
         CHECK(kl::from_string<access_mode>("read_write").value() ==
               access_mode::read_write);
+    }
+
+    SECTION("constexpr operations")
+    {
+        using reflector = kl::enum_reflector<unscoped_enum_type>;
+        static_assert(reflector::count() == 2);
+        static_assert(reflector::from_string(std::string_view{"PREFIX_TWO"}) ==
+                      prefix_two);
+        static_assert(reflector::to_string(prefix_two) ==
+                      std::string_view{"PREFIX_TWO"});
+
+        static_assert(reflector::constexpr_values()[0] == prefix_one);
+        static_assert(reflector::constexpr_values()[1] == prefix_two);
     }
 }
