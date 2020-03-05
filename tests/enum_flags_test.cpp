@@ -90,8 +90,16 @@ TEST_CASE("enum_flags")
         SECTION("operators eq/neq/lt")
         {
             REQUIRE(device_flags{all} == device_flags{all});
+            REQUIRE(device_flags{all} == all);
+            REQUIRE(all == device_flags{all});
+
             REQUIRE(device_flags{all} != device_flags{cpu});
+            REQUIRE(device_flags{all} != cpu);
+            REQUIRE(all != device_flags{cpu});
+
             REQUIRE(device_flags{cpu} < device_flags{gpu});
+            REQUIRE(device_flags{cpu} < gpu);
+            REQUIRE(cpu < device_flags{gpu});
         }
     }
 
@@ -146,6 +154,12 @@ TEST_CASE("enum_flags")
             REQUIRE((~flags).test(type_qualifier::const_));
             REQUIRE((~flags).test(type_qualifier::restrict_));
             REQUIRE((~flags).test(type_qualifier::volatile_));
+        }
+
+        SECTION("operator bool")
+        {
+            REQUIRE(kl::make_flags(type_qualifier::const_));
+            REQUIRE_FALSE(kl::make_flags(type_qualifier::none));
         }
     }
 

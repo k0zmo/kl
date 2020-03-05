@@ -27,7 +27,10 @@ public:
 
     constexpr Enum value() const noexcept { return value_; }
 
-    constexpr explicit operator bool() const noexcept { return value_ != 0; }
+    constexpr explicit operator bool() const noexcept
+    {
+        return underlying_value() != 0;
+    }
 
     constexpr bool test(Enum flag) const noexcept
     {
@@ -76,6 +79,21 @@ public:
         return *this;
     }
 
+    constexpr bool operator==(enum_flags f) const noexcept
+    {
+        return value_ == f.value_;
+    }
+
+    constexpr bool operator<(enum_flags f) const noexcept
+    {
+        return value_ < f.value_;
+    }
+
+    constexpr bool operator!=(enum_flags f) const noexcept
+    {
+        return !(*this == f);
+    }
+
     constexpr enum_flags operator&(Enum value) const noexcept
     {
         return (*this & enum_flags{value});
@@ -106,6 +124,21 @@ public:
         return (*this ^= enum_flags{value});
     }
 
+    constexpr bool operator==(Enum value) const noexcept
+    {
+        return (*this == enum_flags{value});
+    }
+
+    constexpr bool operator<(Enum value) const noexcept
+    {
+        return (*this < enum_flags{value});
+    }
+
+    constexpr bool operator!=(Enum value) const noexcept
+    {
+        return (*this != enum_flags{value});
+    }
+
     constexpr friend enum_flags operator|(Enum a, enum_flags b) noexcept
     {
         return enum_flags{a} | b;
@@ -121,19 +154,19 @@ public:
         return enum_flags{a} ^ b;
     }
 
-    constexpr friend bool operator==(enum_flags a, enum_flags b)
+    constexpr friend bool operator==(Enum a, enum_flags b) noexcept
     {
-        return a.value_ == b.value_;
+        return enum_flags{a} == b;
     }
 
-    constexpr friend bool operator<(enum_flags a, enum_flags b)
+    constexpr friend bool operator<(Enum a, enum_flags b) noexcept
     {
-        return a.value_ < b.value_;
+        return enum_flags{a} < b;
     }
 
-    constexpr friend bool operator!=(enum_flags a, enum_flags b)
+    constexpr friend bool operator!=(Enum a, enum_flags b) noexcept
     {
-        return !(a == b);
+        return enum_flags{a} != b;
     }
 
 private:
