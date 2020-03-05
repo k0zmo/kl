@@ -155,6 +155,12 @@ TEST_CASE("enum_flags")
             REQUIRE((~flags).test(type_qualifier::restrict_));
             REQUIRE((~flags).test(type_qualifier::volatile_));
         }
+
+        SECTION("operator bool")
+        {
+            REQUIRE(kl::make_flags(type_qualifier::const_));
+            REQUIRE_FALSE(kl::make_flags(type_qualifier::none));
+        }
     }
 
     SECTION("short underlying type")

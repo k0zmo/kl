@@ -27,7 +27,10 @@ public:
 
     constexpr Enum value() const noexcept { return value_; }
 
-    constexpr explicit operator bool() const noexcept { return value_ != 0; }
+    constexpr explicit operator bool() const noexcept
+    {
+        return underlying_value() != 0;
+    }
 
     constexpr bool test(Enum flag) const noexcept
     {
