@@ -87,6 +87,9 @@ if(KL_ENABLE_YAML)
         kl
         yaml::yaml-cpp
     )
+    if(MSVC)
+        target_compile_options(kl-yaml PRIVATE /wd4100 /wd4127 /wd4244 /wd4456 /wd4702)
+    endif()
     kl_source_group(kl-yaml TREE ${kl_SOURCE_DIR})
     set_target_properties(kl-yaml PROPERTIES FOLDER kl)
     add_library(kl::yaml ALIAS kl-yaml)

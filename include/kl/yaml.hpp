@@ -25,7 +25,7 @@ template <typename T>
 struct encoder;
 
 template <typename T>
-bool is_null_value(const T& value) { return false; }
+bool is_null_value(const T&) { return false; }
 
 template <typename T>
 bool is_null_value(const boost::optional<T>& value) { return !value; }
@@ -338,6 +338,7 @@ template <typename Enum, typename Context>
 YAML::Node enum_to_yaml(Enum e, Context& ctx,
                         std::true_type /*is_enum_reflectable*/)
 {
+    (void)ctx;
     return YAML::Node{kl::to_string(e)};
 }
 
@@ -786,7 +787,7 @@ T deserialize(type_t<T>, const YAML::Node& value)
 } // namespace yaml
 } // namespace kl
 
-inline YAML::Node operator""_yaml(const char* s, std::size_t len)
+inline YAML::Node operator""_yaml(const char* s, std::size_t)
 {
     try
     {
