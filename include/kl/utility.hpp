@@ -16,6 +16,7 @@ constexpr auto underlying_cast(Enum e) noexcept
 template <typename T, std::size_t N>
 constexpr auto countof(const T (&arr)[N]) noexcept
 {
+    (void)arr;
     return N;
 }
 

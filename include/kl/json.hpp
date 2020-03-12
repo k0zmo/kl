@@ -355,6 +355,7 @@ template <typename JsonConstructible, typename Context,
           enable_if<is_json_constructible<JsonConstructible>> = true>
 rapidjson::Value to_json(const JsonConstructible& value, Context& ctx)
 {
+    (void)ctx;
     return rapidjson::Value{value};
 }
 
