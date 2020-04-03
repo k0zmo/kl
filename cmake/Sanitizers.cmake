@@ -27,7 +27,6 @@ kl_define_build_type(UBSan
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
     kl_define_build_type(MSan
-        "-O2 -g -fsanitize=memory -fno-omit-frame-pointer -DNDEBUG"
-        "-fsanitize=memory"
+        COMPILER_FLAGS "-O2 -g -fsanitize=memory -fno-omit-frame-pointer -DNDEBUG"
     )
 endif()
