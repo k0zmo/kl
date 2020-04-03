@@ -65,35 +65,61 @@ function(kl_define_build_type _name)
         endif()
     endforeach()
 
+    if(NOT DEFINED BUILD_TYPE_${uc_name}_DEFINED)
+        # We're here for the first time. However, variables we want to define now
+        # are already in the cache and they're most likely just empty, initialized 
+        # by undefined ${uc_name}_INIT variables. That's why we need a FORCE modifier
+        # but only for the first time.
+        set(force FORCE)
+        set(BUILD_TYPE_${uc_name}_DEFINED ON CACHE 
+            INTERNAL "Are we defining or re-defining build type flags." FORCE)
+    else()
+        set(force)
+    endif()
+
     # Don't define C flags if it's C++-only project
     if(DEFINED CMAKE_C_FLAGS${arg_BASE})
+        set(CMAKE_C_FLAGS_${uc_name} "${c_flags}" CACHE
+            STRING "Flags used by the C compiler during ${uc_name} builds."
+            ${force}
+        )
         mark_as_advanced(CMAKE_C_FLAGS_${uc_name})
-        set(CMAKE_C_FLAGS_${uc_name} "${c_flags}"
-            CACHE STRING "Flags used by the C compiler during ${uc_name} builds." FORCE)
     endif()
 
     # Don't define CXX flags if it's C-only project
     if(DEFINED CMAKE_CXX_FLAGS${arg_BASE})
+        set(CMAKE_CXX_FLAGS_${uc_name} "${cxx_flags}" CACHE
+            STRING "Flags used by the CXX compiler during ${uc_name} builds."
+            ${force}
+        )
         mark_as_advanced(CMAKE_CXX_FLAGS_${uc_name})
-        set(CMAKE_CXX_FLAGS_${uc_name} "${cxx_flags}"
-            CACHE STRING "Flags used by the CXX compiler during ${uc_name} builds." FORCE)
     endif()
 
     # Don't define RC flags if we're building on anything other than WIN32
     if(DEFINED CMAKE_RC_FLAGS${arg_BASE})
+        set(CMAKE_RC_FLAGS_${uc_name} "${rc_flags}" CACHE
+            STRING "Flags for Windows Resource Compiler during ${uc_name} builds."
+            ${force}
+        )
         mark_as_advanced(CMAKE_RC_FLAGS_${uc_name})
-        set(CMAKE_RC_FLAGS_${uc_name} "${rc_flags}"
-            CACHE STRING "Flags for Windows Resource Compiler during ${uc_name} builds." FORCE)
     endif()
 
-    set(CMAKE_STATIC_LINKER_FLAGS_${uc_name} "${static_linker_flags}"
-        CACHE STRING "Flags used by the linker during the creation of static libraries during ${uc_name} builds." FORCE)
-    set(CMAKE_EXE_LINKER_FLAGS_${uc_name} "${exe_linker_flags}"
-        CACHE STRING "Flags used by the linker during ${uc_name} builds." FORCE)
-    set(CMAKE_SHARED_LINKER_FLAGS_${uc_name} "${shared_linker_flags}"
-        CACHE STRING "Flags used by the linker during the creation of shared libraries during ${uc_name} builds." FORCE)
-    set(CMAKE_MODULE_LINKER_FLAGS_${uc_name} "${module_linker_flags}"
-        CACHE STRING "Flags used by the linker during the creation of modules during ${uc_name} builds." FORCE)
+    set(CMAKE_STATIC_LINKER_FLAGS_${uc_name} "${static_linker_flags}" CACHE
+        STRING "Flags used by the linker during the creation of static libraries during ${uc_name} builds."
+        ${force}
+    )    
+    set(CMAKE_EXE_LINKER_FLAGS_${uc_name} "${exe_linker_flags}" CACHE
+        STRING "Flags used by the linker during ${uc_name} builds."
+        ${force}
+    )
+    set(CMAKE_SHARED_LINKER_FLAGS_${uc_name} "${shared_linker_flags}" CACHE
+        STRING "Flags used by the linker during the creation of shared libraries during ${uc_name} builds."
+        ${force}
+    )
+    set(CMAKE_MODULE_LINKER_FLAGS_${uc_name} "${module_linker_flags}" CACHE
+        STRING "Flags used by the linker during the creation of modules during ${uc_name} builds."
+        ${force}
+    )
 
     mark_as_advanced(
         CMAKE_STATIC_LINKER_FLAGS_${uc_name}
