@@ -3,8 +3,8 @@ include(FetchContent)
 set_directory_properties(PROPERTIES EXCLUDE_FROM_ALL ON)
 
 FetchContent_Declare(GSL
-    URL https://github.com/Microsoft/GSL/archive/v2.0.0.zip
-    URL_HASH SHA256=837f35a9f00b2543bada8ae680e5c56af84709d36d48cdc3ed8db69df043f5b2
+    URL https://github.com/microsoft/GSL/archive/v3.0.0.zip
+    URL_HASH SHA256=ed2d506839fd917142d562fa720459ce58c38fc5711b715779093e895a87d8c7
 )
 FetchContent_Declare(rapidjson
     URL https://github.com/Tencent/rapidjson/archive/v1.1.0.zip

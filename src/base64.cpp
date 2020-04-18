@@ -19,7 +19,7 @@ std::string base64_encode(gsl::span<const std::byte> s)
     auto src = s.data();
     auto dst = ret.begin();
 
-    for (std::ptrdiff_t i = 0; i < full_quad; ++i)
+    for (std::size_t i = 0U; i < full_quad; ++i)
     {
         *dst++ = lookup(src[0] >> 2);
         *dst++ = lookup(((src[0] & std::byte{0x3}) << 4) | (src[1] >> 4));
@@ -106,7 +106,7 @@ std::optional<std::vector<std::byte>> base64_decode(std::string_view str)
     auto src = str.begin();
     auto dst = ret->begin();
 
-    for (std::size_t i = 0; i < full_quad; ++i)
+    for (std::size_t i = 0U; i < full_quad; ++i)
     {
         const std::byte lut4[] = {lookup(src[0]), lookup(src[1]),
                                   lookup(src[2]), lookup(src[3])};

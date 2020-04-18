@@ -76,8 +76,8 @@ file_view::file_view(const char* file_path)
         throw std::system_error{static_cast<int>(errno),
                                 std::system_category()};
 
-    contents_ = gsl::make_span(static_cast<const std::byte*>(file_view),
-                               static_cast<std::ptrdiff_t>(file_info.st_size));
+    contents_ = gsl::span{static_cast<const std::byte*>(file_view),
+                          static_cast<std::size_t>(file_info.st_size)};
 }
 
 file_view::~file_view()

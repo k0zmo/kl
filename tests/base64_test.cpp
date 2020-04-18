@@ -9,8 +9,8 @@ namespace {
 template <std::size_t N>
 gsl::span<const std::byte> as_span(const char (&str)[N])
 {
-    return gsl::span<const std::byte>(reinterpret_cast<const std::byte*>(str),
-                                      N - 1); // get rid of trailing '\0'
+    return gsl::span{reinterpret_cast<const std::byte*>(str),
+                     N - 1}; // get rid of trailing '\0'
 }
 
 template <size_t N>

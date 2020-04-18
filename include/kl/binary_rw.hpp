@@ -24,7 +24,7 @@ public:
     {
     }
 
-    template <typename U, std::ptrdiff_t Extent>
+    template <typename U, std::size_t Extent>
     explicit cursor_base(gsl::span<U, Extent> buffer) noexcept
         : buffer_{reinterpret_cast<T*>(buffer.data()), buffer.size_bytes()}
     {
@@ -33,9 +33,9 @@ public:
     void skip(std::ptrdiff_t off) noexcept
     {
         // Make sure pos_ does not escape of buffer range
-        if (off > 0 && off > left())
+        if (off > 0 && static_cast<std::size_t>(off) > left())
             err_ = true;
-        if (off < 0 && (-off) > pos_)
+        if (off < 0 && static_cast<std::size_t>(-off) > pos_)
             err_ = true;
 
         if (!err_)
@@ -44,12 +44,12 @@ public:
 
     bool empty() const noexcept { return left() <= 0; }
     // Returns how many bytes are left in the internal buffer
-    std::ptrdiff_t left() const noexcept
+    std::size_t left() const noexcept
     {
         return buffer_.size_bytes() - pos();
     }
     // Returns how many bytes we've already read
-    std::ptrdiff_t pos() const noexcept { return pos_; }
+    std::size_t pos() const noexcept { return pos_; }
 
     bool err() const noexcept { return err_; }
 
@@ -61,7 +61,7 @@ protected:
 
 protected:
     gsl::span<T> buffer_;
-    std::ptrdiff_t pos_{0};
+    std::size_t pos_{0};
     bool err_{false};
 };
 
@@ -96,7 +96,7 @@ public:
         return read_impl(reinterpret_cast<std::byte*>(&value), sizeof(T));
     }
 
-    template <typename T, std::ptrdiff_t Extent>
+    template <typename T, std::size_t Extent>
     bool read_span(gsl::span<T, Extent> span) noexcept
     {
         static_assert(std::is_trivially_copyable<T>::value,
@@ -178,7 +178,7 @@ void read_binary(binary_reader& r, T& value) noexcept
 }
 
 // read_binary implementation for all basic types + enum types
-template <typename T, std::ptrdiff_t Extent>
+template <typename T, std::size_t Extent>
 void read_binary(binary_reader& r, gsl::span<T, Extent> span)
 {
     r.read_span(span);
@@ -192,7 +192,7 @@ binary_reader& operator>>(binary_reader& r, T& value)
 }
 
 // This must be present to allow for rvalue spans
-template <typename T, std::ptrdiff_t Extent>
+template <typename T, std::size_t Extent>
 binary_reader& operator>>(binary_reader& r, gsl::span<T, Extent> span)
 {
     read_binary(r, span);
@@ -216,7 +216,7 @@ public:
                           sizeof(T));
     }
 
-    template <typename T, std::ptrdiff_t Extent>
+    template <typename T, std::size_t Extent>
     bool write_span(gsl::span<const T, Extent> span) noexcept
     {
         static_assert(std::is_trivially_copyable<T>::value,
@@ -250,7 +250,7 @@ void write_binary(binary_writer& w, const T& value) noexcept
 }
 
 // write_binary implementation for spans
-template <typename T, std::ptrdiff_t Extent>
+template <typename T, std::size_t Extent>
 void write_binary(binary_writer& w, gsl::span<const T, Extent> span) noexcept
 {
     w.write_span(span);

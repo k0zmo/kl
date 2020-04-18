@@ -10,6 +10,7 @@
 #include <catch2/catch.hpp>
 #include <gsl/span>
 #include <gsl/string_span>
+#include <gsl/span_ext> // operator==
 
 #include <cstring>
 #include <optional>
@@ -30,7 +31,7 @@ TEST_CASE("binary_reader")
 
     SECTION("empty span")
     {
-        binary_reader r{gsl::span<const std::byte>()};
+        binary_reader r{gsl::span<const std::byte>{}};
 
         REQUIRE(r.left() == 0);
         REQUIRE(r.pos() == 0);
@@ -390,7 +391,7 @@ TEST_CASE("binary_writer")
 
     SECTION("empty span")
     {
-        binary_writer w{gsl::span<std::byte>()};
+        binary_writer w{gsl::span<std::byte>{}};
 
         REQUIRE(w.left() == 0);
         REQUIRE(w.pos() == 0);
@@ -488,7 +489,7 @@ TEST_CASE("binary_writer")
         REQUIRE(!w.err());
         REQUIRE(w.empty());
         REQUIRE(gsl::as_bytes(gsl::ensure_z(str)) ==
-                gsl::as_bytes(gsl::make_span(buf)));
+                gsl::as_bytes(gsl::span<std::byte>{buf}));
     }
 }
 
@@ -790,14 +791,14 @@ struct user_defined_type
 
 void read_binary(kl::binary_reader& r, user_defined_type& value)
 {
-    r >> gsl::make_span(value.vec);
+    r >> gsl::span{value.vec};
     r >> value.i;
     r >> value.f;
 }
 
 void write_binary(kl::binary_writer& w, const user_defined_type& value)
 {
-    w << gsl::make_span(value.vec);
+    w << gsl::span{value.vec};
     w << value.i;
     w << value.f;
 }
@@ -805,7 +806,7 @@ void write_binary(kl::binary_writer& w, const user_defined_type& value)
 TEST_CASE("binary_reader/writer - user defined type")
 {
     std::array<char, 52> buf{};
-    kl::binary_writer w{gsl::make_span(buf)};
+    kl::binary_writer w{gsl::span<char>{buf}};
 
     w << std::vector<user_defined_type>{
         {{3.14f, 1.0f, 2.72f, 9000.0f}, 2, 0.0f},
@@ -814,7 +815,7 @@ TEST_CASE("binary_reader/writer - user defined type")
     REQUIRE(w.empty());
     REQUIRE(!w.err());
 
-    kl::binary_reader r{gsl::make_span(buf)};
+    kl::binary_reader r{gsl::span<char>{buf}};
     std::vector<user_defined_type> v;
     r >> v;
     REQUIRE(r.empty());
