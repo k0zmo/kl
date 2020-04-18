@@ -90,8 +90,8 @@ file_view::file_view(const char* file_path)
                                 std::system_category()};
 
     contents_ =
-        gsl::make_span(static_cast<const byte*>(file_view),
-                       gsl::narrow_cast<std::ptrdiff_t>(file_size.QuadPart));
+        gsl::span<const byte>{static_cast<const byte*>(file_view),
+                              static_cast<std::size_t>(file_size.QuadPart)};
 }
 
 file_view::~file_view()

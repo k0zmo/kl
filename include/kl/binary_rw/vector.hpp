@@ -15,7 +15,7 @@ void encode_vector(kl::binary_writer& w, const std::vector<T>& vec,
                    std::true_type /*is_trivially_serializable*/)
 {
     w << static_cast<std::uint32_t>(vec.size());
-    w << gsl::make_span(vec);
+    w << gsl::span<const T>{vec};
 }
 
 template <typename T>
@@ -40,7 +40,7 @@ void decode_vector(kl::binary_reader& r, std::vector<T>& vec,
     if (size)
     {
         vec.resize(size);
-        r >> gsl::make_span(vec);
+        r >> gsl::span<T>{vec};
 
         if (r.err())
         {

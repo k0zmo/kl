@@ -16,7 +16,7 @@ std::string base64_encode(gsl::span<const byte> s)
     auto src = s.data();
     auto dst = ret.begin();
 
-    for (std::ptrdiff_t i = 0; i < full_quad; ++i)
+    for (std::size_t i = 0U; i < full_quad; ++i)
     {
         *dst++ = lookup(src[0] >> 2);
         *dst++ = lookup(((src[0] & 0x3) << 4) | (src[1] >> 4));
@@ -100,7 +100,7 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
     auto src = str.begin();
     auto dst = ret->begin();
 
-    for (std::ptrdiff_t i = 0; i < full_quad; ++i)
+    for (std::size_t i = 0U; i < full_quad; ++i)
     {
         const byte lut4[] =
         {
