@@ -45,9 +45,9 @@ KL_DESCRIBE_ENUM(enum_, A, (B, bb), C)
 
      static constexpr ::kl::enum_value_name<enum_> kl_enum_description356[] = {
          {enum_::A, "A"}, {enum_::B, "bb"}, {enum_::C, "C"}};
-     constexpr auto describe_enum(::kl::enum_class<enum>_) noexcept
+     constexpr auto describe_enum(::kl::enum_class<enum_>) noexcept
      {
-         return ::kl::make_range(kl_enum_description356);
+         return ::kl::range{kl_enum_description356};
      }
  */
 
@@ -75,7 +75,7 @@ struct enum_value_name
     KL_DESCRIBE_ENUM_BASE(name_, values_, __COUNTER__)
 
 #define KL_DESCRIBE_ENUM_BASE(name_, values_, counter_)                        \
-    static constexpr ::kl::enum_value_name<name_> KL_DESCRIBE_ENUM_VAR_NAME(   \
+    inline constexpr ::kl::enum_value_name<name_> KL_DESCRIBE_ENUM_VAR_NAME(   \
         counter_)[] = {                                                        \
         KL_DESCRIBE_ENUM_VALUE_NAME_PAIRS(                                     \
             name_, (KL_DESCRIBE_ENUM_ARGS_TO_TUPLES(values_)))};               \
