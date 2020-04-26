@@ -43,7 +43,7 @@ KL_DESCRIBE_FIELDS(B, str)
  * Above definitions are expanded to:
 
      template <typename Self>
-     constexpr auto describe_fields(A*, Self&& self) noexcept
+     constexpr auto describe_fields(::kl::record_class<A>, Self&& self) noexcept
      {
          return std::make_tuple(
             ::kl::make_field_info<decltype(self.i)>(self, self.i, "i"),
@@ -52,7 +52,7 @@ KL_DESCRIBE_FIELDS(B, str)
      }
 
      template <typename Self>
-     constexpr auto describe_fields(B*, Self&& self) noexcept
+     constexpr auto describe_fields(::kl::record_class<B>, Self&& self) noexcept
      {
          return std::make_tuple(
             ::kl::make_field_info<decltype(self.str)>(self, self.str, "str"));
@@ -66,7 +66,7 @@ KL_DESCRIBE_FIELDS(B, str)
  * Similarly, macro should be placed in the same namespace as the type
  * Above definition is expanded to:
 
-     constexpr auto describe_bases(B*) noexcept
+     constexpr auto describe_bases(::kl::record_class<B>) noexcept
      {
          return ::kl::type_pack<A>{};
      }
@@ -144,6 +144,13 @@ constexpr auto make_field_info(Parent&&, const MemberData& field,
     using parent_type = std::remove_reference_t<Parent>;
     return field_info<parent_type, const MemberData>{field, name};
 }
+
+template <typename Record>
+class record_class
+{
+};
+template <typename Record>
+inline constexpr auto record = record_class<Record>{};
 } // namespace kl
 
 #define KL_DESCRIBE_BASES(type_, ...)                                          \
@@ -153,14 +160,15 @@ constexpr auto make_field_info(Parent&&, const MemberData& field,
     KL_DESCRIBE_FIELDS_TUPLE(type_, BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__))
 
 #define KL_DESCRIBE_BASES_TUPLE(type_, bases_)                                 \
-    constexpr auto describe_bases(type_*) noexcept                             \
+    constexpr auto describe_bases(::kl::record_class<type_>) noexcept          \
     {                                                                          \
         return ::kl::type_pack<BOOST_PP_REMOVE_PARENS(bases_)>{};              \
     }
 
 #define KL_DESCRIBE_FIELDS_TUPLE(type_, fields_)                               \
     template <typename Self>                                                   \
-    constexpr auto describe_fields(type_*, Self&& self) noexcept               \
+    constexpr auto describe_fields(::kl::record_class<type_>,                  \
+                                   Self&& self) noexcept                       \
     {                                                                          \
         return std::make_tuple(                                                \
             KL_DESCRIBE_FIELDS_BUILD_FIELD_INFO_LIST(fields_));                \

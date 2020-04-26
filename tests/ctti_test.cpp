@@ -41,7 +41,7 @@ public:
 private:
     // because `d` and `e` are private
     template <typename Self>
-    friend constexpr auto describe_fields(T*, Self&&) noexcept;
+    friend constexpr auto describe_fields(kl::record_class<T>, Self&&) noexcept;
     std::string d;
     std::vector<std::string> e;
 };
@@ -225,8 +225,8 @@ TEST_CASE("ctti")
                             "Hello\n");
     }
 
-    using field_desc_type = decltype(kl::describe_fields(
-                                std::declval<test::ZZZ>()));
+    using field_desc_type = decltype(
+        describe_fields(kl::record<test::ZZZ>, std::declval<test::ZZZ>()));
 
     static_assert(
         std::is_same<

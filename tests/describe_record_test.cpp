@@ -26,13 +26,12 @@ TEST_CASE("describe record")
 {
     using namespace std::string_literals;
 
-    static_assert(
-        std::is_same<decltype(describe_bases(static_cast<B*>(nullptr))),
-                     kl::type_pack<A>>::value,
-        "");
+    static_assert(std::is_same<decltype(describe_bases(kl::record<B>)),
+                               kl::type_pack<A>>::value,
+                  "");
 
     A a{2, true, 3.14};
-    auto f1 = describe_fields(static_cast<A*>(nullptr), a);
+    auto f1 = describe_fields(kl::record<A>, a);
     static_assert(std::tuple_size<decltype(f1)>::value == 3, "");
     CHECK(std::get<0>(f1).name() == "i"s);
     CHECK(std::get<0>(f1).get() == a.i);
@@ -48,7 +47,7 @@ TEST_CASE("describe record")
         return b;
     }();
 
-    auto f2 = describe_fields(static_cast<B*>(nullptr), b);
+    auto f2 = describe_fields(kl::record<B>, b);
     static_assert(std::tuple_size<decltype(f2)>::value == 1, "");
     CHECK(std::get<0>(f2).name() == "ull"s);
     CHECK(std::get<0>(f2).get() == b.ull);

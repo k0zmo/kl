@@ -12,12 +12,9 @@
 namespace kl {
 namespace detail {
 
-template <typename T>
-inline constexpr auto null = static_cast<remove_cvref_t<T>*>(nullptr);
-
-KL_VALID_EXPR_HELPER(has_describe_bases, describe_bases(null<T>))
+KL_VALID_EXPR_HELPER(has_describe_bases, describe_bases(record<T>))
 KL_VALID_EXPR_HELPER(has_describe_fields,
-                     describe_fields(null<T>, std::declval<T&>()))
+                     describe_fields(record<T>, std::declval<T&>()))
 
 template <typename T, bool is_describe_bases_defined = has_describe_bases_v<T>>
 struct base_types
@@ -28,7 +25,7 @@ struct base_types
 template <typename T>
 struct base_types<T, true>
 {
-    using type = decltype(describe_bases(null<T>));
+    using type = decltype(describe_bases(record<T>));
 };
 
 template <typename T, typename U>
@@ -68,18 +65,6 @@ using is_reflectable = detail::has_describe_fields<T>;
 template <typename T>
 inline constexpr bool is_reflectable_v = is_reflectable<T>::value;
 
-template <typename T>
-constexpr auto describe_fields(T&& obj) noexcept
-{
-    return describe_fields(detail::null<T>, std::forward<T>(obj));
-}
-
-template <typename T>
-constexpr auto describe_bases() noexcept
-{
-    return describe_bases(detail::null<T>);
-}
-
 struct ctti
 {
     template <typename T>
@@ -97,32 +82,37 @@ struct ctti
     template <typename Reflected, typename Visitor>
     static constexpr void reflect(Reflected&& r, Visitor&& v)
     {
+        using R = remove_cvref_t<Reflected>;
+
         static_assert(
-            detail::has_describe_fields_v<Reflected>,
+            detail::has_describe_fields_v<R>,
             "Can't reflect this type. Define describe_fields function");
 
-        reflect_bases(r, v, base_types<Reflected>{});
-        tuple::for_each_fn::call(describe_fields(std::forward<Reflected>(r)),
-                                 std::forward<Visitor>(v));
+        reflect_bases(r, v, base_types<R>{});
+        tuple::for_each_fn::call(
+            describe_fields(record<R>, std::forward<Reflected>(r)),
+            std::forward<Visitor>(v));
     }
 
     template <typename Reflected>
     static constexpr std::size_t num_fields() noexcept
     {
+        using R = remove_cvref_t<Reflected>;
+
         static_assert(
-            detail::has_describe_fields_v<Reflected>,
+            detail::has_describe_fields_v<R>,
             "Can't reflect this type. Define describe_fields function");
 
         using field_desc =
-            decltype(describe_fields(std::declval<Reflected&>()));
+            decltype(describe_fields(record<R>, std::declval<Reflected&>()));
         return std::tuple_size_v<field_desc>;
     }
 
     template <typename Reflected>
     static constexpr std::size_t total_num_fields() noexcept
     {
-        return num_fields<Reflected>() +
-               base_num_fields(base_types<Reflected>{});
+        using R = remove_cvref_t<Reflected>;
+        return num_fields<R>() + base_num_fields(base_types<R>{});
     }
 
 private:
