@@ -19,7 +19,7 @@ KL_DESCRIBE_ENUM(A, a, (b, BB), c)
 TEST_CASE("describe enum")
 {
     using namespace std::string_literals;
-    const auto rng = describe_enum(A{});
+    const auto rng = describe_enum(kl::enum_<A>);
 
     REQUIRE(rng.size() == 3);
     auto it = rng.begin();

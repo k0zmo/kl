@@ -13,7 +13,7 @@ namespace kl {
 
 namespace detail {
 
-KL_VALID_EXPR_HELPER(has_describe_enum, describe_enum(T{}))
+KL_VALID_EXPR_HELPER(has_describe_enum, describe_enum(::kl::enum_<T>))
 } // namespace detail
 
 template <typename Enum, bool is_enum = std::is_enum_v<Enum>>
@@ -47,17 +47,17 @@ struct enum_reflector
 
     static_assert(is_enum_reflectable_v<enum_type>,
                   "Enum must be a reflectable enum. "
-                  "Define describe_enum(Enum) function");
+                  "Define describe_enum(kl::enum_class<Enum>) function");
 
     static constexpr std::size_t count() noexcept
     {
-        return describe_enum(enum_type{}).size();
+        return describe_enum(enum_<enum_type>).size();
     }
 
     static constexpr std::optional<enum_type>
         from_string(std::string_view str) noexcept
     {
-        const auto rng = describe_enum(enum_type{});
+        const auto rng = describe_enum(enum_<enum_type>);
         for (const auto& vn : rng)
         {
             if (str == vn.name)
@@ -72,7 +72,7 @@ struct enum_reflector
         // expression which under the table uses `auto&&` to extend the lifetime
         // of it. Thus we assign the expression to `auto` and only then we loop
         // over it.
-        const auto rng = describe_enum(value);
+        const auto rng = describe_enum(enum_<enum_type>);
         for (const auto& vn : rng)
         {
             if (vn.value == value)
@@ -81,7 +81,7 @@ struct enum_reflector
         return "(unknown)";
     }
 
-    static kl::range<const enum_type*> values() noexcept
+    static range<const enum_type*> values() noexcept
     {
         static constexpr auto value_list = values_impl();
         return {value_list.data(), value_list.data() + value_list.size()};
@@ -92,7 +92,7 @@ struct enum_reflector
 private:
     static constexpr auto values_impl() noexcept
     {
-        constexpr auto rng = describe_enum(enum_type{});
+        constexpr auto rng = describe_enum(enum_<enum_type>);
         std::array<enum_type, rng.size()> values{};
         auto it = rng.begin();
         for (auto& value : values)
