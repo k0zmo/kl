@@ -15,7 +15,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/defer.hpp
     ${kl_SOURCE_DIR}/include/kl/describe_enum.hpp
     ${kl_SOURCE_DIR}/include/kl/describe_record.hpp
-    ${kl_SOURCE_DIR}/include/kl/enum_flags.hpp
+    ${kl_SOURCE_DIR}/include/kl/enum_set.hpp
     ${kl_SOURCE_DIR}/include/kl/enum_range.hpp
     ${kl_SOURCE_DIR}/include/kl/enum_reflector.hpp
     ${kl_SOURCE_DIR}/include/kl/enum_traits.hpp

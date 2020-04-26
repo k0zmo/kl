@@ -1,6 +1,6 @@
 #include "kl/yaml.hpp"
 #include "kl/ctti.hpp"
-#include "kl/enum_flags.hpp"
+#include "kl/enum_set.hpp"
 #include "input/typedefs.hpp"
 
 #include <catch2/catch.hpp>
@@ -724,11 +724,11 @@ TEST_CASE("yaml - overloading")
     REQUIRE(obj.w.value == 31);
 }
 
-TEST_CASE("yaml - enum_flags")
+TEST_CASE("yaml - enum_set")
 {
     SECTION("to yaml")
     {
-        auto f = kl::make_flags(device_type::cpu) | device_type::gpu |
+        auto f = kl::enum_set{device_type::cpu} | device_type::gpu |
                  device_type::accelerator;
         auto y = kl::yaml::serialize(f);
         REQUIRE(y.IsSequence());
@@ -737,7 +737,7 @@ TEST_CASE("yaml - enum_flags")
         REQUIRE(y[1].as<std::string>() == "gpu");
         REQUIRE(y[2].as<std::string>() == "accelerator");
 
-        f &= ~kl::make_flags(device_type::accelerator);
+        f &= ~kl::enum_set{device_type::accelerator};
 
         y = kl::yaml::serialize(f);
         REQUIRE(y.IsSequence());
@@ -750,7 +750,7 @@ TEST_CASE("yaml - enum_flags")
     {
         auto y = "cpu: 1"_yaml;
         REQUIRE_THROWS_WITH(kl::yaml::deserialize<device_flags>(y),
-                            "type must be a sequnce but is Map");
+                            "type must be a sequence but is Map");
 
         y = "[]"_yaml;
         auto f = kl::yaml::deserialize<device_flags>(y);
@@ -801,14 +801,14 @@ TEST_CASE("yaml dump")
                      "18446744073709551615");
     }
 
-    SECTION("enum_flags")
+    SECTION("enum_set")
     {
-        auto f = make_flags(device_type::cpu) | device_type::gpu |
+        auto f = kl::enum_set{device_type::cpu} | device_type::gpu |
                  device_type::accelerator;
         auto res = yaml::dump(f);
         CHECK(res == "- cpu\n- gpu\n- accelerator");
 
-        f &= ~kl::make_flags(device_type::accelerator);
+        f &= ~kl::enum_set{device_type::accelerator};
         res = yaml::dump(f);
         CHECK(res == "- cpu\n- gpu");
     }

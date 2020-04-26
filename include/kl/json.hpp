@@ -3,7 +3,7 @@
 #include "kl/type_traits.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_reflector.hpp"
-#include "kl/enum_flags.hpp"
+#include "kl/enum_set.hpp"
 #include "kl/tuple.hpp"
 #include "kl/utility.hpp"
 
@@ -305,14 +305,14 @@ void encode(Enum e, Context& ctx)
 }
 
 template <typename Enum, typename Context>
-void encode(const enum_flags<Enum>& flags, Context& ctx)
+void encode(const enum_set<Enum>& set, Context& ctx)
 {
     static_assert(is_enum_reflectable<Enum>::value,
-                  "Only flags of reflectable enums are supported");
+                  "Only sets of reflectable enums are supported");
     ctx.writer().StartArray();
     for (const auto possible_value : enum_reflector<Enum>::values())
     {
-        if (flags.test(possible_value))
+        if (set.test(possible_value))
             json::dump(kl::to_string(possible_value), ctx);
     }
     ctx.writer().EndArray();
@@ -453,15 +453,15 @@ rapidjson::Value to_json(Enum e, Context& ctx)
 }
 
 template <typename Enum, typename Context>
-rapidjson::Value to_json(const enum_flags<Enum>& flags, Context& ctx)
+rapidjson::Value to_json(const enum_set<Enum>& set, Context& ctx)
 {
     static_assert(is_enum_reflectable<Enum>::value,
-                  "Only flags of reflectable enums are supported");
+                  "Only sets of reflectable enums are supported");
     rapidjson::Value arr{rapidjson::kArrayType};
 
     for (const auto possible_value : enum_reflector<Enum>::values())
     {
-        if (flags.test(possible_value))
+        if (set.test(possible_value))
             arr.PushBack(to_json(possible_value, ctx), ctx.allocator());
     }
 
@@ -813,14 +813,13 @@ Enum from_json(type_t<Enum>, const rapidjson::Value& value)
 }
 
 template <typename Enum>
-enum_flags<Enum> from_json(type_t<enum_flags<Enum>>,
-                           const rapidjson::Value& value)
+enum_set<Enum> from_json(type_t<enum_set<Enum>>, const rapidjson::Value& value)
 {
     if (!value.IsArray())
         throw deserialize_error{"type must be an array but is " +
                                 json_type_name(value)};
 
-    enum_flags<Enum> ret{};
+    enum_set<Enum> ret{};
 
     for (const auto& v : value.GetArray())
     {

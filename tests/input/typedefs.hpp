@@ -2,7 +2,7 @@
 
 #include "kl/describe_record.hpp"
 #include "kl/describe_enum.hpp"
-#include "kl/enum_flags.hpp"
+#include "kl/enum_set.hpp"
 
 
 #include <vector>
@@ -47,7 +47,7 @@ enum class device_type
 };
 KL_DESCRIBE_ENUM(device_type,
                  (default_, default), cpu, gpu, accelerator, custom)
-using device_flags = kl::enum_flags<device_type>;
+using device_flags = kl::enum_set<device_type>;
 
 // on GCC underlying_type(ordinary_enum) => unsigned
 enum ordinary_enum : int { oe_one };

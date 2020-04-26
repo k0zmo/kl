@@ -6,7 +6,7 @@ set(test_files
     defer_test.cpp
     describe_enum_test.cpp
     describe_record_test.cpp
-    enum_flags_test.cpp
+    enum_set_test.cpp
     enum_range_test.cpp
     enum_reflector_test.cpp
     enum_traits_test.cpp

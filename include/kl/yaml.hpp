@@ -3,7 +3,7 @@
 #include "kl/type_traits.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_reflector.hpp"
-#include "kl/enum_flags.hpp"
+#include "kl/enum_set.hpp"
 #include "kl/tuple.hpp"
 #include "kl/utility.hpp"
 
@@ -233,14 +233,14 @@ void encode(const Enum& e, Context& ctx)
 }
 
 template <typename Enum, typename Context>
-void encode(const enum_flags<Enum>& flags, Context& ctx)
+void encode(const enum_set<Enum>& set, Context& ctx)
 {
     static_assert(is_enum_reflectable<Enum>::value,
-                  "Only flags of reflectable enums are supported");
+                  "Only sets of reflectable enums are supported");
     ctx.emitter() << YAML::BeginSeq;
     for (const auto possible_value : enum_reflector<Enum>::values())
     {
-        if (flags.test(possible_value))
+        if (set.test(possible_value))
             yaml::dump(kl::to_string(possible_value), ctx);
     }
     ctx.emitter() << YAML::EndSeq;
@@ -355,15 +355,15 @@ YAML::Node to_yaml(Enum e, Context& ctx)
 }
 
 template <typename Enum, typename Context>
-YAML::Node to_yaml(const enum_flags<Enum>& flags, Context& ctx)
+YAML::Node to_yaml(const enum_set<Enum>& set, Context& ctx)
 {
     static_assert(is_enum_reflectable<Enum>::value,
-                  "Only flags of reflectable enums are supported");
+                  "Only sets of reflectable enums are supported");
     YAML::Node arr{YAML::NodeType::Sequence};
 
     for (const auto possible_value : enum_reflector<Enum>::values())
     {
-        if (flags.test(possible_value))
+        if (set.test(possible_value))
             arr.push_back(to_yaml(possible_value, ctx));
     }
 
@@ -609,13 +609,13 @@ Enum from_yaml(type_t<Enum>, const YAML::Node& value)
 }
 
 template <typename Enum>
-enum_flags<Enum> from_yaml(type_t<enum_flags<Enum>>, const YAML::Node& value)
+enum_set<Enum> from_yaml(type_t<enum_set<Enum>>, const YAML::Node& value)
 {
     if (!value.IsSequence())
-        throw deserialize_error{"type must be a sequnce but is " +
+        throw deserialize_error{"type must be a sequence but is " +
                                 yaml_type_name(value)};
 
-    enum_flags<Enum> ret{};
+    enum_set<Enum> ret{};
 
     for (const auto& v : value)
     {

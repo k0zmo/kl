@@ -1,6 +1,6 @@
 #include "kl/json.hpp"
 #include "kl/ctti.hpp"
-#include "kl/enum_flags.hpp"
+#include "kl/enum_set.hpp"
 #include "input/typedefs.hpp"
 
 #include <catch2/catch.hpp>
@@ -748,11 +748,11 @@ TEST_CASE("json - overloading")
     REQUIRE(obj.w.value == 31);
 }
 
-TEST_CASE("json - enum_flags")
+TEST_CASE("json - enum_set")
 {
     SECTION("to json")
     {
-        auto f = kl::make_flags(device_type::cpu) | device_type::gpu |
+        auto f = kl::enum_set{device_type::cpu} | device_type::gpu |
                  device_type::accelerator;
         auto j = kl::json::serialize(f);
         REQUIRE(j.IsArray());
@@ -761,7 +761,7 @@ TEST_CASE("json - enum_flags")
         REQUIRE(j[1] == "gpu");
         REQUIRE(j[2] == "accelerator");
 
-        f &= ~kl::make_flags(device_type::accelerator);
+        f &= ~kl::enum_set{device_type::accelerator};
 
         j = kl::json::serialize(f);
         REQUIRE(j.IsArray());
@@ -827,14 +827,14 @@ TEST_CASE("json dump")
             R"({"u8":128,"u16":32768,"u32":4294967295,"u64":18446744073709551615})");
     }
 
-    SECTION("enum_flags")
+    SECTION("enum_set")
     {
-        auto f = make_flags(device_type::cpu) | device_type::gpu |
+        auto f = kl::enum_set{device_type::cpu} | device_type::gpu |
                  device_type::accelerator;
         auto res = json::dump(f);
         CHECK(res == R"(["cpu","gpu","accelerator"])");
 
-        f &= ~kl::make_flags(device_type::accelerator);
+        f &= ~kl::enum_set{device_type::accelerator};
         res = json::dump(f);
         CHECK(res == R"(["cpu","gpu"])");
     }
