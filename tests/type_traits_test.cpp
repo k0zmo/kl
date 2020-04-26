@@ -45,7 +45,7 @@ TEST_CASE("type_traits")
                 const bool&>::value,
             "???");
 
-        static_assert(has_call_operator<decltype(lambda)>::value, "???");
+        static_assert(has_call_operator_v<decltype(lambda)>, "???");
     }
 
     SECTION("func_traits - member function pointer")
@@ -81,7 +81,7 @@ TEST_CASE("type_traits")
                                    double>::value,
                       "???");
 
-        static_assert(has_call_operator<op>::value, "???");
+        static_assert(has_call_operator_v<op>, "???");
     }
 
     SECTION("is_same")

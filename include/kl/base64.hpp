@@ -1,16 +1,15 @@
 #pragma once
 
-#include "kl/byte.hpp"
-
 #include <gsl/span>
-#include <gsl/string_span>
-#include <boost/optional.hpp>
 
+#include <cstddef>
 #include <string>
 #include <vector>
+#include <optional>
+#include <string_view>
 
 namespace kl {
 
-std::string base64_encode(gsl::span<const byte> s);
-boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str);
+std::string base64_encode(gsl::span<const std::byte> s);
+std::optional<std::vector<std::byte>> base64_decode(std::string_view str);
 } // namespace kl

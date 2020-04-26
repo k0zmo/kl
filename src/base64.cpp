@@ -1,12 +1,15 @@
 #include "kl/base64.hpp"
+#include "kl/utility.hpp"
 
 namespace kl {
 
-std::string base64_encode(gsl::span<const byte> s)
+std::string base64_encode(gsl::span<const std::byte> s)
 {
     static constexpr const char alphabet[] =
         "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    auto lookup = [](int c) { return alphabet[c & 0x3F]; };
+    auto lookup = [](std::byte c) {
+        return alphabet[underlying_cast(c) & 0x3F];
+    };
 
     // How many full (without padding with '=') quadruples we're gonna have
     const auto full_quad = s.size() / 3;
@@ -19,7 +22,7 @@ std::string base64_encode(gsl::span<const byte> s)
     for (std::size_t i = 0U; i < full_quad; ++i)
     {
         *dst++ = lookup(src[0] >> 2);
-        *dst++ = lookup(((src[0] & 0x3) << 4) | (src[1] >> 4));
+        *dst++ = lookup(((src[0] & std::byte{0x3}) << 4) | (src[1] >> 4));
         *dst++ = lookup(((src[1]) << 2) | (src[2] >> 6));
         *dst++ = lookup(((src[2])));
 
@@ -32,12 +35,12 @@ std::string base64_encode(gsl::span<const byte> s)
 
         if (s.size() == full_quad * 3 + 2)
         {
-            *dst++ = lookup(((src[0] & 0x3) << 4) | (src[1] >> 4));
+            *dst++ = lookup(((src[0] & std::byte{0x3}) << 4) | (src[1] >> 4));
             *dst++ = lookup((src[1] << 2));
         }
         else
         {
-            *dst++ = lookup((src[0] & 0x3) << 4);
+            *dst++ = lookup((src[0] & std::byte{0x3}) << 4);
             *dst++ = '=';
         }
 
@@ -49,7 +52,7 @@ std::string base64_encode(gsl::span<const byte> s)
 
 namespace {
 
-using base64_lut = byte[256];
+using base64_lut = std::byte[256];
 
 struct table_initializer
 {
@@ -58,28 +61,31 @@ struct table_initializer
         std::memset(table, 0x80, sizeof(table));
 
         for (size_t i = 'A'; i <= 'Z'; ++i)
-            table[i] = static_cast<byte>(0 + (i - 'A'));
+            table[i] = static_cast<std::byte>(0 + (i - 'A'));
         for (size_t i = 'a'; i <= 'z'; ++i)
-            table[i] = static_cast<byte>(26 + (i - 'a'));
+            table[i] = static_cast<std::byte>(26 + (i - 'a'));
         for (size_t i = '0'; i <= '9'; ++i)
-            table[i] = static_cast<byte>(52 + (i - '0'));
+            table[i] = static_cast<std::byte>(52 + (i - '0'));
 
-        table[static_cast<size_t>('+')] = 62;
-        table[static_cast<size_t>('/')] = 63;
+        table[static_cast<size_t>('+')] = std::byte{62};
+        table[static_cast<size_t>('/')] = std::byte{63};
     }
 };
 
-bool is_base64(byte b) { return b <= 0x3F; }
+bool is_base64(std::byte b)
+{
+    return underlying_cast(b) <= 0x3F;
+}
 } // namespace
 
-boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
+std::optional<std::vector<std::byte>> base64_decode(std::string_view str)
 {
     // Invert lookup table used for encoding
     static base64_lut table = {};
     static table_initializer _{table};
     auto lookup = [](char index) { return table[static_cast<size_t>(index)]; };
 
-    boost::optional<std::vector<byte>> ret;
+    std::optional<std::vector<std::byte>> ret;
 
     if ((str.length() / 4) * 4 != str.length())
         return ret;
@@ -95,20 +101,15 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
     // How many full quadruples we have
     const auto full_quad = (str.length() / 4) - (!!num_eqs);
 
-    ret = std::vector<uint8_t>((str.length() * 3 / 4) - num_eqs, 0);
+    ret = std::vector<std::byte>((str.length() * 3 / 4) - num_eqs);
 
     auto src = str.begin();
     auto dst = ret->begin();
 
     for (std::size_t i = 0U; i < full_quad; ++i)
     {
-        const byte lut4[] =
-        {
-            lookup(src[0]),
-            lookup(src[1]),
-            lookup(src[2]),
-            lookup(src[3])
-        };
+        const std::byte lut4[] = {lookup(src[0]), lookup(src[1]),
+                                  lookup(src[2]), lookup(src[3])};
 
         // Validate range of input characters (0-63)
         if (!is_base64(lut4[0]) ||
@@ -116,7 +117,7 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
             !is_base64(lut4[2]) ||
             !is_base64(lut4[3]))
         {
-            ret = boost::none;
+            ret = std::nullopt;
             return ret;
         }
 
@@ -132,7 +133,7 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
         if (!is_base64(lookup(src[0])) ||
             !is_base64(lookup(src[1])))
         {
-            ret = boost::none;
+            ret = std::nullopt;
             return ret;
         }
 
@@ -144,7 +145,7 @@ boost::optional<std::vector<byte>> base64_decode(gsl::cstring_span<> str)
             !is_base64(lookup(src[1])) ||
             !is_base64(lookup(src[2])))
         {
-            ret = boost::none;
+            ret = std::nullopt;
             return ret;
         }
 

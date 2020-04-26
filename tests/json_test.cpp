@@ -4,7 +4,6 @@
 #include "input/typedefs.hpp"
 
 #include <catch2/catch.hpp>
-#include <boost/optional/optional_io.hpp>
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -17,6 +16,7 @@
 #include <deque>
 #include <list>
 #include <map>
+#include <optional>
 
 std::string to_string(const rapidjson::Document& doc)
 {
@@ -569,18 +569,18 @@ TEST_CASE("json")
     SECTION("optional<string>")
     {
         auto j = R"(null)"_json;
-        auto a = json::deserialize<boost::optional<std::string>>(j);
+        auto a = json::deserialize<std::optional<std::string>>(j);
         REQUIRE(!a);
 
         j = R"("asd")"_json;
-        auto b = json::deserialize<boost::optional<std::string>>(j);
+        auto b = json::deserialize<std::optional<std::string>>(j);
         REQUIRE(b);
-        REQUIRE(b.get() == "asd");
+        REQUIRE(b.value() == "asd");
     }
 
     SECTION("tuple with tail optionals")
     {
-        using tuple_t = std::tuple<int, bool, boost::optional<std::string>>;
+        using tuple_t = std::tuple<int, bool, std::optional<std::string>>;
 
         auto j = R"([4])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<tuple_t>(j),
@@ -590,7 +590,7 @@ TEST_CASE("json")
         auto t = json::deserialize<tuple_t>(j);
         REQUIRE(std::get<0>(t) == 4);
         REQUIRE(std::get<1>(t));
-        REQUIRE(!std::get<2>(t).is_initialized());
+        REQUIRE(!std::get<2>(t).has_value());
     }
 
     SECTION("unsigned: check 32")

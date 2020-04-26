@@ -13,14 +13,13 @@ namespace kl {
 namespace detail {
 
 template <typename T>
-/*inline*/ constexpr auto null = static_cast<remove_cvref_t<T>*>(nullptr);
+inline constexpr auto null = static_cast<remove_cvref_t<T>*>(nullptr);
 
 KL_VALID_EXPR_HELPER(has_describe_bases, describe_bases(null<T>))
 KL_VALID_EXPR_HELPER(has_describe_fields,
                      describe_fields(null<T>, std::declval<T&>()))
 
-template <typename T,
-          bool is_describe_bases_defined = has_describe_bases<T>::value>
+template <typename T, bool is_describe_bases_defined = has_describe_bases_v<T>>
 struct base_types
 {
     using type = type_pack<>;
@@ -67,6 +66,9 @@ template <typename T>
 using is_reflectable = detail::has_describe_fields<T>;
 
 template <typename T>
+inline constexpr bool is_reflectable_v = is_reflectable<T>::value;
+
+template <typename T>
 constexpr auto describe_fields(T&& obj) noexcept
 {
     return describe_fields(detail::null<T>, std::forward<T>(obj));
@@ -81,7 +83,7 @@ constexpr auto describe_bases() noexcept
 struct ctti
 {
     template <typename T>
-    static constexpr bool is_reflectable = kl::is_reflectable<T>::value;
+    static constexpr bool is_reflectable = kl::is_reflectable_v<T>;
 
     template <typename Reflected>
     using base_types = typename detail::base_types<Reflected>::type;
@@ -96,7 +98,7 @@ struct ctti
     static constexpr void reflect(Reflected&& r, Visitor&& v)
     {
         static_assert(
-            detail::has_describe_fields<Reflected>::value,
+            detail::has_describe_fields_v<Reflected>,
             "Can't reflect this type. Define describe_fields function");
 
         reflect_bases(r, v, base_types<Reflected>{});
@@ -108,12 +110,12 @@ struct ctti
     static constexpr std::size_t num_fields() noexcept
     {
         static_assert(
-            detail::has_describe_fields<Reflected>::value,
+            detail::has_describe_fields_v<Reflected>,
             "Can't reflect this type. Define describe_fields function");
 
         using field_desc =
             decltype(describe_fields(std::declval<Reflected&>()));
-        return std::tuple_size<field_desc>::value;
+        return std::tuple_size_v<field_desc>;
     }
 
     template <typename Reflected>
@@ -139,20 +141,13 @@ private:
     static constexpr void reflect_bases(Reflected&& r, Visitor&& v,
                                         type_pack<Bases...>)
     {
-        using swallow = std::initializer_list<int>;
-        (void)swallow{(reflect_base<Bases>(r, v), 0)...};
+        (reflect_base<Bases>(r, v), ...);
     }
 
-    static constexpr std::size_t base_num_fields(type_pack<>) noexcept
+    template <typename... Bases>
+    static constexpr std::size_t base_num_fields(type_pack<Bases...>) noexcept
     {
-        return 0;
-    }
-
-    template <typename Head, typename... Tail>
-    static constexpr std::size_t
-        base_num_fields(type_pack<Head, Tail...>) noexcept
-    {
-        return total_num_fields<Head>() + base_num_fields(type_pack<Tail...>{});
+        return (0 + ... + total_num_fields<Bases>());
     }
 };
 } // namespace kl

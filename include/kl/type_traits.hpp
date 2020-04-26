@@ -74,15 +74,24 @@ struct func_traits<F&&> : func_traits<F> {};
 template <typename T>
 struct always_false : std::false_type {};
 
+template <typename T>
+inline constexpr bool always_false_v = always_false<T>::value;
+
+template <typename T, typename U, typename... Rest>
+struct is_same;
+
+template <typename... Ts>
+inline constexpr bool is_same_v = is_same<Ts...>::value;
+
 // Variadic is_same<T...>
 template <typename T, typename U, typename... Rest>
-struct is_same : std::integral_constant<bool, std::is_same<T, U>::value &&
-                                                  is_same<U, Rest...>::value>
+struct is_same : std::integral_constant<bool, std::is_same_v<T, U> &&
+                                                  is_same_v<U, Rest...>>
 {
 };
 
 template <typename T, typename U>
-struct is_same<T, U> : std::integral_constant<bool, std::is_same<T, U>::value>
+struct is_same<T, U> : std::integral_constant<bool, std::is_same_v<T, U>>
 {
 };
 
@@ -117,9 +126,18 @@ struct disjunction<B1, Bn...>
 template <typename B>
 struct negation : bool_constant<!B::value> {};
 
+template <typename... Ts>
+inline constexpr bool conjuction_v = conjunction<Ts...>::value;
+
+template <typename... Ts>
+inline constexpr bool disjunction_v = disjunction<Ts...>::value;
+
+template <typename T>
+inline constexpr bool negation_v = negation<T>::value;
+
 // Use it as template parameter like so: enable_if<std::is_integral<T>> = true
 template <typename... Ts>
-using enable_if = std::enable_if_t<conjunction<Ts...>::value, bool>;
+using enable_if = std::enable_if_t<conjuction_v<Ts...>, bool>;
 
 // C++14 stuff for MSVC2013
 template <typename...>
@@ -142,10 +160,14 @@ using remove_cvref_t = typename remove_cvref<T>::type;
     template <typename T, typename = void>                                     \
     struct has_##type : std::false_type {};                                    \
     template <typename T>                                                      \
-    struct has_##type<T, kl::void_t<typename T::type>> : std::true_type {};
+    struct has_##type<T, kl::void_t<typename T::type>> : std::true_type {};    \
+    template <typename T>                                                      \
+    inline constexpr bool has_##type##_v = has_##type<T>::value;
 
 #define KL_VALID_EXPR_HELPER(name, expr)                                       \
     template <typename T, typename = void>                                     \
     struct name : std::false_type {};                                          \
     template <typename T>                                                      \
-    struct name<T, kl::void_t<decltype(expr)>> : std::true_type {};
+    struct name<T, kl::void_t<decltype(expr)>> : std::true_type {};            \
+    template <typename T>                                                      \
+    inline constexpr bool name##_v = name<T>::value;

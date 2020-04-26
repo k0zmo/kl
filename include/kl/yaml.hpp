@@ -7,9 +7,9 @@
 #include "kl/tuple.hpp"
 #include "kl/utility.hpp"
 
-#include <boost/optional.hpp>
 #include <yaml-cpp/yaml.h>
 
+#include <optional>
 #include <exception>
 #include <string>
 
@@ -28,7 +28,7 @@ template <typename T>
 bool is_null_value(const T&) { return false; }
 
 template <typename T>
-bool is_null_value(const boost::optional<T>& value) { return !value; }
+bool is_null_value(const std::optional<T>& value) { return !value; }
 
 class dump_context
 {
@@ -250,8 +250,7 @@ template <typename Tuple, typename Context, std::size_t... Is>
 void encode_tuple(const Tuple& tuple, Context& ctx, std::index_sequence<Is...>)
 {
     ctx.emitter() << YAML::BeginSeq;
-    using swallow = std::initializer_list<int>;
-    (void)swallow{(yaml::dump(std::get<Is>(tuple), ctx), 0)...};
+    (yaml::dump(std::get<Is>(tuple), ctx), ...);
     ctx.emitter() << YAML::EndSeq;
 }
 
@@ -262,7 +261,7 @@ void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 }
 
 template <typename T, typename Context>
-void encode(const boost::optional<T>& opt, Context& ctx)
+void encode(const std::optional<T>& opt, Context& ctx)
 {
     if (!opt)
         ctx.emitter() << YAML::Null;
@@ -376,9 +375,7 @@ YAML::Node tuple_to_yaml(const Tuple& tuple, Context& ctx,
                          index_sequence<Is...>)
 {
     YAML::Node arr{YAML::NodeType::Sequence};
-    using swallow = std::initializer_list<int>;
-    (void)swallow{
-        (arr.push_back(yaml::serialize(std::get<Is>(tuple), ctx)), 0)...};
+    (arr.push_back(yaml::serialize(std::get<Is>(tuple), ctx)), ...);
     return arr;
 }
 
@@ -389,7 +386,7 @@ YAML::Node to_yaml(const std::tuple<Ts...>& tuple, Context& ctx)
 }
 
 template <typename T, typename Context>
-YAML::Node to_yaml(const boost::optional<T>& opt, Context& ctx)
+YAML::Node to_yaml(const std::optional<T>& opt, Context& ctx)
 {
     if (opt)
         return yaml::serialize(*opt, ctx);
@@ -414,7 +411,7 @@ T from_scalar_yaml(const YAML::Node& value)
     {
         // yaml-cpp conversion of string/scalar to unsigned integer gives wrong
         // result when the scalar represents a negative number
-        if (std::is_unsigned<T>::value)
+        if constexpr (std::is_unsigned_v<T>)
         {
             // Can YAML scalar be empty?
             if (!value.Scalar().empty() && value.Scalar()[0] == '-')
@@ -472,17 +469,6 @@ Map from_yaml(type_t<Map>, const YAML::Node& value)
     return ret;
 }
 
-template <typename Vector>
-void vector_reserve(Vector&, std::size_t, std::false_type)
-{
-}
-
-template <typename Vector>
-void vector_reserve(Vector& vec, std::size_t size, std::true_type)
-{
-    vec.reserve(size);
-}
-
 template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
                                      is_vector_alike<Vector>> = true>
 Vector from_yaml(type_t<Vector>, const YAML::Node& value)
@@ -492,7 +478,8 @@ Vector from_yaml(type_t<Vector>, const YAML::Node& value)
                                 yaml_type_name(value)};
 
     Vector ret{};
-    vector_reserve(ret, value.size(), has_reserve<Vector>{});
+    if constexpr (has_reserve_v<Vector>)
+        ret.reserve(value.size());
 
     for (const auto& item : value)
     {
@@ -611,7 +598,7 @@ Enum enum_from_yaml(const YAML::Node& value,
         throw deserialize_error{"type must be a scalar but is " +
                                 yaml_type_name(value)};
     if (auto enum_value = kl::from_string<Enum>(value.Scalar()))
-        return enum_value.get();
+        return *enum_value;
     throw deserialize_error{"invalid enum value: " + value.Scalar()};
 }
 
@@ -666,8 +653,7 @@ std::tuple<Ts...> from_yaml(type_t<std::tuple<Ts...>>, const YAML::Node& value)
 }
 
 template <typename T>
-boost::optional<T> from_yaml(type_t<boost::optional<T>>,
-                             const YAML::Node& value)
+std::optional<T> from_yaml(type_t<std::optional<T>>, const YAML::Node& value)
 {
     if (!value || value.IsNull())
         return {};

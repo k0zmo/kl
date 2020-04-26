@@ -27,19 +27,19 @@ TEST_CASE("range")
     SECTION("from vector")
     {
         std::vector<int> vec = {1, 2, 3};
-        auto rng = kl::make_range(vec);
+        auto rng = kl::range(vec);
         REQUIRE(rng.size() == 3);
         static_assert(std::is_same<decltype(rng)::value_type, int>::value, "");
         static_assert(std::is_same<decltype(rng)::reference, int&>::value, "");
-        static_assert(noexcept(kl::make_range(vec)), "");
+        static_assert(noexcept(kl::range(vec)), "");
         static_assert(noexcept(rng.begin()), "");
 
         fake_vec v2;
-        static_assert(!noexcept(kl::make_range(v2)), "");
-        auto rng2 = kl::make_range(v2);
+        static_assert(!noexcept(kl::range(v2)), "");
+        auto rng2 = kl::range(v2);
         static_assert(noexcept(rng2.begin()), "");
 
-        auto crng = kl::make_range(static_cast<const std::vector<int>&>(vec));
+        auto crng = kl::range(static_cast<const std::vector<int>&>(vec));
         REQUIRE(rng.size() == 3);
         static_assert(std::is_same<decltype(crng)::value_type, int>::value, "");
         static_assert(std::is_same<decltype(crng)::reference, const int&>::value, "");
@@ -51,7 +51,7 @@ TEST_CASE("range")
     SECTION("from iterator pair")
     {
         std::vector<int> vec = {1, 2, 3};
-        auto rng = kl::make_range(vec.begin() + 1, vec.end());
+        auto rng = kl::range(vec.begin() + 1, vec.end());
         static_assert(std::is_same<decltype(rng)::value_type, int>::value, "");
         REQUIRE(rng.size() == 2);
         for (auto& i : rng) { (void)i; }
@@ -60,16 +60,16 @@ TEST_CASE("range")
     SECTION("from raw array")
     {
         bool arr[4]{};
-        auto rng = kl::make_range(arr);
+        auto rng = kl::range(arr);
         REQUIRE(rng.size() == 4);
         for (auto& i : rng) { (void)i; }
 
         static_assert(std::is_same<decltype(rng)::value_type, bool>::value, "");
         static_assert(std::is_same<decltype(rng)::reference, bool&>::value, "");
-        static_assert(noexcept(kl::make_range(arr)), "");
+        static_assert(noexcept(kl::range(arr)), "");
 
         const bool carr[4]{};
-        auto crng = kl::make_range(carr);
+        auto crng = kl::range(carr);
         REQUIRE(crng.size() == 4);
 
         static_assert(std::is_same<decltype(crng)::value_type, bool>::value, "");

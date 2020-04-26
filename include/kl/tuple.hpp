@@ -13,7 +13,7 @@ using std::make_index_sequence;
 
 template <typename T>
 using make_tuple_indices =
-    make_index_sequence<std::tuple_size<std::remove_reference_t<T>>::value>;
+    make_index_sequence<std::tuple_size_v<std::remove_reference_t<T>>>;
 
 namespace tuple {
 
@@ -61,7 +61,7 @@ public:
 };
 
 // Transforms tuple of dereferencable to tuple of references:
-//   tuple<int*, boost::optional<double>, std::vector<short>::const_iterator> ->
+//   tuple<int*, std::optional<double>, std::vector<short>::const_iterator> ->
 //   tuple<int&, double&, const short&>
 struct transform_ref_fn
 {
@@ -87,7 +87,7 @@ public:
 };
 
 // Transforms tuple of dereferencable to tuple of dereferenced values:
-//   tuple<int*, boost::optional<double>, std::vector<short>::const_iterator> ->
+//   tuple<int*, std::optional<double>, std::vector<short>::const_iterator> ->
 //   tuple<int, double, short>
 struct transform_deref_fn
 {

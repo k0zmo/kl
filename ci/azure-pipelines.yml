@@ -1,28 +1,4 @@
 jobs:
-  - job: ubuntu16_gcc5
-    pool:
-      vmImage: 'ubuntu-16.04'
-    strategy:
-      matrix:
-        Release:
-          BuildType: Release
-        AddressSanitizer:
-          BuildType: ASan
-    steps:
-      - script: |
-          which g++ && g++ --version
-          cmake --version
-        displayName: 'Check environment'
-      - template: templates/install-boost.yml
-      - script: |
-          export LDFLAGS="-fuse-ld=gold"
-          cmake -H. -B_build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
-          cmake --build _build --parallel 4
-        displayName: 'Build kl'
-      - script: |
-          cd _build && ctest -VV --output-on-failure
-        displayName: 'Run CTest'
-
   - job: ubuntu18_gcc7
     pool:
       vmImage: 'ubuntu-18.04'

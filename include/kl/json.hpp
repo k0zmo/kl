@@ -7,13 +7,12 @@
 #include "kl/tuple.hpp"
 #include "kl/utility.hpp"
 
-#include <boost/optional.hpp>
-
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include <optional>
 #include <exception>
 #include <string>
 
@@ -37,7 +36,7 @@ template <typename T>
 bool is_null_value(const T&) { return false; }
 
 template <typename T>
-bool is_null_value(const boost::optional<T>& opt) { return !opt; }
+bool is_null_value(const std::optional<T>& opt) { return !opt; }
 
 template <typename Writer>
 class dump_context
@@ -323,8 +322,7 @@ template <typename Tuple, std::size_t... Is, typename Context>
 void encode_tuple(const Tuple& tuple, Context& ctx, index_sequence<Is...>)
 {
     ctx.writer().StartArray();
-    using swallow = std::initializer_list<int>;
-    (void)swallow{((json::dump(std::get<Is>(tuple), ctx)), 0)...};
+    (json::dump(std::get<Is>(tuple), ctx), ...);
     ctx.writer().EndArray();
 }
 
@@ -335,7 +333,7 @@ void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 }
 
 template <typename T, typename Context>
-void encode(const boost::optional<T>& opt, Context& ctx)
+void encode(const std::optional<T>& opt, Context& ctx)
 {
     if (!opt)
         ctx.writer().Null();
@@ -475,10 +473,8 @@ rapidjson::Value tuple_to_json(const Tuple& tuple, Context& ctx,
                                index_sequence<Is...>)
 {
     rapidjson::Value arr{rapidjson::kArrayType};
-    using swallow = std::initializer_list<int>;
-    (void)swallow{(arr.PushBack(json::serialize(std::get<Is>(tuple), ctx),
-                                ctx.allocator()),
-                   0)...};
+    (arr.PushBack(json::serialize(std::get<Is>(tuple), ctx), ctx.allocator()),
+     ...);
     return arr;
 }
 
@@ -489,7 +485,7 @@ rapidjson::Value to_json(const std::tuple<Ts...>& tuple, Context& ctx)
 }
 
 template <typename T, typename Context>
-rapidjson::Value to_json(const boost::optional<T>& opt, Context& ctx)
+rapidjson::Value to_json(const std::optional<T>& opt, Context& ctx)
 {
     if (opt)
         return json::serialize(*opt, ctx);
@@ -661,17 +657,6 @@ Map from_json(type_t<Map>, const rapidjson::Value& value)
     return ret;
 }
 
-template <typename Vector>
-void vector_reserve(Vector&, std::size_t, std::false_type)
-{
-}
-
-template <typename Vector>
-void vector_reserve(Vector& vec, std::size_t size, std::true_type)
-{
-    vec.reserve(size);
-}
-
 template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
                                      is_vector_alike<Vector>> = true>
 Vector from_json(type_t<Vector>, const rapidjson::Value& value)
@@ -681,7 +666,8 @@ Vector from_json(type_t<Vector>, const rapidjson::Value& value)
                                 json_type_name(value)};
 
     Vector ret{};
-    vector_reserve(ret, value.Size(), has_reserve<Vector>{});
+    if constexpr (has_reserve_v<Vector>)
+        ret.reserve(value.Size());
 
     for (const auto& item : value.GetArray())
     {
@@ -812,9 +798,9 @@ Enum enum_from_json(const rapidjson::Value& value,
         throw deserialize_error{"type must be a string-enum but is " +
                                 json_type_name(value)};
     if (auto enum_value = kl::from_string<Enum>(
-            gsl::cstring_span<>(value.GetString(), value.GetStringLength())))
+            std::string_view{value.GetString(), value.GetStringLength()}))
     {
-        return enum_value.get();
+        return *enum_value;
     }
     throw deserialize_error{"invalid enum value: " +
                             json::deserialize<std::string>(value)};
@@ -867,11 +853,11 @@ std::tuple<Ts...> from_json(type_t<std::tuple<Ts...>>,
 }
 
 template <typename T>
-boost::optional<T> from_json(type_t<boost::optional<T>>,
-                             const rapidjson::Value& value)
+std::optional<T> from_json(type_t<std::optional<T>>,
+                           const rapidjson::Value& value)
 {
     if (value.IsNull())
-        return {};
+        return std::nullopt;
     return json::deserialize<T>(value);
 }
 

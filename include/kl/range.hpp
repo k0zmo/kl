@@ -29,6 +29,34 @@ public:
     {
     }
 
+    template <typename Container>
+    constexpr range(Container& cont) noexcept(
+        std::is_nothrow_move_constructible<Iterator>::value && noexcept(
+            cont.begin()))
+        : first_{cont.begin()}, last_{cont.end()}
+    {
+    }
+
+    template <typename Container>
+    constexpr range(const Container& cont) noexcept(
+        std::is_nothrow_move_constructible<Iterator>::value && noexcept(
+            cont.cbegin()))
+        : first_{cont.cbegin()}, last_{cont.cend()}
+    {
+    }
+
+    template <class ArrayType, std::size_t N>
+    constexpr range(ArrayType (&arr)[N]) noexcept
+        : first_{std::begin(arr)}, last_{std::end(arr)}
+    {
+    }
+
+    template <class ArrayType, std::size_t N>
+    constexpr range(const ArrayType (&arr)[N]) noexcept
+        : first_{std::begin(arr)}, last_{std::end(arr)}
+    {
+    }
+
     constexpr Iterator begin() const
         noexcept(std::is_nothrow_copy_constructible<Iterator>::value)
     {
@@ -42,68 +70,26 @@ public:
     }
 
     constexpr std::size_t size() const
-        noexcept(noexcept(std::declval<const range&>().size_impl(
-            typename std::iterator_traits<Iterator>::iterator_category{})))
-    {
-        return size_impl(
-            typename std::iterator_traits<Iterator>::iterator_category{});
-    }
-
-private:
-    // std::distance is not constexpr in C++14
-    std::size_t size_impl(std::input_iterator_tag) const
+        noexcept(noexcept(std::distance(std::declval<Iterator>(),
+                                        std::declval<Iterator>())))
     {
         return std::distance(first_, last_);
     }
-
-    constexpr std::size_t
-        size_impl(std::random_access_iterator_tag) const noexcept
-    {
-        return last_ - first_;
-    }
-
 
 private:
     Iterator first_;
     Iterator last_;
 };
 
-template <class Iterator>
-constexpr range<Iterator> make_range(Iterator a, Iterator b) noexcept(
-    noexcept(range<Iterator>{std::move(a), std::move(b)}))
-{
-    return range<Iterator>{std::move(a), std::move(b)};
-}
+template <typename Container>
+range(Container& cont) -> range<typename Container::iterator>;
 
-template <class Container>
-range<typename Container::iterator> make_range(Container& cont) noexcept(
-    noexcept(range<typename Container::iterator>{cont.begin(), cont.end()}))
-{
-    return range<typename Container::iterator>{cont.begin(), cont.end()};
-}
+template <typename Container>
+range(const Container& cont) -> range<typename Container::const_iterator>;
 
-template <class Container>
-range<typename Container::const_iterator>
-    make_range(const Container& cont) noexcept(noexcept(
-        range<typename Container::const_iterator>{cont.cbegin(), cont.cend()}))
-{
-    return range<typename Container::const_iterator>{cont.cbegin(),
-                                                     cont.cend()};
-}
+template <typename ArrayType, std::size_t N>
+range(ArrayType (&arr)[N]) -> range<std::add_pointer_t<ArrayType>>;
 
-template <class ArrayType, std::size_t N>
-constexpr range<std::add_pointer_t<ArrayType>>
-    make_range(ArrayType (&arr)[N]) noexcept
-{
-    using value_type = std::add_pointer_t<ArrayType>;
-    return range<value_type>{std::begin(arr), std::end(arr)};
-}
-
-template <class ArrayType, std::size_t N>
-constexpr range<std::add_pointer_t<const ArrayType>>
-    make_range(const ArrayType (&arr)[N]) noexcept
-{
-    using value_type = std::add_pointer_t<const ArrayType>;
-    return range<value_type>{std::begin(arr), std::end(arr)};
-}
+template <typename ArrayType, std::size_t N>
+range(const ArrayType (&arr)[N]) -> range<std::add_pointer_t<const ArrayType>>;
 } // namespace kl

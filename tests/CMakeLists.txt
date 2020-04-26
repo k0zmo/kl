@@ -2,7 +2,6 @@ add_executable(kl-tests main_test.cpp)
 set(test_files
     base64_test.cpp
     binary_rw_test.cpp
-    byte_test.cpp
     ctti_test.cpp
     defer_test.cpp
     describe_enum_test.cpp

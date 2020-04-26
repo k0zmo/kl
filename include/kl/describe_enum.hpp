@@ -74,7 +74,7 @@ struct enum_value_name
             name_, (KL_DESCRIBE_ENUM_ARGS_TO_TUPLES(values_)))};               \
     constexpr auto describe_enum(name_) noexcept                               \
     {                                                                          \
-        return ::kl::make_range(KL_DESCRIBE_ENUM_VAR_NAME(counter_));          \
+        return ::kl::range{KL_DESCRIBE_ENUM_VAR_NAME(counter_)};               \
     }
 
 #define KL_DESCRIBE_ENUM_VAR_NAME(counter_)                                    \

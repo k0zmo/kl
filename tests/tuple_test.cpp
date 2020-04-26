@@ -1,7 +1,8 @@
 #include "kl/tuple.hpp"
 
 #include <catch2/catch.hpp>
-#include <boost/optional.hpp>
+
+#include <optional>
 #include <vector>
 
 TEST_CASE("tuple")
@@ -20,7 +21,7 @@ TEST_CASE("tuple")
     {
         int arr[3]{10, 11, 12};
         std::vector<short> vs = {4, 5, 6};
-        std::tuple<int*, boost::optional<double>,
+        std::tuple<int*, std::optional<double>,
                    std::vector<short>::const_iterator>
             t{std::begin(arr), 3.0, vs.cbegin() + 1};
 
@@ -46,7 +47,7 @@ TEST_CASE("tuple")
     {
         int arr[3]{10, 11, 12};
         std::vector<short> vs = {4, 5, 6};
-        std::tuple<int*, boost::optional<double>,
+        std::tuple<int*, std::optional<double>,
                    std::vector<short>::const_iterator>
             t{std::begin(arr), 3.0, vs.cbegin() + 1};
 
@@ -113,7 +114,7 @@ TEST_CASE("tuple")
 
     SECTION("all_true_fn")
     {
-        std::tuple<bool, int, boost::optional<int>> t{true, 1, boost::none};
+        std::tuple<bool, int, std::optional<int>> t{true, 1, std::nullopt};
         REQUIRE(!kl::tuple::all_true_fn::call(t));
         std::get<2>(t) = 2;
         REQUIRE(kl::tuple::all_true_fn::call(t));

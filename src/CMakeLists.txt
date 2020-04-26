@@ -1,5 +1,5 @@
 add_library(kl_cxx_flags INTERFACE)
-target_compile_features(kl_cxx_flags INTERFACE cxx_std_14)
+target_compile_features(kl_cxx_flags INTERFACE cxx_std_17)
 
 if(KL_DEV_BUILD)
     include(DevFlags)
@@ -11,7 +11,6 @@ endif()
 add_library(kl
     ${kl_SOURCE_DIR}/include/kl/base64.hpp
     ${kl_SOURCE_DIR}/include/kl/binary_rw.hpp
-    ${kl_SOURCE_DIR}/include/kl/byte.hpp
     ${kl_SOURCE_DIR}/include/kl/ctti.hpp
     ${kl_SOURCE_DIR}/include/kl/defer.hpp
     ${kl_SOURCE_DIR}/include/kl/describe_enum.hpp
