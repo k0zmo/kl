@@ -7,7 +7,7 @@ namespace kl {
 template <typename Enum>
 class enum_set
 {
-    static_assert(std::is_enum<Enum>::value, "Enum is not a enum-type");
+    static_assert(std::is_enum_v<Enum>, "Enum is not a enum-type");
 
 public:
     using underlying_type = std::underlying_type_t<Enum>;
@@ -74,27 +74,6 @@ public:
             static_cast<Enum>(underlying_value() ^ other.underlying_value())};
     }
 
-    constexpr enum_set& operator&=(enum_set other) noexcept
-    {
-        value_ =
-            static_cast<Enum>(underlying_value() & other.underlying_value());
-        return *this;
-    }
-
-    constexpr enum_set& operator|=(enum_set other) noexcept
-    {
-        value_ =
-            static_cast<Enum>(underlying_value() | other.underlying_value());
-        return *this;
-    }
-
-    constexpr enum_set& operator^=(enum_set other) noexcept
-    {
-        value_ =
-            static_cast<Enum>(underlying_value() ^ other.underlying_value());
-        return *this;
-    }
-
     constexpr bool operator==(enum_set other) const noexcept
     {
         return value_ == other.value_;
@@ -110,79 +89,97 @@ public:
         return !(*this == other);
     }
 
-    constexpr enum_set operator&(Enum value) const noexcept
+    constexpr friend enum_set operator|(enum_set left, Enum right) noexcept
     {
-        return (*this & enum_set{value});
+        return left | enum_set{right};
     }
 
-    constexpr enum_set operator|(Enum value) const noexcept
+    constexpr friend enum_set operator&(enum_set left, Enum right) noexcept
     {
-        return (*this | enum_set{value});
+        return left & enum_set{right};
     }
 
-    constexpr enum_set operator^(Enum value) const noexcept
+    constexpr friend enum_set operator^(enum_set left, Enum right) noexcept
     {
-        return (*this ^ enum_set{value});
-    }
-
-    constexpr enum_set& operator&=(Enum value) noexcept
-    {
-        return (*this &= enum_set{value});
-    }
-
-    constexpr enum_set& operator|=(Enum value) noexcept
-    {
-        return (*this |= enum_set{value});
-    }
-
-    constexpr enum_set& operator^=(Enum value) noexcept
-    {
-        return (*this ^= enum_set{value});
-    }
-
-    constexpr bool operator==(Enum value) const noexcept
-    {
-        return (*this == enum_set{value});
-    }
-
-    constexpr bool operator<(Enum value) const noexcept
-    {
-        return (*this < enum_set{value});
-    }
-
-    constexpr bool operator!=(Enum value) const noexcept
-    {
-        return (*this != enum_set{value});
+        return left ^ enum_set { right };
     }
 
     constexpr friend enum_set operator|(Enum a, enum_set b) noexcept
     {
-        return enum_set{a} | b;
+        return b | a;
     }
 
     constexpr friend enum_set operator&(Enum a, enum_set b) noexcept
     {
-        return enum_set{a} & b;
+        return b & a;
     }
 
     constexpr friend enum_set operator^(Enum a, enum_set b) noexcept
     {
-        return enum_set{a} ^ b;
+        return b ^ a;
     }
 
-    constexpr friend bool operator==(Enum a, enum_set b) noexcept
+    constexpr friend enum_set& operator&=(enum_set& left,
+                                          enum_set right) noexcept
     {
-        return enum_set{a} == b;
+        return left = left & right;
     }
 
-    constexpr friend bool operator<(Enum a, enum_set b) noexcept
+    constexpr friend enum_set& operator|=(enum_set& left,
+                                          enum_set right) noexcept
     {
-        return enum_set{a} < b;
+        return left = left | right;
     }
 
-    constexpr friend bool operator!=(Enum a, enum_set b) noexcept
+    constexpr friend enum_set& operator^=(enum_set& left,
+                                          enum_set right) noexcept
     {
-        return enum_set{a} != b;
+        return left = left ^ right;
+    }
+
+    constexpr friend enum_set& operator&=(enum_set& left, Enum right) noexcept
+    {
+        return left &= enum_set{right};
+    }
+
+    constexpr friend enum_set& operator|=(enum_set& left, Enum right) noexcept
+    {
+        return left |= enum_set{right};
+    }
+
+    constexpr friend enum_set& operator^=(enum_set& left, Enum right) noexcept
+    {
+        return left ^= enum_set{right};
+    }
+
+    constexpr friend bool operator==(enum_set left, Enum right) noexcept
+    {
+        return left == enum_set{right};
+    }
+
+    constexpr friend bool operator<(enum_set left, Enum right) noexcept
+    {
+        return left < enum_set{right};
+    }
+
+    constexpr friend bool operator!=(enum_set left, Enum right) noexcept
+    {
+        return !(left == enum_set{right});
+    }
+
+    constexpr friend bool operator==(Enum left, enum_set right) noexcept
+    {
+        return right == left;
+    }
+
+    constexpr friend bool operator<(Enum left, enum_set right) noexcept
+    {
+        return enum_set{left} < right;
+    }
+
+    constexpr friend bool operator!=(Enum left, enum_set right) noexcept
+    {
+        return right != left;
     }
 
 private:
