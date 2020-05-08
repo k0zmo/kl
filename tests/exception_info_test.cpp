@@ -18,6 +18,9 @@ struct file_error: virtual io_error {};
 struct xi_file_name { using type = std::string; };
 struct xi_errno { using type = int; };
 struct xi_vec { using type = std::vector<int>;  };
+
+struct int_struct { int value; };
+struct xi_int { using type = int_struct; };
 // clang-format on
 } // namespace
 
@@ -122,6 +125,10 @@ TEST_CASE("exception_info ")
         xi.set<xi_vec>({});
         s = xi.diagnostic_info();
         REQUIRE(kl::split(s, "\n").size() == 4);
+
+        xi.set<xi_int>({(int)0xabcdef12});
+        s = xi.diagnostic_info();
+        REQUIRE(kl::split(s, "\n").size() == 5);
     }
 }
 

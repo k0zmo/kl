@@ -7,6 +7,7 @@
 #include <type_traits>
 #include <typeinfo>
 #include <utility>
+#include <cstddef>
 
 #if defined(__GNUG__) && !defined(KL_NO_DEMANGLE)
 #  include <cxxabi.h>
@@ -56,8 +57,21 @@ template <typename T>
 void diagnostic_info_impl(std::ostream& os, const std::type_info& tag,
                           const T& value, ...)
 {
-    os << KL_TYPE_ID_PRETTY_NAME(tag) << " = [0x" << std::addressof(value)
-       << "]\n";
+    os << KL_TYPE_ID_PRETTY_NAME(tag) << " = [";
+
+    constexpr const char* hex = "0123456789ABCDEF";
+    const auto bytes =
+        reinterpret_cast<const unsigned char*>(std::addressof(value));
+    const auto num_bytes = sizeof(value);
+
+    for (std::size_t i = 0; i < num_bytes; ++i)
+    {
+        if (i > 0)
+            os << ' ';
+        os << hex[(bytes[i] & 0xF0) >> 4] << hex[bytes[i] & 0xF];
+    }
+
+    os << "]\n";
 }
 
 template <typename Tag>
