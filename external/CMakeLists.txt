@@ -23,7 +23,6 @@ FetchContent_GetProperties(GSL)
 if(NOT gsl_POPULATED)
     FetchContent_Populate(GSL)
     add_subdirectory(${gsl_SOURCE_DIR} ${gsl_BINARY_DIR})
-    add_library(GSL::gsl ALIAS GSL)
 endif()
 
 if(KL_ENABLE_JSON)

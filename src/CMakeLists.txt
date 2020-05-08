@@ -55,7 +55,7 @@ target_include_directories(kl
 target_link_libraries(kl
     PUBLIC
         Boost::boost
-        GSL::gsl
+        Microsoft.GSL::GSL
         kl_cxx_flags
     PRIVATE
         Boost::disable_autolinking
