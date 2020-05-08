@@ -6,7 +6,7 @@ TEST_CASE("split")
 {
     SECTION("skip empty")
     {
-        auto res = kl::split("ASD  QWE ZXC ");
+        auto res = kl::split("ASD  QWE ZXC ", " ");
         REQUIRE(res.size() == 3);
         REQUIRE(res[0] == "ASD");
         REQUIRE(res[1] == "QWE");
@@ -15,12 +15,20 @@ TEST_CASE("split")
 
     SECTION("dont skip empty")
     {
-        auto res = kl::split("ASD  QWE ZXC ", " ", false);
+        auto res = kl::split(std::string{"ASD  QWE ZXC "}, " ", false);
         REQUIRE(res.size() == 4);
         REQUIRE(res[0] == "ASD");
         REQUIRE(res[1] == "");
         REQUIRE(res[2] == "QWE");
         REQUIRE(res[3] == "ZXC");
+
+        res = kl::split("ASD  QWE ZXC ", " ", false);
+        REQUIRE(res.size() == 5);
+        REQUIRE(res[0] == "ASD");
+        REQUIRE(res[1] == "");
+        REQUIRE(res[2] == "QWE");
+        REQUIRE(res[3] == "ZXC");
+        REQUIRE(res[4] == "");
     }
 
     SECTION("pick delimeter")

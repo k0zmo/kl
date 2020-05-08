@@ -23,17 +23,16 @@ void for_each_token(InputIterator first, InputIterator last,
     }
 }
 
-inline std::vector<std::string> split(const std::string& str,
-                                      const std::string& delims = " ",
-                                      bool skip_empty = true)
+template <typename String, typename Delimiters>
+inline std::vector<std::string>
+    split(const String& str, const Delimiters& delims, bool skip_empty = true)
 {
     using std::cbegin;
     using std::cend;
 
     std::vector<std::string> output;
     for_each_token(cbegin(str), cend(str), cbegin(delims), cend(delims),
-                   [&](std::string::const_iterator first,
-                       std::string::const_iterator last) {
+                   [&](auto first, auto last) {
                        if (first != last || !skip_empty)
                            output.emplace_back(first, last);
                    });
