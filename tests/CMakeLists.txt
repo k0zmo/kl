@@ -10,6 +10,7 @@ set(test_files
     enum_range_test.cpp
     enum_reflector_test.cpp
     enum_traits_test.cpp
+    exception_info_test.cpp
     file_view_test.cpp
     hash_test.cpp
     match_test.cpp

@@ -19,6 +19,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/enum_range.hpp
     ${kl_SOURCE_DIR}/include/kl/enum_reflector.hpp
     ${kl_SOURCE_DIR}/include/kl/enum_traits.hpp
+    ${kl_SOURCE_DIR}/include/kl/exception_info.hpp
     ${kl_SOURCE_DIR}/include/kl/file_view.hpp
     ${kl_SOURCE_DIR}/include/kl/hash.hpp
     ${kl_SOURCE_DIR}/include/kl/match.hpp
