@@ -295,22 +295,13 @@ void encode(const Reflectable& refl, Context& ctx)
     ctx.writer().EndObject();
 }
 
-template <typename Enum, typename Context>
-void encode_enum(Enum e, Context& ctx, std::false_type /*is_enum_reflectable*/)
-{
-    json::dump(underlying_cast(e), ctx);
-}
-
-template <typename Enum, typename Context>
-void encode_enum(Enum e, Context& ctx, std::true_type /*is_enum_reflectable*/)
-{
-    json::dump(kl::to_string(e), ctx);
-}
-
 template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
 void encode(Enum e, Context& ctx)
 {
-    encode_enum(e, ctx, is_enum_reflectable<Enum>{});
+    if constexpr (is_enum_reflectable_v<Enum>)
+        json::dump(kl::to_string(e), ctx);
+    else
+        json::dump(underlying_cast(e), ctx);
 }
 
 template <typename Enum, typename Context>
@@ -448,25 +439,14 @@ rapidjson::Value to_json(const Reflectable& refl, Context& ctx)
     return obj;
 }
 
-template <typename Enum, typename Context>
-rapidjson::Value enum_to_json(Enum e, Context& ctx,
-                              std::true_type /*is_enum_reflectable*/)
-{
-    return rapidjson::Value{rapidjson::StringRef(kl::to_string(e)),
-                            ctx.allocator()};
-}
-
-template <typename Enum, typename Context>
-rapidjson::Value enum_to_json(Enum e, Context& ctx,
-                              std::false_type /*is_enum_reflectable*/)
-{
-    return to_json(underlying_cast(e), ctx);
-}
-
 template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
 rapidjson::Value to_json(Enum e, Context& ctx)
 {
-    return enum_to_json(e, ctx, is_enum_reflectable<Enum>{});
+    if constexpr (is_enum_reflectable_v<Enum>)
+        return rapidjson::Value{rapidjson::StringRef(kl::to_string(e)),
+                                ctx.allocator()};
+    else
+        return to_json(underlying_cast(e), ctx);
 }
 
 template <typename Enum, typename Context>
@@ -813,36 +793,29 @@ Reflectable from_json(type_t<Reflectable>, const rapidjson::Value& value)
     }
 }
 
-template <typename Enum>
-Enum enum_from_json(const rapidjson::Value& value,
-                    std::false_type /*is_enum_reflectable*/)
-{
-    if (!value.IsNumber())
-        throw deserialize_error{"type must be a number-enum but is " +
-                                json_type_name(value)};
-    return static_cast<Enum>(value.GetInt());
-}
-
-template <typename Enum>
-Enum enum_from_json(const rapidjson::Value& value,
-                    std::true_type /*is_enum_reflectable*/)
-{
-    if (!value.IsString())
-        throw deserialize_error{"type must be a string-enum but is " +
-                                json_type_name(value)};
-    if (auto enum_value = kl::from_string<Enum>(
-            std::string_view{value.GetString(), value.GetStringLength()}))
-    {
-        return *enum_value;
-    }
-    throw deserialize_error{"invalid enum value: " +
-                            json::deserialize<std::string>(value)};
-}
-
 template <typename Enum, enable_if<std::is_enum<Enum>> = true>
 Enum from_json(type_t<Enum>, const rapidjson::Value& value)
 {
-    return enum_from_json<Enum>(value, is_enum_reflectable<Enum>{});
+    if constexpr (is_enum_reflectable_v<Enum>)
+    {
+        if (!value.IsString())
+            throw deserialize_error{"type must be a string-enum but is " +
+                                    json_type_name(value)};
+        if (auto enum_value = kl::from_string<Enum>(
+                std::string_view{value.GetString(), value.GetStringLength()}))
+        {
+            return *enum_value;
+        }
+        throw deserialize_error{"invalid enum value: " +
+                                json::deserialize<std::string>(value)};
+    }
+    else
+    {
+        if (!value.IsNumber())
+            throw deserialize_error{"type must be a number-enum but is " +
+                                    json_type_name(value)};
+        return static_cast<Enum>(value.GetInt());
+    }
 }
 
 template <typename Enum>

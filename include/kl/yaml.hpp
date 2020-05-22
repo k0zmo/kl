@@ -214,22 +214,13 @@ void encode(const Reflectable& refl, Context& ctx)
     ctx.emitter() << YAML::EndMap;
 }
 
-template <typename Enum, typename Context>
-void encode_enum(Enum e, Context& ctx, std::false_type /*is_enum_reflectable*/)
-{
-    yaml::dump(underlying_cast(e), ctx);
-}
-
-template <typename Enum, typename Context>
-void encode_enum(Enum e, Context& ctx, std::true_type /*is_enum_reflectable*/)
-{
-    yaml::dump(kl::to_string(e), ctx);
-}
-
 template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
 void encode(const Enum& e, Context& ctx)
 {
-    encode_enum(e, ctx, is_enum_reflectable<Enum>{});
+    if constexpr (is_enum_reflectable_v<Enum>)
+        yaml::dump(kl::to_string(e), ctx);
+    else
+        yaml::dump(underlying_cast(e), ctx);
 }
 
 template <typename Enum, typename Context>
@@ -333,25 +324,18 @@ YAML::Node to_yaml(const Reflectable& refl, Context& ctx)
     return obj;
 }
 
-template <typename Enum, typename Context>
-YAML::Node enum_to_yaml(Enum e, Context& ctx,
-                        std::true_type /*is_enum_reflectable*/)
-{
-    (void)ctx;
-    return YAML::Node{kl::to_string(e)};
-}
-
-template <typename Enum, typename Context>
-YAML::Node enum_to_yaml(Enum e, Context& ctx,
-                        std::false_type /*is_enum_reflectable*/)
-{
-    return to_yaml(underlying_cast(e), ctx);
-}
-
 template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
 YAML::Node to_yaml(Enum e, Context& ctx)
 {
-    return enum_to_yaml(e, ctx, is_enum_reflectable<Enum>{});
+    if constexpr (is_enum_reflectable_v<Enum>)
+    {
+        (void)ctx;
+        return YAML::Node{kl::to_string(e)};
+    }
+    else
+    {
+        return to_yaml(underlying_cast(e), ctx);
+    }
 }
 
 template <typename Enum, typename Context>
@@ -582,30 +566,23 @@ Reflectable from_yaml(type_t<Reflectable>, const YAML::Node& value)
     }
 }
 
-template <typename Enum>
-Enum enum_from_yaml(const YAML::Node& value,
-                    std::false_type /*is_enum_reflectable*/)
-{
-    using underlying_type = std::underlying_type_t<Enum>;
-    return static_cast<Enum>(from_scalar_yaml<underlying_type>(value));
-}
-
-template <typename Enum>
-Enum enum_from_yaml(const YAML::Node& value,
-                    std::true_type /*is_enum_reflectable*/)
-{
-    if (!value.IsScalar())
-        throw deserialize_error{"type must be a scalar but is " +
-                                yaml_type_name(value)};
-    if (auto enum_value = kl::from_string<Enum>(value.Scalar()))
-        return *enum_value;
-    throw deserialize_error{"invalid enum value: " + value.Scalar()};
-}
-
 template <typename Enum, enable_if<std::is_enum<Enum>> = true>
 Enum from_yaml(type_t<Enum>, const YAML::Node& value)
 {
-    return enum_from_yaml<Enum>(value, is_enum_reflectable<Enum>{});
+    if constexpr (is_enum_reflectable_v<Enum>)
+    {
+        if (!value.IsScalar())
+            throw deserialize_error{"type must be a scalar but is " +
+                                    yaml_type_name(value)};
+        if (auto enum_value = kl::from_string<Enum>(value.Scalar()))
+            return *enum_value;
+        throw deserialize_error{"invalid enum value: " + value.Scalar()};
+    }
+    else
+    {
+        using underlying_type = std::underlying_type_t<Enum>;
+        return static_cast<Enum>(from_scalar_yaml<underlying_type>(value));
+    }
 }
 
 template <typename Enum>
