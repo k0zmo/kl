@@ -120,7 +120,7 @@ private:
     static constexpr void reflect_base(Reflected&& r, Visitor&& v)
     {
         static_assert(
-            std::is_base_of<Base, std::remove_reference_t<Reflected>>::value,
+            std::is_base_of_v<Base, std::remove_reference_t<Reflected>>,
             "Base is not a base of Reflected");
         using base_type =
             typename detail::mirror_referenceness<Reflected, Base>::type;

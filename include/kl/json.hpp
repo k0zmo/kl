@@ -307,7 +307,7 @@ void encode(Enum e, Context& ctx)
 template <typename Enum, typename Context>
 void encode(const enum_set<Enum>& set, Context& ctx)
 {
-    static_assert(is_enum_reflectable<Enum>::value,
+    static_assert(is_enum_reflectable_v<Enum>,
                   "Only sets of reflectable enums are supported");
     ctx.writer().StartArray();
     for (const auto possible_value : enum_reflector<Enum>::values())
@@ -346,9 +346,9 @@ void encode(const std::optional<T>& opt, Context& ctx)
 // Checks if we can construct a Json object with given T
 template <typename T>
 using is_json_constructible =
-    bool_constant<std::is_constructible<rapidjson::Value, T>::value &&
+    bool_constant<std::is_constructible_v<rapidjson::Value, T> &&
                   // We want reflectable unscoped enum to handle ourselves
-                  !std::is_enum<T>::value>;
+                  !std::is_enum_v<T>>;
 
 // For all T's that we can directly create rapidjson::Value value from
 template <typename JsonConstructible, typename Context,
@@ -393,9 +393,8 @@ template <
     enable_if<negation<is_json_constructible<Map>>, is_map_alike<Map>> = true>
 rapidjson::Value to_json(const Map& map, Context& ctx)
 {
-    static_assert(
-        std::is_constructible<std::string, typename Map::key_type>::value,
-        "std::string must be constructible from the Map's key type");
+    static_assert(std::is_constructible_v<std::string, typename Map::key_type>,
+                  "std::string must be constructible from the Map's key type");
 
     rapidjson::Value obj{rapidjson::kObjectType};
     for (const auto& kv : map)
@@ -452,7 +451,7 @@ rapidjson::Value to_json(Enum e, Context& ctx)
 template <typename Enum, typename Context>
 rapidjson::Value to_json(const enum_set<Enum>& set, Context& ctx)
 {
-    static_assert(is_enum_reflectable<Enum>::value,
+    static_assert(is_enum_reflectable_v<Enum>,
                   "Only sets of reflectable enums are supported");
     rapidjson::Value arr{rapidjson::kArrayType};
 
@@ -777,7 +776,7 @@ Reflectable reflectable_from_json(const rapidjson::Value& value)
 template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
 Reflectable from_json(type_t<Reflectable>, const rapidjson::Value& value)
 {
-    static_assert(std::is_default_constructible<Reflectable>::value,
+    static_assert(std::is_default_constructible_v<Reflectable>,
                   "Reflectable must be default constructible");
 
     try
@@ -869,7 +868,7 @@ std::optional<T> from_json(type_t<std::optional<T>>,
 template <typename T, typename Context>
 void dump(const T&, Context&, priority_tag<0>)
 {
-    static_assert(always_false<T>::value,
+    static_assert(always_false_v<T>,
                   "Cannot dump an instance of type T - no viable "
                   "definition of encode provided");
 }
@@ -891,7 +890,7 @@ auto dump(const T& obj, Context& ctx, priority_tag<2>)
 template <typename T, typename Context>
 rapidjson::Value serialize(const T&, Context&, priority_tag<0>)
 {
-    static_assert(always_false<T>::value,
+    static_assert(always_false_v<T>,
                   "Cannot serialize an instance of type T - no viable "
                   "definition of to_json provided");
     return {}; // Keeps compiler happy
@@ -914,7 +913,7 @@ auto serialize(const T& obj, Context& ctx, priority_tag<2>)
 template <typename T>
 T deserialize(const rapidjson::Value&, priority_tag<0>)
 {
-    static_assert(always_false<T>::value,
+    static_assert(always_false_v<T>,
                   "Cannot deserialize an instance of type T - no viable "
                   "definition of from_json provided");
     return T{}; // Keeps compiler happy

@@ -18,28 +18,27 @@ public:
     using reference = typename iterator_traits::reference;
 
 public:
-    constexpr range() noexcept(std::is_nothrow_constructible<Iterator>::value)
+    constexpr range() noexcept(std::is_nothrow_constructible_v<Iterator>)
         : first_{}, last_{}
     {
     }
 
     constexpr range(Iterator first, Iterator last) noexcept(
-        std::is_nothrow_move_constructible<Iterator>::value)
+        std::is_nothrow_move_constructible_v<Iterator>)
         : first_{std::move(first)}, last_{std::move(last)}
     {
     }
 
     template <typename Container>
     constexpr range(Container& cont) noexcept(
-        std::is_nothrow_move_constructible<Iterator>::value && noexcept(
-            cont.begin()))
+        std::is_nothrow_move_constructible_v<Iterator>&& noexcept(cont.begin()))
         : first_{cont.begin()}, last_{cont.end()}
     {
     }
 
     template <typename Container>
     constexpr range(const Container& cont) noexcept(
-        std::is_nothrow_move_constructible<Iterator>::value && noexcept(
+        std::is_nothrow_move_constructible_v<Iterator>&& noexcept(
             cont.cbegin()))
         : first_{cont.cbegin()}, last_{cont.cend()}
     {
@@ -58,13 +57,13 @@ public:
     }
 
     constexpr Iterator begin() const
-        noexcept(std::is_nothrow_copy_constructible<Iterator>::value)
+        noexcept(std::is_nothrow_copy_constructible_v<Iterator>)
     {
         return first_;
     }
 
     constexpr Iterator end() const
-        noexcept(std::is_nothrow_copy_constructible<Iterator>::value)
+        noexcept(std::is_nothrow_copy_constructible_v<Iterator>)
     {
         return last_;
     }
