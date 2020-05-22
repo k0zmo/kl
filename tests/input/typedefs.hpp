@@ -4,7 +4,6 @@
 #include "kl/describe_enum.hpp"
 #include "kl/enum_set.hpp"
 
-
 #include <vector>
 #include <map>
 #include <string>

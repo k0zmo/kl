@@ -17,6 +17,7 @@
 #include <list>
 #include <map>
 #include <optional>
+#include <string_view>
 
 std::string to_string(const rapidjson::Document& doc)
 {
@@ -42,6 +43,7 @@ TEST_CASE("json")
         CHECK(json::serialize(std::string{"qwe"}).IsString());
         CHECK(json::serialize(13.11).IsDouble());
         CHECK(json::serialize(ordinary_enum::oe_one).IsInt());
+        CHECK(json::serialize(std::string_view{"qwe"}).IsString());
 
         const char* qwe = "qwe";
         CHECK(json::serialize(qwe).IsString());
@@ -104,6 +106,21 @@ TEST_CASE("json")
         auto obj = json::deserialize<inner_t>(j);
         REQUIRE(obj.r == 2);
         REQUIRE(obj.d == 1.0);
+    }
+
+    SECTION("deserialize to string_view - invalid type")
+    {
+        auto j = R"(123)"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<std::string_view>(j),
+                            "type must be a string but is kNumberType");
+    }
+
+    SECTION("unsafe: deserialize to string_view")
+    {
+        auto j = R"("abc")"_json;
+        // Str can dangle if `j` is freed before
+        auto str = json::deserialize<std::string_view>(j);
+        REQUIRE(str == "abc");
     }
 
     SECTION("serialize tuple")
@@ -806,6 +823,7 @@ TEST_CASE("json dump")
         CHECK(json::dump(std::string{"qwe"}) == "\"qwe\"");
         CHECK(json::dump(13.11) == "13.11");
         CHECK(json::dump(ordinary_enum::oe_one) == "0");
+        CHECK(json::dump(std::string_view{"qwe"}) == "\"qwe\"");
     }
 
     SECTION("inner_t")

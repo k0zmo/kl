@@ -15,6 +15,7 @@
 #include <optional>
 #include <exception>
 #include <string>
+#include <string_view>
 
 #if defined(GetObject)
 #undef GetObject
@@ -233,6 +234,14 @@ void encode(const std::basic_string<typename Context::writer_type::Ch>& str,
     ctx.writer().String(str);
 }
 
+template <typename Context>
+void encode(std::basic_string_view<typename Context::writer_type::Ch> str,
+            Context& ctx)
+{
+    ctx.writer().String(str.data(),
+                        static_cast<rapidjson::SizeType>(str.length()));
+}
+
 template <typename Key, typename Context>
 void encode_key(const Key& key, Context& ctx)
 {
@@ -363,6 +372,14 @@ template <typename Ch, typename Context>
 rapidjson::Value to_json(const std::basic_string<Ch>& str, Context& ctx)
 {
     return rapidjson::Value{str, ctx.allocator()};
+}
+
+template <typename Ch, typename Context>
+rapidjson::Value to_json(std::basic_string_view<Ch> str, Context& ctx)
+{
+    return rapidjson::Value{str.data(),
+                            static_cast<rapidjson::SizeType>(str.length()),
+                            ctx.allocator()};
 }
 
 template <typename Context>
@@ -620,6 +637,22 @@ inline bool from_json(type_t<bool>, const rapidjson::Value& value)
 
 inline std::string from_json(type_t<std::string>, const rapidjson::Value& value)
 {
+    if (!value.IsString())
+        throw deserialize_error{"type must be a string but is " +
+                                json_type_name(value)};
+
+    return {value.GetString(),
+            static_cast<std::size_t>(value.GetStringLength())};
+}
+
+inline std::string_view from_json(type_t<std::string_view>,
+                                  const rapidjson::Value& value)
+{
+    // This variant is unsafe because the lifetime of underlying string is tied
+    // to the lifetime of the JSON's value. It may come in handy when writing
+    // user-defined `from_json` which only need a string_view to do further
+    // conversion or when one can guarantee `value` will outlive the returned
+    // string_view. Nevertheless, use with caution.
     if (!value.IsString())
         throw deserialize_error{"type must be a string but is " +
                                 json_type_name(value)};
