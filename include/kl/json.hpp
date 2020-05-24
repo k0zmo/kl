@@ -359,6 +359,12 @@ rapidjson::Value to_json(const JsonConstructible& value, Context& ctx)
     return rapidjson::Value{value};
 }
 
+template <typename Context>
+rapidjson::Value to_json(std::nullptr_t, Context& ctx)
+{
+    return rapidjson::Value{};
+}
+
 template <typename Ch, typename Context>
 rapidjson::Value to_json(const std::basic_string<Ch>& str, Context& ctx)
 {

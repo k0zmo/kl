@@ -272,6 +272,12 @@ YAML::Node to_yaml(Arithmetic value, Context&)
 }
 
 template <typename Context>
+YAML::Node to_yaml(std::nullptr_t, Context&)
+{
+    return YAML::Node{};
+}
+
+template <typename Context>
 YAML::Node to_yaml(const std::string& str, Context&)
 {
     return YAML::Node{str};

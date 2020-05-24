@@ -44,6 +44,7 @@ TEST_CASE("json")
         CHECK(json::serialize(13.11).IsDouble());
         CHECK(json::serialize(ordinary_enum::oe_one).IsInt());
         CHECK(json::serialize(std::string_view{"qwe"}).IsString());
+        CHECK(json::serialize(nullptr).IsNull());
 
         const char* qwe = "qwe";
         CHECK(json::serialize(qwe).IsString());

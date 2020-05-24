@@ -32,6 +32,7 @@ TEST_CASE("yaml")
         CHECK(yaml::serialize(std::string{"qwe"}).as<std::string>() == "qwe");
         CHECK(yaml::serialize(13.11).as<double>() == Approx(13.11));
         CHECK(yaml::serialize(ordinary_enum::oe_one).as<int>() == 0);
+        CHECK(yaml::serialize(nullptr).IsNull());
 
         const char* qwe = "qwe";
         CHECK(yaml::serialize(qwe).as<std::string>() == "qwe");
