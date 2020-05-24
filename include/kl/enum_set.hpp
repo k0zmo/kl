@@ -187,14 +187,10 @@ private:
 };
 
 template <typename T>
-struct is_enum_set : std::false_type
-{
-};
+struct is_enum_set : std::false_type {};
 
 template <typename T>
-struct is_enum_set<enum_set<T>> : std::true_type
-{
-};
+struct is_enum_set<enum_set<T>> : std::true_type {};
 
 template <typename T>
 inline constexpr bool is_enum_set_v = is_enum_set<T>::value;

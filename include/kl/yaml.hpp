@@ -12,6 +12,7 @@
 #include <optional>
 #include <exception>
 #include <string>
+#include <string_view>
 
 namespace YAML {
 
@@ -419,6 +420,20 @@ inline std::string from_yaml(type_t<std::string>, const YAML::Node& value)
 {
     if (!value.IsScalar())
         throw deserialize_error{"type must be a scalar but is " +
+                                yaml_type_name(value)};
+    return value.Scalar();
+}
+
+inline std::string_view from_yaml(type_t<std::string_view>,
+                                  const YAML::Node& value)
+{
+    // This variant is unsafe because the lifetime of underlying string is tied
+    // to the lifetime of the YAML's scalar value. It may come in handy when
+    // writing user-defined `from_yaml` which only need a string_view to do
+    // further conversion or when one can guarantee `value` will outlive the
+    // returned string_view. Nevertheless, use with caution.
+    if (!value.IsScalar())
+        throw deserialize_error{"type must be a scalar but is a" +
                                 yaml_type_name(value)};
     return value.Scalar();
 }

@@ -14,6 +14,7 @@
 #include <list>
 #include <map>
 #include <optional>
+#include <string_view>
 
 TEST_CASE("yaml")
 {
@@ -100,6 +101,21 @@ TEST_CASE("yaml")
         auto obj = yaml::deserialize<inner_t>(y);
         REQUIRE(obj.r == 2);
         REQUIRE(obj.d == 1.0);
+    }
+
+    SECTION("deserialize to string_view - invalid type")
+    {
+        auto j = R"([123])"_yaml;
+        REQUIRE_THROWS_WITH(yaml::deserialize<std::string_view>(j),
+                            "type must be a scalar but is a Sequence");
+    }
+
+    SECTION("unsafe: deserialize to string_view")
+    {
+        auto j = R"(abc)"_yaml;
+        // Str can dangle if `j` is freed before
+        auto str = yaml::deserialize<std::string_view>(j);
+        REQUIRE(str == "abc");
     }
 
     SECTION("serialize tuple")
