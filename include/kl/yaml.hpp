@@ -388,7 +388,7 @@ template <typename T>
 T from_scalar_yaml(const YAML::Node& value)
 {
     if (!value.IsScalar())
-        throw deserialize_error{"type must be a scalar but is " +
+        throw deserialize_error{"type must be a scalar but is a " +
                                 yaml_type_name(value)};
 
     try
@@ -419,7 +419,7 @@ Arithmetic from_yaml(type_t<Arithmetic>, const YAML::Node& value)
 inline std::string from_yaml(type_t<std::string>, const YAML::Node& value)
 {
     if (!value.IsScalar())
-        throw deserialize_error{"type must be a scalar but is " +
+        throw deserialize_error{"type must be a scalar but is a " +
                                 yaml_type_name(value)};
     return value.Scalar();
 }
@@ -433,7 +433,7 @@ inline std::string_view from_yaml(type_t<std::string_view>,
     // further conversion or when one can guarantee `value` will outlive the
     // returned string_view. Nevertheless, use with caution.
     if (!value.IsScalar())
-        throw deserialize_error{"type must be a scalar but is a" +
+        throw deserialize_error{"type must be a scalar but is a " +
                                 yaml_type_name(value)};
     return value.Scalar();
 }
@@ -442,7 +442,7 @@ template <typename Map, enable_if<is_map_alike<Map>> = true>
 Map from_yaml(type_t<Map>, const YAML::Node& value)
 {
     if (!value.IsMap())
-        throw deserialize_error{"type must be a map but is " +
+        throw deserialize_error{"type must be a map but is a " +
                                 yaml_type_name(value)};
 
     Map ret{};
@@ -472,7 +472,7 @@ template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
 Vector from_yaml(type_t<Vector>, const YAML::Node& value)
 {
     if (!value.IsSequence())
-        throw deserialize_error{"type must be a sequence but is " +
+        throw deserialize_error{"type must be a sequence but is a " +
                                 yaml_type_name(value)};
 
     Vector ret{};
@@ -554,7 +554,7 @@ Reflectable reflectable_from_yaml(const YAML::Node& value)
     }
     else
     {
-        throw deserialize_error{"type must be a sequence or map but is " +
+        throw deserialize_error{"type must be a sequence or map but is a " +
                                 yaml_type_name(value)};
     }
 
@@ -586,7 +586,7 @@ Enum from_yaml(type_t<Enum>, const YAML::Node& value)
     if constexpr (is_enum_reflectable_v<Enum>)
     {
         if (!value.IsScalar())
-            throw deserialize_error{"type must be a scalar but is " +
+            throw deserialize_error{"type must be a scalar but is a " +
                                     yaml_type_name(value)};
         if (auto enum_value = kl::from_string<Enum>(value.Scalar()))
             return *enum_value;
@@ -603,7 +603,7 @@ template <typename Enum>
 enum_set<Enum> from_yaml(type_t<enum_set<Enum>>, const YAML::Node& value)
 {
     if (!value.IsSequence())
-        throw deserialize_error{"type must be a sequence but is " +
+        throw deserialize_error{"type must be a sequence but is a " +
                                 yaml_type_name(value)};
 
     enum_set<Enum> ret{};
@@ -636,7 +636,7 @@ template <typename... Ts>
 std::tuple<Ts...> from_yaml(type_t<std::tuple<Ts...>>, const YAML::Node& value)
 {
     if (!value.IsSequence())
-        throw deserialize_error{"type must be a sequence but is " +
+        throw deserialize_error{"type must be a sequence but is a " +
                                 yaml_type_name(value)};
 
     return tuple_from_yaml<std::tuple<Ts...>>(

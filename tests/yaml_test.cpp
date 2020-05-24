@@ -70,7 +70,7 @@ TEST_CASE("yaml")
         REQUIRE_THROWS_AS(yaml::deserialize<inner_t>({}),
                           yaml::deserialize_error);
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>({}),
-                            "type must be a sequence or map but is Null\n"
+                            "type must be a sequence or map but is a Null\n"
                             "error when deserializing type " +
                                 kl::ctti::name<inner_t>());
     }
@@ -81,7 +81,7 @@ TEST_CASE("yaml")
         REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y),
                           yaml::deserialize_error);
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y),
-                            "type must be a scalar but is Null\n"
+                            "type must be a scalar but is a Null\n"
                             "error when deserializing field r\n"
                             "error when deserializing type " +
                                 kl::ctti::name<inner_t>());
@@ -136,20 +136,20 @@ TEST_CASE("yaml")
     {
         YAML::Node null{};
         REQUIRE_THROWS_WITH(yaml::deserialize<int>(null),
-                            "type must be a scalar but is Null");
+                            "type must be a scalar but is a Null");
         REQUIRE_THROWS_WITH(yaml::deserialize<bool>(null),
-                            "type must be a scalar but is Null");
+                            "type must be a scalar but is a Null");
         REQUIRE_THROWS_WITH(yaml::deserialize<float>(null),
-                            "type must be a scalar but is Null");
+                            "type must be a scalar but is a Null");
         REQUIRE_THROWS_WITH(yaml::deserialize<std::string>(null),
-                            "type must be a scalar but is Null");
+                            "type must be a scalar but is a Null");
         REQUIRE_THROWS_WITH(yaml::deserialize<std::tuple<int>>(null),
-                            "type must be a sequence but is Null");
+                            "type must be a sequence but is a Null");
         REQUIRE_THROWS_WITH(yaml::deserialize<std::vector<int>>(null),
-                            "type must be a sequence but is Null");
+                            "type must be a sequence but is a Null");
         REQUIRE_THROWS_WITH(
             (yaml::deserialize<std::map<std::string, int>>(null)),
-            "type must be a map but is Null");
+            "type must be a map but is a Null");
 
         YAML::Node str{"text"};
         REQUIRE_THROWS_WITH(yaml::deserialize<int>(str), "bad conversion");
@@ -192,11 +192,11 @@ TEST_CASE("yaml")
 
         y = R"([7, 13, hls])"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
-                            "type must be a scalar but is Null");
+                            "type must be a scalar but is a Null");
 
         y = "7, 13, rgb, 1, true"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
-                            "type must be a sequence but is Scalar");
+                            "type must be a sequence but is a Scalar");
     }
 
     SECTION("serialize different types and 'modes' for enums")
@@ -245,7 +245,7 @@ TEST_CASE("yaml")
 
         y = "{e0: 0, e1: 0, e2: oe_one_ref, e3: []}"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<enums>(y),
-                            "type must be a scalar but is Sequence\n"
+                            "type must be a scalar but is a Sequence\n"
                             "error when deserializing field e3\n"
                             "error when deserializing type " +
                                 kl::ctti::name<enums>());
@@ -533,7 +533,7 @@ tup:
 
         y = "- 3"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y),
-                            "type must be a scalar but is Null\n"
+                            "type must be a scalar but is a Null\n"
                             "error when deserializing element 1\n"
                             "error when deserializing type " +
                                 kl::ctti::name<inner_t>());
@@ -592,7 +592,7 @@ tup:
 
         auto y = "[4]"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<tuple_t>(y),
-                            "type must be a scalar but is Null");
+                            "type must be a scalar but is a Null");
 
         y = "[4,true]"_yaml;
         auto t = yaml::deserialize<tuple_t>(y);
@@ -766,7 +766,7 @@ TEST_CASE("yaml - enum_set")
     {
         auto y = "cpu: 1"_yaml;
         REQUIRE_THROWS_WITH(kl::yaml::deserialize<device_flags>(y),
-                            "type must be a sequence but is Map");
+                            "type must be a sequence but is a Map");
 
         y = "[]"_yaml;
         auto f = kl::yaml::deserialize<device_flags>(y);
