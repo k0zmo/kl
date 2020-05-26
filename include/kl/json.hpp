@@ -7,6 +7,11 @@
 #include "kl/tuple.hpp"
 #include "kl/utility.hpp"
 
+// Undefine Win32 macro
+#if defined(GetObject)
+#undef GetObject
+#endif
+
 #include <rapidjson/document.h>
 #include <rapidjson/error/en.h>
 #include <rapidjson/stringbuffer.h>
@@ -16,10 +21,6 @@
 #include <exception>
 #include <string>
 #include <string_view>
-
-#if defined(GetObject)
-#undef GetObject
-#endif
 
 namespace rapidjson {
 
