@@ -57,7 +57,9 @@ if(KL_ENABLE_YAML)
         target_include_directories(yaml-cpp PUBLIC ${yamlcpp_SOURCE_DIR}/include)
         target_compile_features(yaml-cpp PUBLIC cxx_std_11)
         if(MSVC)
-            target_compile_options(yaml-cpp PRIVATE /wd4100 /wd4127 /wd4244 /wd4456 /wd4702)
+            target_compile_options(yaml-cpp PRIVATE
+                /wd4100 /wd4127 /wd4244 /wd4456 /wd4702 /wd4996
+            )
         endif()
         set_target_properties(yaml-cpp PROPERTIES FOLDER external)
     endif()
