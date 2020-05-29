@@ -1080,3 +1080,55 @@ TEST_CASE("json::view - two-phase deserialization")
           R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}})"
           R"(,{"type":"c","data":["d1",false,[1,2,3]]}])");
 }
+
+namespace {
+
+struct zxc
+{
+    std::string a;
+    int b;
+    bool c;
+    std::vector<int> d;
+
+    template <typename Context>
+    friend rapidjson::Value to_json(const zxc& z, Context& ctx)
+    {
+        rapidjson::Value ret{rapidjson::kObjectType};
+        ret.AddMember("a", kl::json::serialize(z.a, ctx), ctx.allocator());
+        ret.AddMember("b", kl::json::serialize(z.b, ctx), ctx.allocator());
+        ret.AddMember("c", kl::json::serialize(z.c, ctx), ctx.allocator());
+        ret.AddMember("d", kl::json::serialize(z.d, ctx), ctx.allocator());
+        return ret;
+    }
+
+    friend void from_json(zxc& z, const rapidjson::Value& value)
+    {
+        if (!value.IsObject())
+        {
+            throw kl::json::deserialize_error{
+                "type must be an object but is a " +
+                kl::json::type_name(value)};
+        }
+
+        const auto obj = value.GetObject();
+        kl::json::deserialize(z.a, kl::json::get_value(obj, "a"));
+        kl::json::deserialize(z.b, kl::json::get_value(obj, "b"));
+        kl::json::deserialize(z.c, kl::json::get_value(obj, "c"));
+        kl::json::deserialize(z.d, kl::json::get_value(obj, "d"));
+    }
+};
+} // namespace
+
+TEST_CASE("json: manually (de)serialized type")
+{
+    zxc z{"asd", 3, true, {1, 2, 34}};
+    CHECK(to_string(kl::json::serialize(z)) ==
+          R"({"a":"asd","b":3,"c":true,"d":[1,2,34]})");
+
+    auto zz = kl::json::deserialize<zxc>(kl::json::serialize(z));
+
+    CHECK(zz.a == z.a);
+    CHECK(zz.b == z.b);
+    CHECK(zz.c == z.c);
+    CHECK(zz.d == z.d);
+}

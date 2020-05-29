@@ -157,6 +157,35 @@ private:
 
 namespace detail {
 
+inline const YAML::Node& get_null_value()
+{
+    static const auto null_value = YAML::Node{};
+    return null_value;
+}
+} // namespace detail
+
+// Safely gets the YAML value from the YAML sequence. If provided index is
+// out-of-bounds we return a null value.
+inline YAML::Node get_value(const YAML::Node& seq, std::size_t idx)
+{
+    return idx < seq.size() ? seq[idx] : detail::get_null_value();
+}
+
+// Safely gets the YAML value from the YAML map. If member of provided name
+// is not present we return a null value.
+inline YAML::Node get_value(const YAML::Node& map, const char* member_name)
+{
+    auto query = map[member_name];
+    return query ? query : detail::get_null_value();
+}
+
+inline std::string type_name(const YAML::Node& value)
+{
+    return kl::to_string(value.Type());
+}
+
+namespace detail {
+
 KL_HAS_TYPEDEF_HELPER(value_type)
 KL_HAS_TYPEDEF_HELPER(iterator)
 KL_HAS_TYPEDEF_HELPER(mapped_type)
@@ -415,17 +444,12 @@ YAML::Node to_yaml(const std::optional<T>& opt, Context& ctx)
 
 // from_yaml implementation
 
-inline std::string yaml_type_name(const YAML::Node& value)
-{
-    return kl::to_string(value.Type());
-}
-
 template <typename T>
 T from_scalar_yaml(const YAML::Node& value)
 {
     if (!value.IsScalar())
         throw deserialize_error{"type must be a scalar but is a " +
-                                yaml_type_name(value)};
+                                yaml::type_name(value)};
 
     try
     {
@@ -456,7 +480,7 @@ inline void from_yaml(std::string& out, const YAML::Node& value)
 {
     if (!value.IsScalar())
         throw deserialize_error{"type must be a scalar but is a " +
-                                yaml_type_name(value)};
+                                yaml::type_name(value)};
     out = value.Scalar();
 }
 
@@ -469,7 +493,7 @@ inline void from_yaml(std::string_view& out, const YAML::Node& value)
     // returned string_view. Nevertheless, use with caution.
     if (!value.IsScalar())
         throw deserialize_error{"type must be a scalar but is a " +
-                                yaml_type_name(value)};
+                                yaml::type_name(value)};
     out = value.Scalar();
 }
 
@@ -483,7 +507,7 @@ void from_yaml(Map& out, const YAML::Node& value)
 {
     if (!value.IsMap())
         throw deserialize_error{"type must be a map but is a " +
-                                yaml_type_name(value)};
+                                yaml::type_name(value)};
 
     out.clear();
 
@@ -512,7 +536,7 @@ void from_yaml(Vector& out, const YAML::Node& value)
 {
     if (!value.IsSequence())
         throw deserialize_error{"type must be a sequence but is a " +
-                                yaml_type_name(value)};
+                                yaml::type_name(value)};
 
     out.clear();
     if constexpr (has_reserve_v<Vector>)
@@ -543,11 +567,7 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
         ctti::reflect(out, [&value](auto fi) {
             try
             {
-                const auto& query = value[fi.name()];
-                if (query)
-                    yaml::deserialize(fi.get(), query);
-                else
-                    yaml::deserialize(fi.get(), {});
+                yaml::deserialize(fi.get(), yaml::get_value(value, fi.name()));
             }
             catch (deserialize_error& ex)
             {
@@ -569,10 +589,7 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
         ctti::reflect(out, [&value, index = 0U](auto fi) mutable {
             try
             {
-                if (index < value.size())
-                    yaml::deserialize(fi.get(), value[index]);
-                else
-                    yaml::deserialize(fi.get(), {});
+                yaml::deserialize(fi.get(), yaml::get_value(value, index));
                 ++index;
             }
             catch (deserialize_error& ex)
@@ -587,7 +604,7 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
     else
     {
         throw deserialize_error{"type must be a sequence or map but is a " +
-                                yaml_type_name(value)};
+                                yaml::type_name(value)};
     }
 }
 
@@ -614,7 +631,7 @@ void from_yaml(Enum& out, const YAML::Node& value)
     {
         if (!value.IsScalar())
             throw deserialize_error{"type must be a scalar but is a " +
-                                    yaml_type_name(value)};
+                                    yaml::type_name(value)};
         if (auto enum_value = kl::from_string<Enum>(value.Scalar()))
             out = *enum_value;
         else
@@ -632,7 +649,7 @@ void from_yaml(enum_set<Enum>& out, const YAML::Node& value)
 {
     if (!value.IsSequence())
         throw deserialize_error{"type must be a sequence but is a " +
-                                yaml_type_name(value)};
+                                yaml::type_name(value)};
 
     out = {};
 
@@ -643,18 +660,10 @@ void from_yaml(enum_set<Enum>& out, const YAML::Node& value)
     }
 }
 
-// Safely gets the YAML value from the sequence of YAML values. If provided
-// index is out-of-bounds we return a null value.
-inline const YAML::Node safe_get_value(const YAML::Node& seq, std::size_t idx)
-{
-    static const auto null_value = YAML::Node{};
-    return idx >= seq.size() ? null_value : seq[idx];
-}
-
 template <typename Tuple, std::size_t... Is>
 void tuple_from_yaml(Tuple& out, const YAML::Node& value, index_sequence<Is...>)
 {
-    (yaml::deserialize(std::get<Is>(out), safe_get_value(value, Is)), ...);
+    (yaml::deserialize(std::get<Is>(out), get_value(value, Is)), ...);
 }
 
 template <typename... Ts>
@@ -662,7 +671,7 @@ void from_yaml(std::tuple<Ts...>& out, const YAML::Node& value)
 {
     if (!value.IsSequence())
         throw deserialize_error{"type must be a sequence but is a " +
-                                yaml_type_name(value)};
+                                yaml::type_name(value)};
 
     tuple_from_yaml(out, value, make_index_sequence<sizeof...(Ts)>{});
 }

@@ -174,6 +174,37 @@ private:
 
 namespace detail {
 
+inline const rapidjson::Value& get_null_value()
+{
+    static const auto null_value = rapidjson::Value{};
+    return null_value;
+}
+} // namespace detail
+
+// Safely gets the JSON value from the JSON array. If provided index is
+// out-of-bounds we return a null value.
+inline const rapidjson::Value&
+    get_value(const rapidjson::Value::ConstArray& arr, rapidjson::SizeType idx)
+{
+    return idx < arr.Size() ? arr[idx] : detail::get_null_value();
+}
+
+// Safely gets the JSON value from the JSON object. If member of provided name
+// is not present we return a null value.
+inline const rapidjson::Value& get_value(rapidjson::Value::ConstObject obj,
+                                         const char* member_name)
+{
+    const auto it = obj.FindMember(member_name);
+    return it != obj.end() ? it->value : detail::get_null_value();
+}
+
+inline std::string type_name(const rapidjson::Value& value)
+{
+    return kl::to_string(value.GetType());
+}
+
+namespace detail {
+
 KL_HAS_TYPEDEF_HELPER(value_type)
 KL_HAS_TYPEDEF_HELPER(iterator)
 KL_HAS_TYPEDEF_HELPER(mapped_type)
@@ -526,11 +557,6 @@ rapidjson::Value to_json(const std::optional<T>& opt, Context& ctx)
 
 // from_json implementation
 
-inline std::string json_type_name(const rapidjson::Value& value)
-{
-    return kl::to_string(value.GetType());
-}
-
 template <typename T>
 struct is_64bit : kl::bool_constant<sizeof(T) == 8> {};
 
@@ -568,7 +594,7 @@ public:
                 throw_lossy_conversion();
 
             throw deserialize_error{"type must be an integral but is a " +
-                                    json_type_name(value_)};
+                                    json::type_name(value_)};
         }
         return narrow<T>(value_.GetInt());
     }
@@ -586,7 +612,7 @@ public:
                 throw_lossy_conversion();
 
             throw deserialize_error{"type must be an integral but is a " +
-                                    json_type_name(value_)};
+                                    json::type_name(value_)};
         }
         return value_.GetInt64();
     }
@@ -602,7 +628,7 @@ public:
                 throw_lossy_conversion();
 
             throw deserialize_error{"type must be an integral but is a " +
-                                    json_type_name(value_)};
+                                    json::type_name(value_)};
         }
         return narrow<T>(value_.GetUint());
     }
@@ -617,7 +643,7 @@ public:
                 throw_lossy_conversion();
 
             throw deserialize_error{"type must be an integral but is a " +
-                                    json_type_name(value_)};
+                                    json::type_name(value_)};
         }
         return value_.GetUint64();
     }
@@ -637,7 +663,7 @@ void from_json(Floating& out, const rapidjson::Value& value)
 {
     if (!value.IsNumber())
         throw deserialize_error{"type must be a floating-point but is a " +
-                                json_type_name(value)};
+                                json::type_name(value)};
 
     out = static_cast<Floating>(value.GetDouble());
 }
@@ -646,7 +672,7 @@ inline void from_json(bool& out, const rapidjson::Value& value)
 {
     if (!value.IsBool())
         throw deserialize_error{"type must be a bool but is a " +
-                                json_type_name(value)};
+                                json::type_name(value)};
     out = value.GetBool();
 }
 
@@ -654,7 +680,7 @@ inline void from_json(std::string& out, const rapidjson::Value& value)
 {
     if (!value.IsString())
         throw deserialize_error{"type must be a string but is a " +
-                                json_type_name(value)};
+                                json::type_name(value)};
 
     out = {value.GetString(),
            static_cast<std::size_t>(value.GetStringLength())};
@@ -669,7 +695,7 @@ inline void from_json(std::string_view& out, const rapidjson::Value& value)
     // string_view. Nevertheless, use with caution.
     if (!value.IsString())
         throw deserialize_error{"type must be a string but is a " +
-                                json_type_name(value)};
+                                json::type_name(value)};
 
     out = {value.GetString(),
            static_cast<std::size_t>(value.GetStringLength())};
@@ -685,7 +711,7 @@ void from_json(Map& out, const rapidjson::Value& value)
 {
     if (!value.IsObject())
         throw deserialize_error{"type must be an object but is a " +
-                                json_type_name(value)};
+                                json::type_name(value)};
 
     out.clear();
 
@@ -714,7 +740,7 @@ void from_json(Vector& out, const rapidjson::Value& value)
 {
     if (!value.IsArray())
         throw deserialize_error{"type must be an array but is a " +
-                                json_type_name(value)};
+                                json::type_name(value)};
 
     out.clear();
     if constexpr (has_reserve_v<Vector>)
@@ -737,16 +763,6 @@ void from_json(Vector& out, const rapidjson::Value& value)
     }
 }
 
-// Safely gets the JSON from the array of JSON values. If provided index is
-// out-of-bounds we return a null value.
-inline const rapidjson::Value&
-    safe_get_value(const rapidjson::Value::ConstArray& arr,
-                   rapidjson::SizeType idx)
-{
-    static const auto null_value = rapidjson::Value{};
-    return idx >= arr.Size() ? null_value : arr[idx];
-}
-
 template <typename Reflectable>
 void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
 {
@@ -756,11 +772,7 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
         ctti::reflect(out, [&obj](auto fi) {
             try
             {
-                const auto it = obj.FindMember(fi.name());
-                if (it != obj.end())
-                    json::deserialize(fi.get(), it->value);
-                else
-                    json::deserialize(fi.get(), {});
+                json::deserialize(fi.get(), json::get_value(obj, fi.name()));
             }
             catch (deserialize_error& ex)
             {
@@ -783,8 +795,7 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
         ctti::reflect(out, [&arr, index = 0U](auto fi) mutable {
             try
             {
-                const auto& j = safe_get_value(arr, index);
-                json::deserialize(fi.get(), j);
+                json::deserialize(fi.get(), json::get_value(arr, index));
                 ++index;
             }
             catch (deserialize_error& ex)
@@ -799,7 +810,7 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
     else
     {
         throw deserialize_error{"type must be an array or object but is a " +
-                                json_type_name(value)};
+                                json::type_name(value)};
     }
 }
 
@@ -826,7 +837,7 @@ void from_json(Enum& out, const rapidjson::Value& value)
     {
         if (!value.IsString())
             throw deserialize_error{"type must be a string-enum but is a " +
-                                    json_type_name(value)};
+                                    json::type_name(value)};
         if (auto enum_value = kl::from_string<Enum>(
                 std::string_view{value.GetString(), value.GetStringLength()}))
         {
@@ -842,7 +853,7 @@ void from_json(Enum& out, const rapidjson::Value& value)
     {
         if (!value.IsNumber())
             throw deserialize_error{"type must be a number-enum but is a " +
-                                    json_type_name(value)};
+                                    json::type_name(value)};
         out = static_cast<Enum>(value.GetInt());
     }
 }
@@ -852,7 +863,7 @@ void from_json(enum_set<Enum>& out, const rapidjson::Value& value)
 {
     if (!value.IsArray())
         throw deserialize_error{"type must be an array but is a " +
-                                json_type_name(value)};
+                                json::type_name(value)};
 
     out = {};
 
@@ -867,7 +878,7 @@ template <typename Tuple, std::size_t... Is>
 void tuple_from_json(Tuple& out, rapidjson::Value::ConstArray arr,
                      index_sequence<Is...>)
 {
-    (json::deserialize(std::get<Is>(out), safe_get_value(arr, Is)), ...);
+    (json::deserialize(std::get<Is>(out), json::get_value(arr, Is)), ...);
 }
 
 template <typename... Ts>
@@ -875,9 +886,10 @@ void from_json(std::tuple<Ts...>& out, const rapidjson::Value& value)
 {
     if (!value.IsArray())
         throw deserialize_error{"type must be an array but is a " +
-                                json_type_name(value)};
+                                json::type_name(value)};
 
-    tuple_from_json(out, value.GetArray(), make_index_sequence<sizeof...(Ts)>{});
+    tuple_from_json(out, value.GetArray(),
+                    make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T>

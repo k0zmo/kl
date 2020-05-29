@@ -1090,3 +1090,59 @@ TEST_CASE("yaml::view - two-phase deserialization")
       - 2
       - 3)");
 }
+
+namespace {
+
+struct zxc
+{
+    std::string a;
+    int b;
+    bool c;
+    std::vector<int> d;
+
+    template <typename Context>
+    friend YAML::Node to_yaml(const zxc& z, Context& ctx)
+    {
+        YAML::Node ret{YAML::NodeType::Map};
+        ret["a"] = kl::yaml::serialize(z.a, ctx);
+        ret["b"] = kl::yaml::serialize(z.b, ctx);
+        ret["c"] = kl::yaml::serialize(z.c, ctx);
+        ret["d"] = kl::yaml::serialize(z.d, ctx);
+        return ret;
+    }
+
+    friend void from_yaml(zxc& z, const YAML::Node& value)
+    {
+        if (!value.IsMap())
+        {
+            throw kl::yaml::deserialize_error{"type must be a map but is a " +
+                                              kl::yaml::type_name(value)};
+        }
+
+        kl::yaml::deserialize(z.a, kl::yaml::get_value(value, "a"));
+        kl::yaml::deserialize(z.b, kl::yaml::get_value(value, "b"));
+        kl::yaml::deserialize(z.c, kl::yaml::get_value(value, "c"));
+        kl::yaml::deserialize(z.d, kl::yaml::get_value(value, "d"));
+    }
+};
+} // namespace
+
+TEST_CASE("yaml: manually (de)serialized type")
+{
+    zxc z{"asd", 3, true, {1, 2, 34}};
+    CHECK(YAML::Dump(kl::yaml::serialize(z)) ==
+          R"(a: asd
+b: 3
+c: true
+d:
+  - 1
+  - 2
+  - 34)");
+
+    auto zz = kl::yaml::deserialize<zxc>(kl::yaml::serialize(z));
+
+    CHECK(zz.a == z.a);
+    CHECK(zz.b == z.b);
+    CHECK(zz.c == z.c);
+    CHECK(zz.d == z.d);
+}
