@@ -1025,3 +1025,59 @@ TEST_CASE("json dump - overloading")
     auto res = kl::json::dump(a);
     CHECK(res == R"({"g":"global_struct","n":null,"w":31})");
 }
+
+namespace {
+
+enum class event_type
+{
+    a,
+    b,
+    c
+};
+KL_DESCRIBE_ENUM(event_type, a, b, c)
+
+struct event
+{
+    event_type type;
+    kl::json::view data;
+};
+KL_DESCRIBE_FIELDS(event, type, data)
+
+struct event_a
+{
+    int f1;
+    bool f2;
+    std::string f3;
+};
+KL_DESCRIBE_FIELDS(event_a, f1, f2, f3)
+
+using event_c = std::tuple<std::string, bool, std::vector<int>>;
+} // namespace
+
+TEST_CASE("json::view - two-phase deserialization")
+{
+    auto j =
+        R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}},)"
+        R"({"type":"c","data":["d1",false,[1,2,3]]}])"_json;
+    auto objs = kl::json::deserialize<std::vector<event>>(j);
+    REQUIRE(objs.size() == 2);
+    CHECK(objs[0].type == event_type::a);
+    CHECK(objs[0].data.value().IsObject());
+
+    auto e1 = kl::json::deserialize<event_a>(objs[0].data);
+    CHECK(e1.f1 == 3);
+    CHECK(e1.f2);
+    CHECK(e1.f3 == "something");
+
+    CHECK(objs[1].type == event_type::c);
+    CHECK(objs[1].data.value().IsArray());
+
+    auto [a,b,c] = kl::json::deserialize<event_c>(objs[1].data);
+    CHECK(a == "d1");
+    CHECK_FALSE(b);
+    CHECK_THAT(c, Catch::Equals<int>({1,2,3}));
+
+    CHECK(kl::json::dump(objs) ==
+          R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}})"
+          R"(,{"type":"c","data":["d1",false,[1,2,3]]}])");
+}

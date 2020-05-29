@@ -1012,3 +1012,82 @@ TEST_CASE("yaml dump - overloading")
     auto res = kl::yaml::dump(a);
     CHECK(res == "g: global_struct\nn: ~\nw: 31");
 }
+
+namespace {
+
+enum class event_type
+{
+    a,
+    b,
+    c
+};
+KL_DESCRIBE_ENUM(event_type, a, b, c)
+
+struct event
+{
+    event_type type;
+    kl::yaml::view data;
+};
+KL_DESCRIBE_FIELDS(event, type, data)
+
+struct event_a
+{
+    int f1;
+    bool f2;
+    std::string f3;
+};
+KL_DESCRIBE_FIELDS(event_a, f1, f2, f3)
+
+using event_c = std::tuple<std::string, bool, std::vector<int>>;
+} // namespace
+
+TEST_CASE("yaml::view - two-phase deserialization")
+{
+    auto y =
+        R"(---
+- type: a
+  data:
+    f1: 3
+    f2: true
+    f3: something
+- type: c
+  data:
+  - d1
+  - false
+  - - 1
+    - 2
+    - 3
+)"_yaml;
+
+    auto objs = kl::yaml::deserialize<std::vector<event>>(y);
+    REQUIRE(objs.size() == 2);
+    CHECK(objs[0].type == event_type::a);
+    CHECK(objs[0].data.value().IsMap());
+
+    auto e1 = kl::yaml::deserialize<event_a>(objs[0].data);
+    CHECK(e1.f1 == 3);
+    CHECK(e1.f2);
+    CHECK(e1.f3 == "something");
+
+    CHECK(objs[1].type == event_type::c);
+    CHECK(objs[1].data.value().IsSequence());
+
+    auto [a, b, c] = kl::yaml::deserialize<event_c>(objs[1].data);
+    CHECK(a == "d1");
+    CHECK_FALSE(b);
+    CHECK_THAT(c, Catch::Equals<int>({1, 2, 3}));
+
+    CHECK(kl::yaml::dump(objs) == R"(- type: a
+  data:
+    f1: 3
+    f2: true
+    f3: something
+- type: c
+  data:
+    - d1
+    - false
+    -
+      - 1
+      - 2
+      - 3)");
+}

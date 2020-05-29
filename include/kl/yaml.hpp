@@ -22,6 +22,19 @@ KL_DESCRIBE_ENUM(NodeType::value, Undefined, Null, Scalar, Sequence, Map)
 namespace kl {
 namespace yaml {
 
+class view
+{
+public:
+    view() = default;
+    view(YAML::Node node) : node_{std::move(node)} {}
+
+    const YAML::Node& value() const { return node_; }
+    operator const YAML::Node &() const { return value(); }
+
+private:
+    YAML::Node node_;
+};
+
 template <typename T>
 struct encoder;
 
@@ -165,6 +178,12 @@ struct is_vector_alike
 // encode implementation
 
 template <typename Context>
+void encode(const view& v, Context& ctx)
+{
+    ctx.emitter() << v.value();
+}
+
+template <typename Context>
 void encode(std::nullptr_t, Context& ctx)
 {
     ctx.emitter() << YAML::Null;
@@ -269,6 +288,12 @@ template <typename Arithmetic, typename Context,
 YAML::Node to_yaml(Arithmetic value, Context&)
 {
     return YAML::Node{value};
+}
+
+template <typename Context>
+YAML::Node to_yaml(view v, Context& ctx)
+{
+    return v.value();
 }
 
 template <typename Context>
@@ -442,6 +467,11 @@ inline std::string_view from_yaml(type_t<std::string_view>,
         throw deserialize_error{"type must be a scalar but is a " +
                                 yaml_type_name(value)};
     return value.Scalar();
+}
+
+inline view from_yaml(type_t<view>, const YAML::Node& value)
+{
+    return value;
 }
 
 template <typename Map, enable_if<is_map_alike<Map>> = true>

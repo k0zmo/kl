@@ -31,6 +31,19 @@ KL_DESCRIBE_ENUM(Type, kNullType, kFalseType, kTrueType, kObjectType,
 namespace kl {
 namespace json {
 
+class view
+{
+public:
+    view() : value_{nullptr} {}
+    view(const rapidjson::Value& value) : value_{&value} {}
+
+    const rapidjson::Value& value() const { return *value_; }
+    operator const rapidjson::Value &() const { return value(); }
+
+private:
+    const rapidjson::Value* value_;
+};
+
 template <typename T>
 struct encoder;
 
@@ -179,6 +192,12 @@ struct is_vector_alike
         has_iterator<T>> {};
 
 // encode implementation
+
+template <typename Context>
+void encode(view v, Context& ctx)
+{
+    v.value().Accept(ctx.writer());
+}
 
 template <typename Context>
 void encode(std::nullptr_t, Context& ctx)
@@ -358,6 +377,12 @@ rapidjson::Value to_json(const JsonConstructible& value, Context& ctx)
 {
     (void)ctx;
     return rapidjson::Value{value};
+}
+
+template <typename Context>
+rapidjson::Value to_json(view v, Context& ctx)
+{
+    return rapidjson::Value{v.value(), ctx.allocator()};
 }
 
 template <typename Context>
@@ -645,6 +670,11 @@ inline std::string_view from_json(type_t<std::string_view>,
 
     return {value.GetString(),
             static_cast<std::size_t>(value.GetStringLength())};
+}
+
+inline view from_json(type_t<view>, const rapidjson::Value& value)
+{
+    return value;
 }
 
 template <typename Map, enable_if<is_map_alike<Map>> = true>
