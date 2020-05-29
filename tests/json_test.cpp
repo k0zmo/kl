@@ -700,9 +700,9 @@ struct serializer<std::chrono::seconds>
         return json::serialize(t.count(), ctx);
     }
 
-    static std::chrono::seconds from_json(const rapidjson::Value& value)
+    static void from_json(std::chrono::seconds& out, const rapidjson::Value& value)
     {
-        return std::chrono::seconds{json::deserialize<long long>(value)};
+        out = std::chrono::seconds{json::deserialize<long long>(value)};
     }
 };
 } // namespace json
@@ -722,11 +722,11 @@ rapidjson::Value to_json(global_struct, Context& ctx)
     return kl::json::serialize("global_struct", ctx);
 }
 
-global_struct from_json(kl::type_t<global_struct>,
-                        const rapidjson::Value& value)
+void from_json(global_struct& out, const rapidjson::Value& value)
 {
-    return value == "global_struct" ? global_struct{}
-                                    : throw kl::json::deserialize_error{""};
+    if (value != "global_struct")
+        throw kl::json::deserialize_error{""};
+    out = global_struct{};
 }
 
 namespace my {
@@ -737,9 +737,9 @@ rapidjson::Value to_json(none_t, Context&)
     return rapidjson::Value{};
 }
 
-none_t from_json(kl::type_t<none_t>, const rapidjson::Value& value)
+void from_json(none_t& out, const rapidjson::Value& value)
 {
-    return value.IsNull() ? none_t{} : throw kl::json::deserialize_error{""};
+    out = value.IsNull() ? none_t{} : throw kl::json::deserialize_error{""};
 }
 
 // Defining such function with specializaton would not be possible as there's no
@@ -751,10 +751,9 @@ rapidjson::Value to_json(const value_wrapper<T>& t, Context& ctx)
 }
 
 template <typename T>
-value_wrapper<T> from_json(kl::type_t<value_wrapper<T>>,
-                           const rapidjson::Value& value)
+void from_json(value_wrapper<T>& out, const rapidjson::Value& value)
 {
-    return value_wrapper<T>{kl::json::deserialize<T>(value)};
+    out = value_wrapper<T>{kl::json::deserialize<T>(value)};
 }
 } // namespace my
 

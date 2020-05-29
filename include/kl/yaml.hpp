@@ -99,14 +99,19 @@ template <typename T, typename Context>
 YAML::Node serialize(const T& obj, Context& ctx);
 
 template <typename T>
-T deserialize(type_t<T>, const YAML::Node& value);
+void deserialize(T& out, const YAML::Node& value);
 
 // Shorter version of from which can't be overloaded. Only use to invoke
 // the from() without providing a bit weird first parameter.
 template <typename T>
 T deserialize(const YAML::Node& value)
 {
-    return yaml::deserialize(type<T>, value);
+    static_assert(std::is_default_constructible_v<T>,
+                  "T must be default constructible");
+
+    T out;
+    yaml::deserialize(out, value);
+    return out;
 }
 
 struct deserialize_error : std::exception
@@ -442,21 +447,20 @@ T from_scalar_yaml(const YAML::Node& value)
 }
 
 template <typename Arithmetic, enable_if<std::is_arithmetic<Arithmetic>> = true>
-Arithmetic from_yaml(type_t<Arithmetic>, const YAML::Node& value)
+void from_yaml(Arithmetic& out, const YAML::Node& value)
 {
-    return from_scalar_yaml<Arithmetic>(value);
+    out = from_scalar_yaml<Arithmetic>(value);
 }
 
-inline std::string from_yaml(type_t<std::string>, const YAML::Node& value)
+inline void from_yaml(std::string& out, const YAML::Node& value)
 {
     if (!value.IsScalar())
         throw deserialize_error{"type must be a scalar but is a " +
                                 yaml_type_name(value)};
-    return value.Scalar();
+    out = value.Scalar();
 }
 
-inline std::string_view from_yaml(type_t<std::string_view>,
-                                  const YAML::Node& value)
+inline void from_yaml(std::string_view& out, const YAML::Node& value)
 {
     // This variant is unsafe because the lifetime of underlying string is tied
     // to the lifetime of the YAML's scalar value. It may come in handy when
@@ -466,28 +470,29 @@ inline std::string_view from_yaml(type_t<std::string_view>,
     if (!value.IsScalar())
         throw deserialize_error{"type must be a scalar but is a " +
                                 yaml_type_name(value)};
-    return value.Scalar();
+    out = value.Scalar();
 }
 
-inline view from_yaml(type_t<view>, const YAML::Node& value)
+inline void from_yaml(view& out, const YAML::Node& value)
 {
-    return value;
+    out = view{value};
 }
 
 template <typename Map, enable_if<is_map_alike<Map>> = true>
-Map from_yaml(type_t<Map>, const YAML::Node& value)
+void from_yaml(Map& out, const YAML::Node& value)
 {
     if (!value.IsMap())
         throw deserialize_error{"type must be a map but is a " +
                                 yaml_type_name(value)};
 
-    Map ret{};
+    out.clear();
 
     for (const auto& obj : value)
     {
         try
         {
-            ret.emplace(
+            // There's no way to construct K and V directly in the Map
+            out.emplace(
                 yaml::deserialize<typename Map::key_type>(obj.first),
                 yaml::deserialize<typename Map::mapped_type>(obj.second));
         }
@@ -499,57 +504,50 @@ Map from_yaml(type_t<Map>, const YAML::Node& value)
             throw;
         }
     }
-
-    return ret;
 }
 
 template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
                                      is_vector_alike<Vector>> = true>
-Vector from_yaml(type_t<Vector>, const YAML::Node& value)
+void from_yaml(Vector& out, const YAML::Node& value)
 {
     if (!value.IsSequence())
         throw deserialize_error{"type must be a sequence but is a " +
                                 yaml_type_name(value)};
 
-    Vector ret{};
+    out.clear();
     if constexpr (has_reserve_v<Vector>)
-        ret.reserve(value.size());
+        out.reserve(value.size());
 
     for (const auto& item : value)
     {
         try
         {
-            ret.push_back(yaml::deserialize<typename Vector::value_type>(item));
+            // There's no way to construct T directly in the Vector
+            out.push_back(yaml::deserialize<typename Vector::value_type>(item));
         }
         catch (deserialize_error& ex)
         {
             std::string msg = "error when deserializing element " +
-                              std::to_string(ret.size());
+                              std::to_string(out.size());
             ex.add(msg.c_str());
             throw;
         }
     }
-
-    return ret;
 }
 
 template <typename Reflectable>
-Reflectable reflectable_from_yaml(const YAML::Node& value)
+void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
 {
-    Reflectable refl{};
-
     if (value.IsMap())
     {
-        ctti::reflect(refl, [&value](auto fi) {
-            using field_type = typename decltype(fi)::type;
-
+        ctti::reflect(out, [&value](auto fi) {
             try
             {
                 const auto& query = value[fi.name()];
                 if (query)
-                    fi.get() = yaml::deserialize<field_type>(query);
+                    yaml::deserialize(fi.get(), query);
                 else
-                    fi.get() = yaml::deserialize<field_type>({});
+                    yaml::deserialize(fi.get(), {});
             }
             catch (deserialize_error& ex)
             {
@@ -568,15 +566,13 @@ Reflectable reflectable_from_yaml(const YAML::Node& value)
                                     "declared struct's field "
                                     "count"};
         }
-        ctti::reflect(refl, [&value, index = 0U](auto fi) mutable {
-            using field_type = typename decltype(fi)::type;
-
+        ctti::reflect(out, [&value, index = 0U](auto fi) mutable {
             try
             {
                 if (index < value.size())
-                    fi.get() = yaml::deserialize<field_type>(value[index]);
+                    yaml::deserialize(fi.get(), value[index]);
                 else
-                    fi.get() = yaml::deserialize<field_type>({});
+                    yaml::deserialize(fi.get(), {});
                 ++index;
             }
             catch (deserialize_error& ex)
@@ -593,19 +589,14 @@ Reflectable reflectable_from_yaml(const YAML::Node& value)
         throw deserialize_error{"type must be a sequence or map but is a " +
                                 yaml_type_name(value)};
     }
-
-    return refl;
 }
 
 template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
-Reflectable from_yaml(type_t<Reflectable>, const YAML::Node& value)
+void from_yaml(Reflectable& out, const YAML::Node& value)
 {
-    static_assert(std::is_default_constructible_v<Reflectable>,
-                  "Reflectable must be default constructible");
-
     try
     {
-        return reflectable_from_yaml<Reflectable>(value);
+        reflectable_from_yaml(out, value);
     }
     catch (deserialize_error& ex)
     {
@@ -617,7 +608,7 @@ Reflectable from_yaml(type_t<Reflectable>, const YAML::Node& value)
 }
 
 template <typename Enum, enable_if<std::is_enum<Enum>> = true>
-Enum from_yaml(type_t<Enum>, const YAML::Node& value)
+void from_yaml(Enum& out, const YAML::Node& value)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
     {
@@ -625,32 +616,31 @@ Enum from_yaml(type_t<Enum>, const YAML::Node& value)
             throw deserialize_error{"type must be a scalar but is a " +
                                     yaml_type_name(value)};
         if (auto enum_value = kl::from_string<Enum>(value.Scalar()))
-            return *enum_value;
-        throw deserialize_error{"invalid enum value: " + value.Scalar()};
+            out = *enum_value;
+        else
+            throw deserialize_error{"invalid enum value: " + value.Scalar()};
     }
     else
     {
         using underlying_type = std::underlying_type_t<Enum>;
-        return static_cast<Enum>(from_scalar_yaml<underlying_type>(value));
+        out = static_cast<Enum>(from_scalar_yaml<underlying_type>(value));
     }
 }
 
 template <typename Enum>
-enum_set<Enum> from_yaml(type_t<enum_set<Enum>>, const YAML::Node& value)
+void from_yaml(enum_set<Enum>& out, const YAML::Node& value)
 {
     if (!value.IsSequence())
         throw deserialize_error{"type must be a sequence but is a " +
                                 yaml_type_name(value)};
 
-    enum_set<Enum> ret{};
+    out = {};
 
     for (const auto& v : value)
     {
         const auto e = yaml::deserialize<Enum>(v);
-        ret |= e;
+        out |= e;
     }
-
-    return ret;
 }
 
 // Safely gets the YAML value from the sequence of YAML values. If provided
@@ -662,29 +652,28 @@ inline const YAML::Node safe_get_value(const YAML::Node& seq, std::size_t idx)
 }
 
 template <typename Tuple, std::size_t... Is>
-static Tuple tuple_from_yaml(const YAML::Node& value, index_sequence<Is...>)
+void tuple_from_yaml(Tuple& out, const YAML::Node& value, index_sequence<Is...>)
 {
-    return std::make_tuple(yaml::deserialize<std::tuple_element_t<Is, Tuple>>(
-        safe_get_value(value, Is))...);
+    (yaml::deserialize(std::get<Is>(out), safe_get_value(value, Is)), ...);
 }
 
 template <typename... Ts>
-std::tuple<Ts...> from_yaml(type_t<std::tuple<Ts...>>, const YAML::Node& value)
+void from_yaml(std::tuple<Ts...>& out, const YAML::Node& value)
 {
     if (!value.IsSequence())
         throw deserialize_error{"type must be a sequence but is a " +
                                 yaml_type_name(value)};
 
-    return tuple_from_yaml<std::tuple<Ts...>>(
-        value, make_index_sequence<sizeof...(Ts)>{});
+    tuple_from_yaml(out, value, make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T>
-std::optional<T> from_yaml(type_t<std::optional<T>>, const YAML::Node& value)
+void from_yaml(std::optional<T>& out, const YAML::Node& value)
 {
     if (!value || value.IsNull())
-        return {};
-    return yaml::deserialize<T>(value);
+        return out.reset();
+    // There's no way to construct T directly in the optional
+    out = yaml::deserialize<T>(value);
 }
 
 template <typename T, typename Context>
@@ -740,26 +729,25 @@ auto serialize(const T& obj, Context& ctx, priority_tag<2>)
 }
 
 template <typename T>
-T deserialize(const YAML::Node&, priority_tag<0>)
+void deserialize(T& out, const YAML::Node&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
                   "Cannot deserialize an instance of type T - no viable "
                   "definition of from_yaml provided");
-    return T{}; // Keeps compiler happy
 }
 
 template <typename T>
-auto deserialize(const YAML::Node& value, priority_tag<1>)
-    -> decltype(from_yaml(type<T>, value))
+auto deserialize(T& out, const YAML::Node& value, priority_tag<1>)
+    -> decltype(from_yaml(out, value), void())
 {
-    return from_yaml(type<T>, value);
+    from_yaml(out, value);
 }
 
 template <typename T>
-auto deserialize(const YAML::Node& value, priority_tag<2>)
-    -> decltype(yaml::serializer<T>::from_yaml(value))
+auto deserialize(T& out, const YAML::Node& value, priority_tag<2>)
+    -> decltype(yaml::serializer<T>::from_yaml(out, value), void())
 {
-    return yaml::serializer<T>::from_yaml(value);
+    yaml::serializer<T>::from_yaml(out, value);
 }
 } // namespace detail
 
@@ -793,9 +781,9 @@ YAML::Node serialize(const T& obj, Context& ctx)
 }
 
 template <typename T>
-T deserialize(type_t<T>, const YAML::Node& value)
+void deserialize(T& out, const YAML::Node& value)
 {
-    return detail::deserialize<T>(value, priority_tag<2>{});
+    return detail::deserialize(out, value, priority_tag<2>{});
 }
 } // namespace yaml
 } // namespace kl

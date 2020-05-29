@@ -673,9 +673,9 @@ struct serializer<std::chrono::seconds>
         return yaml::serialize(t.count(), ctx);
     }
 
-    static std::chrono::seconds from_yaml(const YAML::Node& value)
+    static void from_yaml(std::chrono::seconds& out, const YAML::Node& value)
     {
-        return std::chrono::seconds{yaml::deserialize<long long>(value)};
+        out = std::chrono::seconds{yaml::deserialize<long long>(value)};
     }
 };
 } // namespace yaml
@@ -695,11 +695,11 @@ YAML::Node to_yaml(global_struct, Context& ctx)
     return kl::yaml::serialize("global_struct", ctx);
 }
 
-global_struct from_yaml(kl::type_t<global_struct>, const YAML::Node& value)
+void from_yaml(global_struct& out, const YAML::Node& value)
 {
-    return value.Scalar() == "global_struct"
-               ? global_struct{}
-               : throw kl::yaml::deserialize_error{""};
+    if (value.Scalar() != "global_struct")
+        throw kl::yaml::deserialize_error{""};
+    out = global_struct{};
 }
 
 namespace my {
@@ -710,9 +710,9 @@ YAML::Node to_yaml(none_t, Context&)
     return YAML::Node{};
 }
 
-none_t from_yaml(kl::type_t<none_t>, const YAML::Node& value)
+void from_yaml(none_t& out, const YAML::Node& value)
 {
-    return value.IsNull() ? none_t{} : throw kl::yaml::deserialize_error{""};
+    out = value.IsNull() ? none_t{} : throw kl::yaml::deserialize_error{""};
 }
 
 // Defining such function with specializaton would not be possible as there's no
@@ -724,10 +724,9 @@ YAML::Node to_yaml(const value_wrapper<T>& t, Context& ctx)
 }
 
 template <typename T>
-value_wrapper<T> from_yaml(kl::type_t<value_wrapper<T>>,
-                           const YAML::Node& value)
+void from_yaml(value_wrapper<T>& out, const YAML::Node& value)
 {
-    return value_wrapper<T>{kl::yaml::deserialize<T>(value)};
+    out = value_wrapper<T>{kl::yaml::deserialize<T>(value)};
 }
 } // namespace my
 
