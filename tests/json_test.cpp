@@ -1061,7 +1061,8 @@ TEST_CASE("json::view - two-phase deserialization")
     auto objs = kl::json::deserialize<std::vector<event>>(j);
     REQUIRE(objs.size() == 2);
     CHECK(objs[0].type == event_type::a);
-    CHECK(objs[0].data.value().IsObject());
+    REQUIRE(objs[0].data);
+    CHECK(objs[0].data->IsObject());
 
     auto e1 = kl::json::deserialize<event_a>(objs[0].data);
     CHECK(e1.f1 == 3);
@@ -1069,7 +1070,9 @@ TEST_CASE("json::view - two-phase deserialization")
     CHECK(e1.f3 == "something");
 
     CHECK(objs[1].type == event_type::c);
-    CHECK(objs[1].data.value().IsArray());
+    REQUIRE(objs[1].data);
+    CHECK((*objs[1].data).IsArray());
+    CHECK(objs[1].data->IsArray());
 
     auto [a,b,c] = kl::json::deserialize<event_c>(objs[1].data);
     CHECK(a == "d1");

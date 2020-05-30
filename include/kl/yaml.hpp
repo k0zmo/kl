@@ -31,6 +31,10 @@ public:
     const YAML::Node& value() const { return node_; }
     operator const YAML::Node &() const { return value(); }
 
+    explicit operator bool() const { return !!node_; }
+    const YAML::Node* operator->() const { return &node_; }
+    const YAML::Node& operator*() const { return value(); }
+
 private:
     YAML::Node node_;
 };

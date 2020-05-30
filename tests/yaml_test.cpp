@@ -1061,7 +1061,8 @@ TEST_CASE("yaml::view - two-phase deserialization")
     auto objs = kl::yaml::deserialize<std::vector<event>>(y);
     REQUIRE(objs.size() == 2);
     CHECK(objs[0].type == event_type::a);
-    CHECK(objs[0].data.value().IsMap());
+    REQUIRE(objs[0].data);
+    CHECK(objs[0].data->IsMap());
 
     auto e1 = kl::yaml::deserialize<event_a>(objs[0].data);
     CHECK(e1.f1 == 3);
@@ -1069,7 +1070,9 @@ TEST_CASE("yaml::view - two-phase deserialization")
     CHECK(e1.f3 == "something");
 
     CHECK(objs[1].type == event_type::c);
-    CHECK(objs[1].data.value().IsSequence());
+    REQUIRE(objs[1].data);
+    CHECK((*objs[1].data).IsSequence());
+    CHECK(objs[1].data->IsSequence());
 
     auto [a, b, c] = kl::yaml::deserialize<event_c>(objs[1].data);
     CHECK(a == "d1");

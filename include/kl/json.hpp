@@ -40,6 +40,10 @@ public:
     const rapidjson::Value& value() const { return *value_; }
     operator const rapidjson::Value &() const { return value(); }
 
+    explicit operator bool() const { return value_ != nullptr; }
+    const rapidjson::Value* operator->() const { return value_; }
+    const rapidjson::Value& operator*() const { return value(); }
+
 private:
     const rapidjson::Value* value_;
 };
