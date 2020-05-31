@@ -28,8 +28,7 @@ KL_DESCRIBE_ENUM(Type, kNullType, kFalseType, kTrueType, kObjectType,
                  kArrayType, kStringType, kNumberType)
 } // namespace rapidjson
 
-namespace kl {
-namespace json {
+namespace kl::json {
 
 class view
 {
@@ -1013,8 +1012,7 @@ void deserialize(T& out, const rapidjson::Value& value)
 {
     detail::deserialize(out, value, priority_tag<2>{});
 }
-} // namespace json
-} // namespace kl
+} // namespace kl::json
 
 inline rapidjson::Document operator""_json(const char* s, std::size_t len)
 {

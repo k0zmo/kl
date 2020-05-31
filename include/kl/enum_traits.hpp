@@ -95,8 +95,7 @@ struct enum_trait_support_range
     }
 };
 
-namespace enums {
-namespace operators {
+namespace enums::operators {
 
 template <typename Enum>
 constexpr auto operator+(Enum e) noexcept
@@ -186,8 +185,7 @@ constexpr Enum& operator>>=(Enum& left, int right) noexcept
     left = static_cast<Enum>(underlying_cast(left) >> right);
     return left;
 }
-} // namespace operators
-} // namespace enums
+} // namespace enums::operators
 } // namespace kl
 
 /*

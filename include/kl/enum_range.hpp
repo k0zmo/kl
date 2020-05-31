@@ -54,4 +54,4 @@ struct enum_range
 
     constexpr enum_iterator<Enum> end() const { return {}; }
 };
-} // namespace leviathan
+} // namespace kl

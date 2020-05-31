@@ -5,8 +5,7 @@
 #include <string>
 #include <stdexcept>
 
-namespace kl {
-namespace hash {
+namespace kl::hash {
 
 constexpr std::uint32_t fnv1a(const char* data, std::size_t length) noexcept
 {
@@ -29,6 +28,7 @@ inline uint32_t fnv1a(const std::string& str) noexcept
 }
 
 namespace operators {
+
 constexpr uint32_t operator""_h(const char* data, size_t length) noexcept
 {
     return fnv1a(data, length);
@@ -94,8 +94,7 @@ constexpr std::uint32_t hsieh(const char* data, std::size_t length) noexcept
 
     return hash;
 }
-} // namespace hash
-} // namespace kl
+} // namespace kl::hash
 
 /*
     std::string test = ...

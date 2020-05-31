@@ -273,4 +273,4 @@ void enumerate(Seq&& seq, Fun&& fun)
     zip_for_each(make_enumeration(std::forward<Seq>(seq)),
                  std::forward<Fun>(fun));
 }
-} // namespace zip
+} // namespace kl

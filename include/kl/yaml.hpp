@@ -19,8 +19,7 @@ namespace YAML {
 KL_DESCRIBE_ENUM(NodeType::value, Undefined, Null, Scalar, Sequence, Map)
 } // namespace YAML
 
-namespace kl {
-namespace yaml {
+namespace kl::yaml {
 
 class view
 {
@@ -798,8 +797,7 @@ void deserialize(T& out, const YAML::Node& value)
 {
     return detail::deserialize(out, value, priority_tag<2>{});
 }
-} // namespace yaml
-} // namespace kl
+} // namespace kl::yaml
 
 inline YAML::Node operator""_yaml(const char* s, std::size_t)
 {
