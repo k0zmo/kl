@@ -145,13 +145,11 @@ struct deserialize_error : std::exception
     {
     }
 
+    virtual ~deserialize_error() noexcept;
+
     const char* what() const noexcept override { return messages_.c_str(); }
 
-    void add(const char* message)
-    {
-        messages_.insert(end(messages_), '\n');
-        messages_.append(message);
-    }
+    void add(const char* message);
 
 private:
     std::string messages_;
@@ -168,6 +166,8 @@ struct parse_error : std::exception
         : message_{std::move(message)}
     {
     }
+
+    virtual ~parse_error() noexcept;
 
     const char* what() const noexcept override { return message_.c_str(); }
 
