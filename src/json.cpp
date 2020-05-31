@@ -10,4 +10,58 @@ void deserialize_error::add(const char* message)
 
 deserialize_error::~deserialize_error() noexcept = default;
 parse_error::~parse_error() noexcept = default;
+
+void expect_integral(const rapidjson::Value& value)
+{
+    if (value.IsInt() || value.IsInt64() || value.IsUint() || value.IsUint64())
+        return;
+
+    throw deserialize_error{"type must be an integral but is a " +
+                            json::type_name(value)};
+}
+
+void expect_number(const rapidjson::Value& value)
+{
+    if (value.IsNumber())
+        return;
+
+    throw deserialize_error{"type must be a number but is a " +
+                            json::type_name(value)};
+}
+
+void expect_boolean(const rapidjson::Value& value)
+{
+    if (value.IsBool())
+        return;
+
+    throw deserialize_error{"type must be a boolean but is a " +
+                            json::type_name(value)};
+}
+
+void expect_string(const rapidjson::Value& value)
+{
+    if (value.IsString())
+        return;
+
+    throw deserialize_error{"type must be a string but is a " +
+                            json::type_name(value)};
+}
+
+void expect_object(const rapidjson::Value& value)
+{
+    if (value.IsObject())
+        return;
+
+    throw deserialize_error{"type must be an object but is a " +
+                            json::type_name(value)};
+}
+
+void expect_array(const rapidjson::Value& value)
+{
+    if (value.IsArray())
+        return;
+
+    throw deserialize_error{"type must be an array but is a " +
+                            json::type_name(value)};
+}
 } // namespace kl::json

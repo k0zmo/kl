@@ -145,9 +145,9 @@ TEST_CASE("json")
         REQUIRE_THROWS_WITH(json::deserialize<int>(null),
                             "type must be an integral but is a kNullType");
         REQUIRE_THROWS_WITH(json::deserialize<bool>(null),
-                            "type must be a bool but is a kNullType");
+                            "type must be a boolean but is a kNullType");
         REQUIRE_THROWS_WITH(json::deserialize<float>(null),
-                            "type must be a floating-point but is a kNullType");
+                            "type must be a number but is a kNullType");
         REQUIRE_THROWS_WITH(json::deserialize<std::string>(null),
                             "type must be a string but is a kNullType");
         REQUIRE_THROWS_WITH(json::deserialize<std::tuple<int>>(null),
@@ -162,10 +162,10 @@ TEST_CASE("json")
         REQUIRE_THROWS_WITH(json::deserialize<int>(str),
                             "type must be an integral but is a kStringType");
         REQUIRE_THROWS_WITH(json::deserialize<bool>(str),
-                            "type must be a bool but is a kStringType");
+                            "type must be a boolean but is a kStringType");
         REQUIRE_THROWS_WITH(
             json::deserialize<float>(str),
-            "type must be a floating-point but is a kStringType");
+            "type must be a number but is a kStringType");
         REQUIRE_NOTHROW(json::deserialize<std::string>(str));
 
         rapidjson::Document arr{rapidjson::kArrayType};
@@ -203,11 +203,11 @@ TEST_CASE("json")
 
         j = R"([7, 13, "hls"])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
-                            "type must be a bool but is a kNullType");
+                            "type must be a boolean but is a kNullType");
 
         j = R"([7, 13, "rgb", 1, true])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
-                            "type must be a bool but is a kNumberType");
+                            "type must be a boolean but is a kNumberType");
     }
 
     SECTION("serialize different types and 'modes' for enums")
@@ -234,7 +234,7 @@ TEST_CASE("json")
     {
         auto j = R"({"e0": 0, "e1": 0, "e2": "oe_one_ref", "e3": 0})"_json;
         REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
-                            "type must be a string-enum but is a kNumberType\n"
+                            "type must be a string but is a kNumberType\n"
                             "error when deserializing field e3\n"
                             "error when deserializing type " +
                                 kl::ctti::name<enums>());
@@ -248,7 +248,7 @@ TEST_CASE("json")
 
         j = R"({"e0": 0, "e1": true, "e2": "oe_one_ref", "e3": "one"})"_json;
         REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
-                            "type must be a number-enum but is a kTrueType\n"
+                            "type must be a number but is a kTrueType\n"
                             "error when deserializing field e1\n"
                             "error when deserializing type " +
                                 kl::ctti::name<enums>());
@@ -547,7 +547,7 @@ TEST_CASE("json")
 
         j = R"([3])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
-                            "type must be a floating-point but is a kNullType\n"
+                            "type must be a number but is a kNullType\n"
                             "error when deserializing element 1\n"
                             "error when deserializing type " +
                                 kl::ctti::name<inner_t>());
@@ -573,7 +573,7 @@ TEST_CASE("json")
         auto j = R"([3,"QWE"])"_json;
         REQUIRE_THROWS_WITH(
             json::deserialize<inner_t>(j),
-            "type must be a floating-point but is a kStringType\n"
+            "type must be a number but is a kStringType\n"
             "error when deserializing element 1\n"
             "error when deserializing type " +
                 kl::ctti::name<inner_t>());
@@ -604,7 +604,7 @@ TEST_CASE("json")
 
         auto j = R"([4])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<tuple_t>(j),
-                            "type must be a bool but is a kNullType");
+                            "type must be a boolean but is a kNullType");
 
         j = R"([4,true])"_json;
         auto t = json::deserialize<tuple_t>(j);
@@ -1106,12 +1106,7 @@ struct zxc
 
     friend void from_json(zxc& z, const rapidjson::Value& value)
     {
-        if (!value.IsObject())
-        {
-            throw kl::json::deserialize_error{
-                "type must be an object but is a " +
-                kl::json::type_name(value)};
-        }
+        kl::json::expect_object(value);
 
         const auto obj = value.GetObject();
         kl::json::deserialize(z.a, kl::json::get_value(obj, "a"));

@@ -206,6 +206,13 @@ inline std::string type_name(const rapidjson::Value& value)
     return kl::to_string(value.GetType());
 }
 
+void expect_integral(const rapidjson::Value& value);
+void expect_number(const rapidjson::Value& value);
+void expect_boolean(const rapidjson::Value& value);
+void expect_string(const rapidjson::Value& value);
+void expect_object(const rapidjson::Value& value);
+void expect_array(const rapidjson::Value& value);
+
 namespace detail {
 
 KL_HAS_TYPEDEF_HELPER(value_type)
@@ -590,16 +597,9 @@ public:
               enable_if<std::is_signed<T>, negation<is_64bit<T>>> = true>
     explicit operator T() const
     {
-        if (!value_.IsInt())
-        {
-            if (value_.IsInt64() || value_.IsUint64())
-                // Value to big but it is still an integral
-                throw_lossy_conversion();
-
-            throw deserialize_error{"type must be an integral but is a " +
-                                    json::type_name(value_)};
-        }
-        return narrow<T>(value_.GetInt());
+        if (value_.IsInt())
+            return narrow<T>(value_.GetInt());
+        throw_lossy_conversion();
     }
 
     // int64
@@ -608,16 +608,9 @@ public:
     template <typename T, enable_if<std::is_signed<T>, is_64bit<T>> = true>
     explicit operator T() const
     {
-        if (!value_.IsInt64())
-        {
-            if (value_.IsUint64())
-                // Value to big but it is still an integral
-                throw_lossy_conversion();
-
-            throw deserialize_error{"type must be an integral but is a " +
-                                    json::type_name(value_)};
-        }
-        return value_.GetInt64();
+        if (value_.IsInt64())
+            return value_.GetInt64();
+        throw_lossy_conversion();
     }
 
     // uint8, uint16 and uint32
@@ -625,30 +618,18 @@ public:
               enable_if<std::is_unsigned<T>, negation<is_64bit<T>>> = true>
     explicit operator T() const
     {
-        if (!value_.IsUint())
-        {
-            if (value_.IsUint64() || value_.IsInt64())
-                throw_lossy_conversion();
-
-            throw deserialize_error{"type must be an integral but is a " +
-                                    json::type_name(value_)};
-        }
-        return narrow<T>(value_.GetUint());
+        if (value_.IsUint())
+            return narrow<T>(value_.GetUint());
+        throw_lossy_conversion();
     }
 
     // uint64
     template <typename T, enable_if<std::is_unsigned<T>, is_64bit<T>> = true>
     explicit operator T() const
     {
-        if (!value_.IsUint64())
-        {
-            if (value_.IsInt64())
-                throw_lossy_conversion();
-
-            throw deserialize_error{"type must be an integral but is a " +
-                                    json::type_name(value_)};
-        }
-        return value_.GetUint64();
+        if (value_.IsUint64())
+            return value_.GetUint64();
+        throw_lossy_conversion();
     }
 
 private:
@@ -658,33 +639,26 @@ private:
 template <typename Integral, enable_if<std::is_integral<Integral>> = true>
 void from_json(Integral& out, const rapidjson::Value& value)
 {
+    json::expect_integral(value);
     out = static_cast<Integral>(integral_value_extractor{value});
 }
 
 template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
 void from_json(Floating& out, const rapidjson::Value& value)
 {
-    if (!value.IsNumber())
-        throw deserialize_error{"type must be a floating-point but is a " +
-                                json::type_name(value)};
-
+    json::expect_number(value);
     out = static_cast<Floating>(value.GetDouble());
 }
 
 inline void from_json(bool& out, const rapidjson::Value& value)
 {
-    if (!value.IsBool())
-        throw deserialize_error{"type must be a bool but is a " +
-                                json::type_name(value)};
+    json::expect_boolean(value);
     out = value.GetBool();
 }
 
 inline void from_json(std::string& out, const rapidjson::Value& value)
 {
-    if (!value.IsString())
-        throw deserialize_error{"type must be a string but is a " +
-                                json::type_name(value)};
-
+    json::expect_string(value);
     out = {value.GetString(),
            static_cast<std::size_t>(value.GetStringLength())};
 }
@@ -696,10 +670,7 @@ inline void from_json(std::string_view& out, const rapidjson::Value& value)
     // user-defined `from_json` which only need a string_view to do further
     // conversion or when one can guarantee `value` will outlive the returned
     // string_view. Nevertheless, use with caution.
-    if (!value.IsString())
-        throw deserialize_error{"type must be a string but is a " +
-                                json::type_name(value)};
-
+    json::expect_string(value);
     out = {value.GetString(),
            static_cast<std::size_t>(value.GetStringLength())};
 }
@@ -712,9 +683,7 @@ inline void from_json(view& out, const rapidjson::Value& value)
 template <typename Map, enable_if<is_map_alike<Map>> = true>
 void from_json(Map& out, const rapidjson::Value& value)
 {
-    if (!value.IsObject())
-        throw deserialize_error{"type must be an object but is a " +
-                                json::type_name(value)};
+    json::expect_object(value);
 
     out.clear();
 
@@ -741,9 +710,7 @@ template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
                                      is_vector_alike<Vector>> = true>
 void from_json(Vector& out, const rapidjson::Value& value)
 {
-    if (!value.IsArray())
-        throw deserialize_error{"type must be an array but is a " +
-                                json::type_name(value)};
+    json::expect_array(value);
 
     out.clear();
     if constexpr (has_reserve_v<Vector>)
@@ -838,25 +805,21 @@ void from_json(Enum& out, const rapidjson::Value& value)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
     {
-        if (!value.IsString())
-            throw deserialize_error{"type must be a string-enum but is a " +
-                                    json::type_name(value)};
+        json::expect_string(value);
+
         if (auto enum_value = kl::from_string<Enum>(
                 std::string_view{value.GetString(), value.GetStringLength()}))
         {
             out = *enum_value;
+            return;
         }
-        else
-        {
-            throw deserialize_error{"invalid enum value: " +
-                                    json::deserialize<std::string>(value)};
-        }
+
+        throw deserialize_error{"invalid enum value: " +
+                                json::deserialize<std::string>(value)};
     }
     else
     {
-        if (!value.IsNumber())
-            throw deserialize_error{"type must be a number-enum but is a " +
-                                    json::type_name(value)};
+        json::expect_number(value);
         out = static_cast<Enum>(value.GetInt());
     }
 }
@@ -864,10 +827,7 @@ void from_json(Enum& out, const rapidjson::Value& value)
 template <typename Enum>
 void from_json(enum_set<Enum>& out, const rapidjson::Value& value)
 {
-    if (!value.IsArray())
-        throw deserialize_error{"type must be an array but is a " +
-                                json::type_name(value)};
-
+    json::expect_array(value);
     out = {};
 
     for (const auto& v : value.GetArray())
@@ -887,10 +847,7 @@ void tuple_from_json(Tuple& out, rapidjson::Value::ConstArray arr,
 template <typename... Ts>
 void from_json(std::tuple<Ts...>& out, const rapidjson::Value& value)
 {
-    if (!value.IsArray())
-        throw deserialize_error{"type must be an array but is a " +
-                                json::type_name(value)};
-
+    json::expect_array(value);
     tuple_from_json(out, value.GetArray(),
                     make_index_sequence<sizeof...(Ts)>{});
 }

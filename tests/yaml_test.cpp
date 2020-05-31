@@ -1116,11 +1116,7 @@ struct zxc
 
     friend void from_yaml(zxc& z, const YAML::Node& value)
     {
-        if (!value.IsMap())
-        {
-            throw kl::yaml::deserialize_error{"type must be a map but is a " +
-                                              kl::yaml::type_name(value)};
-        }
+        kl::yaml::expect_map(value);
 
         kl::yaml::deserialize(z.a, kl::yaml::get_value(value, "a"));
         kl::yaml::deserialize(z.b, kl::yaml::get_value(value, "b"));
