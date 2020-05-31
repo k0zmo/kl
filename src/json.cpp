@@ -1,6 +1,21 @@
 #include "kl/json.hpp"
+#include "kl/describe_enum.hpp"
+
+namespace rapidjson {
+
+KL_DESCRIBE_ENUM(Type, kNullType, kFalseType, kTrueType, kObjectType,
+                 kArrayType, kStringType, kNumberType)
+} // namespace rapidjson
 
 namespace kl::json {
+
+namespace detail {
+
+std::string type_name(const rapidjson::Value& value)
+{
+    return kl::to_string(value.GetType());
+}
+} // namespace detail
 
 void deserialize_error::add(const char* message)
 {
@@ -17,7 +32,7 @@ void expect_integral(const rapidjson::Value& value)
         return;
 
     throw deserialize_error{"type must be an integral but is a " +
-                            json::type_name(value)};
+                            detail::type_name(value)};
 }
 
 void expect_number(const rapidjson::Value& value)
@@ -26,7 +41,7 @@ void expect_number(const rapidjson::Value& value)
         return;
 
     throw deserialize_error{"type must be a number but is a " +
-                            json::type_name(value)};
+                            detail::type_name(value)};
 }
 
 void expect_boolean(const rapidjson::Value& value)
@@ -35,7 +50,7 @@ void expect_boolean(const rapidjson::Value& value)
         return;
 
     throw deserialize_error{"type must be a boolean but is a " +
-                            json::type_name(value)};
+                            detail::type_name(value)};
 }
 
 void expect_string(const rapidjson::Value& value)
@@ -44,7 +59,7 @@ void expect_string(const rapidjson::Value& value)
         return;
 
     throw deserialize_error{"type must be a string but is a " +
-                            json::type_name(value)};
+                            detail::type_name(value)};
 }
 
 void expect_object(const rapidjson::Value& value)
@@ -53,7 +68,7 @@ void expect_object(const rapidjson::Value& value)
         return;
 
     throw deserialize_error{"type must be an object but is a " +
-                            json::type_name(value)};
+                            detail::type_name(value)};
 }
 
 void expect_array(const rapidjson::Value& value)
@@ -62,6 +77,6 @@ void expect_array(const rapidjson::Value& value)
         return;
 
     throw deserialize_error{"type must be an array but is a " +
-                            json::type_name(value)};
+                            detail::type_name(value)};
 }
 } // namespace kl::json

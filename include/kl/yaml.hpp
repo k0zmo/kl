@@ -14,11 +14,6 @@
 #include <string>
 #include <string_view>
 
-namespace YAML {
-
-KL_DESCRIBE_ENUM(NodeType::value, Undefined, Null, Scalar, Sequence, Map)
-} // namespace YAML
-
 namespace kl::yaml {
 
 class view
@@ -182,16 +177,13 @@ inline YAML::Node get_value(const YAML::Node& map, const char* member_name)
     return query ? query : detail::get_null_value();
 }
 
-inline std::string type_name(const YAML::Node& value)
-{
-    return kl::to_string(value.Type());
-}
-
 void expect_scalar(const YAML::Node& value);
 void expect_sequence(const YAML::Node& value);
 void expect_map(const YAML::Node& value);
 
 namespace detail {
+
+std::string type_name(const YAML::Node& value);
 
 KL_HAS_TYPEDEF_HELPER(value_type)
 KL_HAS_TYPEDEF_HELPER(iterator)
@@ -601,7 +593,7 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
     else
     {
         throw deserialize_error{"type must be a sequence or map but is a " +
-                                yaml::type_name(value)};
+                                detail::type_name(value)};
     }
 }
 

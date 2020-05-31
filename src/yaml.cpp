@@ -1,6 +1,20 @@
 #include "kl/yaml.hpp"
+#include "kl/describe_enum.hpp"
+
+namespace YAML {
+
+KL_DESCRIBE_ENUM(NodeType::value, Undefined, Null, Scalar, Sequence, Map)
+} // namespace YAML
 
 namespace kl::yaml {
+
+namespace detail {
+
+std::string type_name(const YAML::Node& value)
+{
+    return kl::to_string(value.Type());
+}
+} // namespace detail
 
 void deserialize_error::add(const char* message)
 {
@@ -17,7 +31,7 @@ void expect_scalar(const YAML::Node& value)
         return;
 
     throw deserialize_error{"type must be a scalar but is a " +
-                            yaml::type_name(value)};
+                            detail::type_name(value)};
 }
 
 void expect_sequence(const YAML::Node& value)
@@ -26,7 +40,7 @@ void expect_sequence(const YAML::Node& value)
         return;
 
     throw deserialize_error{"type must be a sequence but is a " +
-                            yaml::type_name(value)};
+                            detail::type_name(value)};
 }
 
 void expect_map(const YAML::Node& value)
@@ -35,6 +49,6 @@ void expect_map(const YAML::Node& value)
         return;
 
     throw deserialize_error{"type must be a map but is a " +
-                            yaml::type_name(value)};
+                            detail::type_name(value)};
 }
 } // namespace kl::yaml

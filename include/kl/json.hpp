@@ -22,12 +22,6 @@
 #include <string>
 #include <string_view>
 
-namespace rapidjson {
-
-KL_DESCRIBE_ENUM(Type, kNullType, kFalseType, kTrueType, kObjectType,
-                 kArrayType, kStringType, kNumberType)
-} // namespace rapidjson
-
 namespace kl::json {
 
 class view
@@ -201,11 +195,6 @@ inline const rapidjson::Value& get_value(rapidjson::Value::ConstObject obj,
     return it != obj.end() ? it->value : detail::get_null_value();
 }
 
-inline std::string type_name(const rapidjson::Value& value)
-{
-    return kl::to_string(value.GetType());
-}
-
 void expect_integral(const rapidjson::Value& value);
 void expect_number(const rapidjson::Value& value);
 void expect_boolean(const rapidjson::Value& value);
@@ -214,6 +203,8 @@ void expect_object(const rapidjson::Value& value);
 void expect_array(const rapidjson::Value& value);
 
 namespace detail {
+
+std::string type_name(const rapidjson::Value& value);
 
 KL_HAS_TYPEDEF_HELPER(value_type)
 KL_HAS_TYPEDEF_HELPER(iterator)
@@ -780,7 +771,7 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
     else
     {
         throw deserialize_error{"type must be an array or object but is a " +
-                                json::type_name(value)};
+                                detail::type_name(value)};
     }
 }
 
