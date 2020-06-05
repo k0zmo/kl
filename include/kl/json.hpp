@@ -45,10 +45,22 @@ template <typename T>
 struct encoder;
 
 template <typename T>
-bool is_null_value(const T&) { return false; }
+struct optional_traits
+{
+    static bool is_null_value(const T&) { return false; }
+};
 
 template <typename T>
-bool is_null_value(const std::optional<T>& opt) { return !opt; }
+struct optional_traits<std::optional<T>>
+{
+    static bool is_null_value(const std::optional<T>& opt) { return !opt; }
+};
+
+template <typename T>
+bool is_null_value(const T& t)
+{
+    return optional_traits<T>::is_null_value(t);
+}
 
 template <typename Writer>
 class dump_context
