@@ -677,6 +677,12 @@ struct serializer<std::chrono::seconds>
     {
         out = std::chrono::seconds{yaml::deserialize<long long>(value)};
     }
+
+    template <typename Context>
+    static void encode(const std::chrono::seconds& s, Context& ctx)
+    {
+        yaml::dump(s.count(), ctx);
+    }
 };
 } // namespace yaml
 } // namespace kl
@@ -960,21 +966,6 @@ TEST_CASE("yaml dump - custom context")
     std::string res = emitter.c_str();
     CHECK(res == "value: 34\nother_non_secret: true");
 }
-
-namespace kl {
-namespace yaml {
-
-template <>
-struct encoder<std::chrono::seconds>
-{
-    template <typename Context>
-    static void encode(const std::chrono::seconds& s, Context& ctx)
-    {
-        yaml::dump(s.count(), ctx);
-    }
-};
-} // namespace yaml
-} // namespace kl
 
 TEST_CASE("yaml dump - extended")
 {

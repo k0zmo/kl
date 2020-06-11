@@ -700,9 +700,16 @@ struct serializer<std::chrono::seconds>
         return json::serialize(t.count(), ctx);
     }
 
-    static void from_json(std::chrono::seconds& out, const rapidjson::Value& value)
+    static void from_json(std::chrono::seconds& out,
+                          const rapidjson::Value& value)
     {
         out = std::chrono::seconds{json::deserialize<long long>(value)};
+    }
+
+    template <typename Context>
+    static void encode(const std::chrono::seconds& s, Context& ctx)
+    {
+        json::dump(s.count(), ctx);
     }
 };
 } // namespace json
@@ -973,21 +980,6 @@ TEST_CASE("json dump - custom context")
     std::string res = sb.GetString();
     CHECK(res == R"({"value":34,"other_non_secret":true})");
 }
-
-namespace kl {
-namespace json {
-
-template <>
-struct encoder<std::chrono::seconds>
-{
-    template <typename Context>
-    static void encode(const std::chrono::seconds& s, Context& ctx)
-    {
-        json::dump(s.count(), ctx);
-    }
-};
-} // namespace json
-} // namespace kl
 
 TEST_CASE("json dump - extended")
 {

@@ -42,9 +42,6 @@ private:
 };
 
 template <typename T>
-struct encoder;
-
-template <typename T>
 struct optional_traits
 {
     static bool is_null_value(const T&) { return false; }
@@ -881,9 +878,9 @@ auto dump(const T& obj, Context& ctx, priority_tag<1>)
 
 template <typename T, typename Context>
 auto dump(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(json::encoder<T>::encode(obj, ctx), void())
+    -> decltype(json::serializer<T>::encode(obj, ctx), void())
 {
-    json::encoder<T>::encode(obj, ctx);
+    json::serializer<T>::encode(obj, ctx);
 }
 
 template <typename T, typename Context>
