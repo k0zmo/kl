@@ -213,6 +213,75 @@ void expect_array(const rapidjson::Value& value);
 
 namespace detail {
 
+template <typename Context>
+class object_builder
+{
+public:
+    explicit object_builder(Context& ctx) noexcept
+        : ctx_{ctx}, value_{rapidjson::kObjectType}
+    {
+    }
+
+    template <typename T>
+    object_builder& add(rapidjson::Value::StringRefType member_name,
+                        const T& value)
+    {
+        value_.AddMember(member_name, json::serialize(value, ctx_),
+                         ctx_.allocator());
+        return *this;
+    }
+
+    operator rapidjson::Value() { return std::move(value_); }
+
+private:
+    Context& ctx_;
+    rapidjson::Value value_;
+};
+
+class object_extractor
+{
+public:
+    explicit object_extractor(const rapidjson::Value& value) noexcept
+        : value_{value}
+    {
+        json::expect_object(value_);
+    }
+
+    template <typename T>
+    object_extractor& extract(const char* member_name, T& out)
+    {
+        try
+        {
+            json::deserialize(out, json::at(value_.GetObject(), member_name));
+            return *this;
+        }
+        catch (deserialize_error& ex)
+        {
+            std::string msg =
+                "error when deserializing field " + std::string(member_name);
+            ex.add(msg.c_str());
+            throw;
+        }
+    }
+
+private:
+    const rapidjson::Value& value_;
+};
+} // namespace detail
+
+template <typename Context>
+auto to_object(Context& ctx)
+{
+    return detail::object_builder<Context>{ctx};
+}
+
+inline auto from_object(const rapidjson::Value& value)
+{
+    return detail::object_extractor{value};
+}
+
+namespace detail {
+
 std::string type_name(const rapidjson::Value& value);
 
 KL_HAS_TYPEDEF_HELPER(value_type)

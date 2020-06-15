@@ -1088,23 +1088,36 @@ struct zxc
     template <typename Context>
     friend rapidjson::Value to_json(const zxc& z, Context& ctx)
     {
-        rapidjson::Value ret{rapidjson::kObjectType};
-        ret.AddMember("a", kl::json::serialize(z.a, ctx), ctx.allocator());
-        ret.AddMember("b", kl::json::serialize(z.b, ctx), ctx.allocator());
-        ret.AddMember("c", kl::json::serialize(z.c, ctx), ctx.allocator());
-        ret.AddMember("d", kl::json::serialize(z.d, ctx), ctx.allocator());
-        return ret;
+        return kl::json::to_object(ctx)
+            .add("a", z.a)
+            .add("b", z.b)
+            .add("c", z.c)
+            .add("d", z.d);
+        // Same as:
+        //   rapidjson::Value ret{rapidjson::kObjectType};
+        //   ret.AddMember("a", kl::json::serialize(z.a, ctx), ctx.allocator());
+        //   ret.AddMember("b", kl::json::serialize(z.b, ctx), ctx.allocator());
+        //   ret.AddMember("c", kl::json::serialize(z.c, ctx), ctx.allocator());
+        //   ret.AddMember("d", kl::json::serialize(z.d, ctx), ctx.allocator());
+        //   return ret;
     }
 
     friend void from_json(zxc& z, const rapidjson::Value& value)
     {
-        kl::json::expect_object(value);
-
-        const auto obj = value.GetObject();
-        kl::json::deserialize(z.a, kl::json::at(obj, "a"));
-        kl::json::deserialize(z.b, kl::json::at(obj, "b"));
-        kl::json::deserialize(z.c, kl::json::at(obj, "c"));
-        kl::json::deserialize(z.d, kl::json::at(obj, "d"));
+        kl::json::from_object(value)
+            .extract("a", z.a)
+            .extract("b", z.b)
+            .extract("c", z.c)
+            .extract("d", z.d);
+        // Same as:
+        //   kl::json::expect_object(value);
+        //   const auto obj = value.GetObject();
+        //   kl::json::deserialize(z.a, kl::json::at(obj, "a"));
+        //   kl::json::deserialize(z.b, kl::json::at(obj, "b"));
+        //   kl::json::deserialize(z.c, kl::json::at(obj, "c"));
+        //   kl::json::deserialize(z.d, kl::json::at(obj, "d"));
+        // but with all deserialize() calls wrapped inside try-catch enhancing
+        // potential exception message with the faulty member name
     }
 };
 } // namespace
@@ -1121,4 +1134,9 @@ TEST_CASE("json: manually (de)serialized type")
     CHECK(zz.b == z.b);
     CHECK(zz.c == z.c);
     CHECK(zz.d == z.d);
+
+    auto j = R"({"a":"asd","b":3,"c":4,"d":[1,2,34]})"_json;
+    CHECK_THROWS_WITH(kl::json::deserialize<zxc>(j),
+                      "type must be a boolean but is a kNumberType\n"
+                      "error when deserializing field c");
 }

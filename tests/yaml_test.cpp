@@ -1097,22 +1097,35 @@ struct zxc
     template <typename Context>
     friend YAML::Node to_yaml(const zxc& z, Context& ctx)
     {
-        YAML::Node ret{YAML::NodeType::Map};
-        ret["a"] = kl::yaml::serialize(z.a, ctx);
-        ret["b"] = kl::yaml::serialize(z.b, ctx);
-        ret["c"] = kl::yaml::serialize(z.c, ctx);
-        ret["d"] = kl::yaml::serialize(z.d, ctx);
-        return ret;
+        return kl::yaml::to_map(ctx)
+            .add("a", z.a)
+            .add("b", z.b)
+            .add("c", z.c)
+            .add("d", z.d);
+        // Same as:
+        //   YAML::Node ret{YAML::NodeType::Map};
+        //   ret["a"] = kl::yaml::serialize(z.a, ctx);
+        //   ret["b"] = kl::yaml::serialize(z.b, ctx);
+        //   ret["c"] = kl::yaml::serialize(z.c, ctx);
+        //   ret["d"] = kl::yaml::serialize(z.d, ctx);
+        //   return ret;
     }
 
     friend void from_yaml(zxc& z, const YAML::Node& value)
     {
-        kl::yaml::expect_map(value);
-
-        kl::yaml::deserialize(z.a, kl::yaml::at(value, "a"));
-        kl::yaml::deserialize(z.b, kl::yaml::at(value, "b"));
-        kl::yaml::deserialize(z.c, kl::yaml::at(value, "c"));
-        kl::yaml::deserialize(z.d, kl::yaml::at(value, "d"));
+        kl::yaml::from_map(value)
+            .extract("a", z.a)
+            .extract("b", z.b)
+            .extract("c", z.c)
+            .extract("d", z.d);
+        // Same as:
+        //   kl::yaml::expect_map(value);
+        //   kl::yaml::deserialize(z.a, kl::yaml::at(value, "a"));
+        //   kl::yaml::deserialize(z.b, kl::yaml::at(value, "b"));
+        //   kl::yaml::deserialize(z.c, kl::yaml::at(value, "c"));
+        //   kl::yaml::deserialize(z.d, kl::yaml::at(value, "d"));
+        // but with all deserialize() calls wrapped inside try-catch enhancing
+        // potential exception message with the faulty member name
     }
 };
 } // namespace
@@ -1135,4 +1148,16 @@ d:
     CHECK(zz.b == z.b);
     CHECK(zz.c == z.c);
     CHECK(zz.d == z.d);
+
+    auto y = R"(a: asd
+b: 3
+c: 3
+d:
+  - 1
+  - 2
+  - 34)"_yaml;
+
+    CHECK_THROWS_WITH(kl::yaml::deserialize<zxc>(y),
+                      "yaml-cpp: error at line 3, column 4: bad conversion"
+                      "\nerror when deserializing field c");
 }

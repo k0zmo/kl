@@ -192,6 +192,73 @@ void expect_map(const YAML::Node& value);
 
 namespace detail {
 
+template <typename Context>
+class map_builder
+{
+public:
+    explicit map_builder(Context& ctx)
+        : ctx_{ctx}, node_{YAML::NodeType::Map}
+    {
+    }
+
+    template <typename T>
+    map_builder& add(const char* member_name, const T& value)
+    {
+        node_[member_name] = yaml::serialize(value, ctx_);
+        return *this;
+    }
+
+    operator YAML::Node() { return std::move(node_); }
+
+private:
+    Context& ctx_;
+    YAML::Node node_;
+};
+
+class map_extractor
+{
+public:
+    explicit map_extractor(const YAML::Node& node) noexcept
+        : node_{node}
+    {
+        yaml::expect_map(node_);
+    }
+
+    template <typename T>
+    map_extractor& extract(const char* member_name, T& out)
+    {
+        try
+        {
+            yaml::deserialize(out, yaml::at(node_, member_name));
+            return *this;
+        }
+        catch (deserialize_error& ex)
+        {
+            std::string msg =
+                "error when deserializing field " + std::string(member_name);
+            ex.add(msg.c_str());
+            throw;
+        }
+    }
+
+private:
+    const YAML::Node& node_;
+};
+} // namespace detail
+
+template <typename Context>
+auto to_map(Context& ctx)
+{
+    return detail::map_builder<Context>{ctx};
+}
+
+inline auto from_map(const YAML::Node& node)
+{
+    return detail::map_extractor{node};
+}
+
+namespace detail {
+
 std::string type_name(const YAML::Node& value);
 
 KL_HAS_TYPEDEF_HELPER(value_type)
