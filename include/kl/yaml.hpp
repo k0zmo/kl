@@ -173,14 +173,14 @@ inline const YAML::Node& get_null_value()
 
 // Safely gets the YAML value from the YAML sequence. If provided index is
 // out-of-bounds we return a null value.
-inline YAML::Node get_value(const YAML::Node& seq, std::size_t idx)
+inline YAML::Node at(const YAML::Node& seq, std::size_t idx)
 {
     return idx < seq.size() ? seq[idx] : detail::get_null_value();
 }
 
 // Safely gets the YAML value from the YAML map. If member of provided name
 // is not present we return a null value.
-inline YAML::Node get_value(const YAML::Node& map, const char* member_name)
+inline YAML::Node at(const YAML::Node& map, const char* member_name)
 {
     auto query = map[member_name];
     return query ? query : detail::get_null_value();
@@ -565,7 +565,7 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
         ctti::reflect(out, [&value](auto fi) {
             try
             {
-                yaml::deserialize(fi.get(), yaml::get_value(value, fi.name()));
+                yaml::deserialize(fi.get(), yaml::at(value, fi.name()));
             }
             catch (deserialize_error& ex)
             {
@@ -587,7 +587,7 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
         ctti::reflect(out, [&value, index = 0U](auto fi) mutable {
             try
             {
-                yaml::deserialize(fi.get(), yaml::get_value(value, index));
+                yaml::deserialize(fi.get(), yaml::at(value, index));
                 ++index;
             }
             catch (deserialize_error& ex)
@@ -660,7 +660,7 @@ void from_yaml(enum_set<Enum>& out, const YAML::Node& value)
 template <typename Tuple, std::size_t... Is>
 void tuple_from_yaml(Tuple& out, const YAML::Node& value, index_sequence<Is...>)
 {
-    (yaml::deserialize(std::get<Is>(out), get_value(value, Is)), ...);
+    (yaml::deserialize(std::get<Is>(out), yaml::at(value, Is)), ...);
 }
 
 template <typename... Ts>

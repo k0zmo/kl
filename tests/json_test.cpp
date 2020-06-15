@@ -1101,10 +1101,10 @@ struct zxc
         kl::json::expect_object(value);
 
         const auto obj = value.GetObject();
-        kl::json::deserialize(z.a, kl::json::get_value(obj, "a"));
-        kl::json::deserialize(z.b, kl::json::get_value(obj, "b"));
-        kl::json::deserialize(z.c, kl::json::get_value(obj, "c"));
-        kl::json::deserialize(z.d, kl::json::get_value(obj, "d"));
+        kl::json::deserialize(z.a, kl::json::at(obj, "a"));
+        kl::json::deserialize(z.b, kl::json::at(obj, "b"));
+        kl::json::deserialize(z.c, kl::json::at(obj, "c"));
+        kl::json::deserialize(z.d, kl::json::at(obj, "d"));
     }
 };
 } // namespace

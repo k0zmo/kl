@@ -189,16 +189,16 @@ inline const rapidjson::Value& get_null_value()
 
 // Safely gets the JSON value from the JSON array. If provided index is
 // out-of-bounds we return a null value.
-inline const rapidjson::Value&
-    get_value(const rapidjson::Value::ConstArray& arr, rapidjson::SizeType idx)
+inline const rapidjson::Value& at(const rapidjson::Value::ConstArray& arr,
+                                  rapidjson::SizeType idx)
 {
     return idx < arr.Size() ? arr[idx] : detail::get_null_value();
 }
 
 // Safely gets the JSON value from the JSON object. If member of provided name
 // is not present we return a null value.
-inline const rapidjson::Value& get_value(rapidjson::Value::ConstObject obj,
-                                         const char* member_name)
+inline const rapidjson::Value& at(rapidjson::Value::ConstObject obj,
+                                  const char* member_name)
 {
     const auto it = obj.FindMember(member_name);
     return it != obj.end() ? it->value : detail::get_null_value();
@@ -742,7 +742,7 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
         ctti::reflect(out, [&obj](auto fi) {
             try
             {
-                json::deserialize(fi.get(), json::get_value(obj, fi.name()));
+                json::deserialize(fi.get(), json::at(obj, fi.name()));
             }
             catch (deserialize_error& ex)
             {
@@ -765,7 +765,7 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
         ctti::reflect(out, [&arr, index = 0U](auto fi) mutable {
             try
             {
-                json::deserialize(fi.get(), json::get_value(arr, index));
+                json::deserialize(fi.get(), json::at(arr, index));
                 ++index;
             }
             catch (deserialize_error& ex)
@@ -841,7 +841,7 @@ template <typename Tuple, std::size_t... Is>
 void tuple_from_json(Tuple& out, rapidjson::Value::ConstArray arr,
                      index_sequence<Is...>)
 {
-    (json::deserialize(std::get<Is>(out), json::get_value(arr, Is)), ...);
+    (json::deserialize(std::get<Is>(out), json::at(arr, Is)), ...);
 }
 
 template <typename... Ts>

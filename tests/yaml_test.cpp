@@ -1109,10 +1109,10 @@ struct zxc
     {
         kl::yaml::expect_map(value);
 
-        kl::yaml::deserialize(z.a, kl::yaml::get_value(value, "a"));
-        kl::yaml::deserialize(z.b, kl::yaml::get_value(value, "b"));
-        kl::yaml::deserialize(z.c, kl::yaml::get_value(value, "c"));
-        kl::yaml::deserialize(z.d, kl::yaml::get_value(value, "d"));
+        kl::yaml::deserialize(z.a, kl::yaml::at(value, "a"));
+        kl::yaml::deserialize(z.b, kl::yaml::at(value, "b"));
+        kl::yaml::deserialize(z.c, kl::yaml::at(value, "c"));
+        kl::yaml::deserialize(z.d, kl::yaml::at(value, "d"));
     }
 };
 } // namespace
