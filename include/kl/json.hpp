@@ -92,18 +92,19 @@ void dump(const T& obj, Context& ctx);
 template <typename T>
 struct serializer;
 
+using default_allocator = rapidjson::MemoryPoolAllocator<>;
+
 class serialize_context
 {
 public:
-    using allocator_type = rapidjson::Document::AllocatorType;
 
-    explicit serialize_context(allocator_type& allocator,
+    explicit serialize_context(default_allocator& allocator,
                                bool skip_null_fields = true)
         : allocator_{allocator}, skip_null_fields_{skip_null_fields}
     {
     }
 
-    rapidjson::MemoryPoolAllocator<>& allocator() { return allocator_; }
+    default_allocator& allocator() { return allocator_; }
 
     template <typename Key, typename Value>
     bool skip_field(const Key&, const Value& value)
@@ -112,7 +113,7 @@ public:
     }
 
 private:
-    allocator_type& allocator_;
+    default_allocator& allocator_;
     bool skip_null_fields_;
 };
 
