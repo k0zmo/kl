@@ -97,6 +97,11 @@ using default_allocator = rapidjson::MemoryPoolAllocator<>;
 class serialize_context
 {
 public:
+    explicit serialize_context(rapidjson::Document& doc,
+                               bool skip_null_fields = true)
+        : serialize_context{doc.GetAllocator(), skip_null_fields}
+    {
+    }
 
     explicit serialize_context(default_allocator& allocator,
                                bool skip_null_fields = true)
@@ -1023,7 +1028,7 @@ rapidjson::Document serialize(const T& obj)
 {
     rapidjson::Document doc;
     rapidjson::Value& v = doc;
-    serialize_context ctx{doc.GetAllocator()};
+    serialize_context ctx{doc};
     v = json::serialize(obj, ctx);
     return doc;
 }
