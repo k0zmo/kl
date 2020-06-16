@@ -19,11 +19,11 @@
 #include <optional>
 #include <string_view>
 
-std::string to_string(const rapidjson::Document& doc)
+std::string to_string(const rapidjson::Value& v)
 {
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-    doc.Accept(writer);
+    v.Accept(writer);
     return std::string(buffer.GetString());
 }
 
@@ -1139,4 +1139,13 @@ TEST_CASE("json: manually (de)serialized type")
     CHECK_THROWS_WITH(kl::json::deserialize<zxc>(j),
                       "type must be a boolean but is a kNumberType\n"
                       "error when deserializing field c");
+}
+
+TEST_CASE("json: manually serialize type - owning_serialize_context")
+{
+    kl::json::owning_serialize_context ctx;
+
+    zxc z{"asd", 3, true, {1, 2, 34}};
+    CHECK(to_string(kl::json::serialize(z, ctx)) ==
+          R"({"a":"asd","b":3,"c":true,"d":[1,2,34]})");
 }

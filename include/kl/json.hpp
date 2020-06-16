@@ -94,6 +94,27 @@ struct serializer;
 
 using default_allocator = rapidjson::MemoryPoolAllocator<>;
 
+class owning_serialize_context
+{
+public:
+    explicit owning_serialize_context(bool skip_null_fields = true)
+        : skip_null_fields_{skip_null_fields}
+    {
+    }
+
+    default_allocator& allocator() { return allocator_; }
+
+    template <typename Key, typename Value>
+    bool skip_field(const Key&, const Value& value)
+    {
+        return skip_null_fields_ && is_null_value(value);
+    }
+
+private:
+    default_allocator allocator_;
+    bool skip_null_fields_;
+};
+
 class serialize_context
 {
 public:
