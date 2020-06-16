@@ -1161,3 +1161,28 @@ d:
                       "yaml-cpp: error at line 3, column 4: bad conversion"
                       "\nerror when deserializing field c");
 }
+
+TEST_CASE("yaml: to_sequence and to_map")
+{
+    kl::yaml::serialize_context ctx;
+
+    std::vector<zxc> vz = {{"asd", 3, true, {1, 2, 34}},
+                           {"zxc", 222, false, {1}}};
+
+    auto values = kl::yaml::to_sequence(ctx)
+        .add(vz[0])
+        .add(kl::yaml::serialize(vz[1], ctx))
+        .done();
+
+    auto obj = kl::yaml::to_map(ctx)
+        .add("ctx", 22)
+        .add("values", std::move(values))
+        .done();
+
+    YAML::Emitter emitter;
+    emitter << YAML::EMITTER_MANIP::Flow << obj;
+    std::string str = emitter.c_str();
+
+    CHECK(str == R"({ctx: 22, values: [{a: asd, b: 3, c: true, d: [1, 2, 34]})"
+                 R"(, {a: zxc, b: 222, c: false, d: [1]}]})");
+}

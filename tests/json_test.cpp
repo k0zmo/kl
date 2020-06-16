@@ -1141,11 +1141,28 @@ TEST_CASE("json: manually (de)serialized type")
                       "error when deserializing field c");
 }
 
-TEST_CASE("json: manually serialize type - owning_serialize_context")
+TEST_CASE("json: to_array and to_object")
 {
     kl::json::owning_serialize_context ctx;
 
     zxc z{"asd", 3, true, {1, 2, 34}};
     CHECK(to_string(kl::json::serialize(z, ctx)) ==
           R"({"a":"asd","b":3,"c":true,"d":[1,2,34]})");
+
+    std::vector<zxc> vz = {{"asd", 3, true, {1, 2, 34}},
+                           {"zxc", 222, false, {1}}};
+
+    auto values = kl::json::to_array(ctx)
+        .add(vz[0])
+        .add(kl::json::serialize(vz[1], ctx))
+        .done();
+
+    auto obj = kl::json::to_object(ctx)
+        .add("ctx", 22)
+        .add("values", std::move(values))
+        .done();
+
+    CHECK(to_string(obj) ==
+          R"({"ctx":22,"values":[{"a":"asd","b":3,"c":true,"d":[1,2,34]},)"
+          R"({"a":"zxc","b":222,"c":false,"d":[1]}]})");
 }

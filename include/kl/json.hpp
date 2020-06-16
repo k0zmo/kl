@@ -241,6 +241,36 @@ void expect_array(const rapidjson::Value& value);
 namespace detail {
 
 template <typename Context>
+class array_builder
+{
+public:
+    explicit array_builder(Context& ctx) noexcept
+        : ctx_{ctx}, value_{rapidjson::kArrayType}
+    {
+    }
+
+    template <typename T>
+    array_builder& add(const T& value)
+    {
+        value_.PushBack(json::serialize(value, ctx_), ctx_.allocator());
+        return *this;
+    }
+
+    array_builder& add(rapidjson::Value v)
+    {
+        value_.PushBack(std::move(v), ctx_.allocator());
+        return *this;
+    }
+
+    rapidjson::Value done() { return std::move(value_); }
+    operator rapidjson::Value() { return std::move(value_); }
+
+private:
+    Context& ctx_;
+    rapidjson::Value value_;
+};
+
+template <typename Context>
 class object_builder
 {
 public:
@@ -258,6 +288,14 @@ public:
         return *this;
     }
 
+    object_builder& add(rapidjson::Value::StringRefType member_name,
+                        rapidjson::Value v)
+    {
+        value_.AddMember(member_name, std::move(v), ctx_.allocator());
+        return *this;
+    }
+
+    rapidjson::Value done() { return std::move(value_); }
     operator rapidjson::Value() { return std::move(value_); }
 
 private:
@@ -295,6 +333,12 @@ private:
     const rapidjson::Value& value_;
 };
 } // namespace detail
+
+template <typename Context>
+auto to_array(Context& ctx)
+{
+    return detail::array_builder<Context>{ctx};
+}
 
 template <typename Context>
 auto to_object(Context& ctx)

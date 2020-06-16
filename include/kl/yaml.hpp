@@ -193,6 +193,36 @@ void expect_map(const YAML::Node& value);
 namespace detail {
 
 template <typename Context>
+class sequence_builder
+{
+public:
+    explicit sequence_builder(Context& ctx)
+        : ctx_{ctx}, node_{YAML::NodeType::Sequence}
+    {
+    }
+
+    template <typename T>
+    sequence_builder& add(const T& value)
+    {
+        node_.push_back(yaml::serialize(value, ctx_));
+        return *this;
+    }
+
+    sequence_builder& add(YAML::Node v)
+    {
+        node_.push_back(std::move(v));
+        return *this;
+    }
+
+    YAML::Node done() { return std::move(node_); }
+    operator YAML::Node() { return std::move(node_); }
+
+private:
+    Context& ctx_;
+    YAML::Node node_;
+};
+
+template <typename Context>
 class map_builder
 {
 public:
@@ -208,6 +238,13 @@ public:
         return *this;
     }
 
+    map_builder& add(const char* member_name, YAML::Node v)
+    {
+        node_[member_name] = std::move(v);
+        return *this;
+    }
+
+    YAML::Node done() { return std::move(node_); }
     operator YAML::Node() { return std::move(node_); }
 
 private:
@@ -245,6 +282,12 @@ private:
     const YAML::Node& node_;
 };
 } // namespace detail
+
+template <typename Context>
+auto to_sequence(Context& ctx)
+{
+    return detail::sequence_builder<Context>{ctx};
+}
 
 template <typename Context>
 auto to_map(Context& ctx)
