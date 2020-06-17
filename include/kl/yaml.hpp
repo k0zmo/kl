@@ -572,11 +572,14 @@ T from_scalar_yaml(const YAML::Node& value)
     {
         // yaml-cpp conversion of string/scalar to unsigned integer gives wrong
         // result when the scalar represents a negative number
-        if constexpr (std::is_unsigned_v<T>)
+        if constexpr (std::is_unsigned_v<T> && !std::is_same_v<T, bool>)
         {
             // Can YAML scalar be empty?
-            if (!value.Scalar().empty() && value.Scalar()[0] == '-')
-                throw YAML::TypedBadConversion<T>(value.Mark());
+            if (const auto& scalar = value.Scalar(); !scalar.empty())
+            {
+                if (scalar[0] == '-')
+                    throw YAML::TypedBadConversion<T>(value.Mark());
+            }
         }
 
         return value.as<T>();
