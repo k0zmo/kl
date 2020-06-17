@@ -180,7 +180,8 @@ inline YAML::Node at(const YAML::Node& seq, std::size_t idx)
 
 // Safely gets the YAML value from the YAML map. If member of provided name
 // is not present we return a null value.
-inline YAML::Node at(const YAML::Node& map, const char* member_name)
+template <typename Key>
+inline YAML::Node at(const YAML::Node& map, const Key& member_name)
 {
     auto query = map[member_name];
     return query ? query : detail::get_null_value();
@@ -231,14 +232,15 @@ public:
     {
     }
 
-    template <typename T>
-    map_builder& add(const char* member_name, const T& value)
+    template <typename T, typename Key>
+    map_builder& add(const Key& member_name, const T& value)
     {
         node_[member_name] = yaml::serialize(value, ctx_);
         return *this;
     }
 
-    map_builder& add(const char* member_name, YAML::Node v)
+    template <typename Key>
+    map_builder& add(const Key& member_name, YAML::Node v)
     {
         node_[member_name] = std::move(v);
         return *this;
@@ -255,14 +257,13 @@ private:
 class map_extractor
 {
 public:
-    explicit map_extractor(const YAML::Node& node) noexcept
-        : node_{node}
+    explicit map_extractor(const YAML::Node& node) noexcept : node_{node}
     {
         yaml::expect_map(node_);
     }
 
-    template <typename T>
-    map_extractor& extract(const char* member_name, T& out)
+    template <typename T, typename Key>
+    map_extractor& extract(const Key& member_name, T& out)
     {
         try
         {
@@ -271,8 +272,8 @@ public:
         }
         catch (deserialize_error& ex)
         {
-            std::string msg =
-                "error when deserializing field " + std::string(member_name);
+            std::string msg = "error when deserializing field ";
+            msg += member_name;
             ex.add(msg.c_str());
             throw;
         }
