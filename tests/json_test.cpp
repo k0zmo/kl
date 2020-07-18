@@ -1120,12 +1120,35 @@ struct zxc
         // potential exception message with the faulty member name
     }
 };
+
+struct zxc_dynamic_names
+{
+    std::string a;
+    int b;
+    bool c;
+    std::vector<int> d;
+
+    template <typename Context>
+    friend rapidjson::Value to_json(const zxc_dynamic_names& z, Context& ctx)
+    {
+        std::string names{"abcd long string to subdue SSO optimization"};
+        return kl::json::to_object(ctx)
+            .add_dynamic_name(std::string_view{names}.substr(0, 1), z.a)
+            .add_dynamic_name(std::string_view{names}.substr(1, 1), z.b)
+            .add_dynamic_name(std::string_view{names}.substr(2, 1), z.c)
+            .add_dynamic_name(std::string_view{names}.substr(3, 1), z.d);
+    }
+};
 } // namespace
 
 TEST_CASE("json: manually (de)serialized type")
 {
     zxc z{"asd", 3, true, {1, 2, 34}};
     CHECK(to_string(kl::json::serialize(z)) ==
+          R"({"a":"asd","b":3,"c":true,"d":[1,2,34]})");
+
+    zxc_dynamic_names zd{"asd", 3, true, {1, 2, 34}};
+    CHECK(to_string(kl::json::serialize(zd)) ==
           R"({"a":"asd","b":3,"c":true,"d":[1,2,34]})");
 
     auto zz = kl::json::deserialize<zxc>(kl::json::serialize(z));

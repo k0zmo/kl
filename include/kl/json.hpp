@@ -278,17 +278,42 @@ public:
     {
     }
 
+    // Uses rapidjson::Value constructor for constant string which does not make
+    // a copy of string.
     template <typename T>
     object_builder& add(std::string_view member_name, const T& value)
     {
         return add(member_name, json::serialize(value, ctx_));
     }
 
+    // Uses rapidjson::Value constructor for constant string which does not
+    // make a copy of string.
     object_builder& add(std::string_view member_name, rapidjson::Value value)
     {
         rapidjson::Value name{
             member_name.data(),
             static_cast<rapidjson::SizeType>(member_name.size())};
+        return add(std::move(name), std::move(value));
+    }
+
+    // Uses rapidjson::Value constructor for dynamic string,
+    // making a copy of `member_name`.
+    template <typename T>
+    object_builder& add_dynamic_name(std::string_view member_name,
+                                     const T& value)
+    {
+        return add_dynamic_name(member_name, json::serialize(value, ctx_));
+    }
+
+    // Uses rapidjson::Value constructor for dynamic string,
+    // making a copy of `member_name`.
+    object_builder& add_dynamic_name(std::string_view member_name,
+                                     rapidjson::Value value)
+    {
+        rapidjson::Value name{
+            member_name.data(),
+            static_cast<rapidjson::SizeType>(member_name.size()),
+            ctx_.allocator()};
         return add(std::move(name), std::move(value));
     }
 
