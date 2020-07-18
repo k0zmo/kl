@@ -252,8 +252,7 @@ public:
     template <typename T>
     array_builder& add(const T& value)
     {
-        value_.PushBack(json::serialize(value, ctx_), ctx_.allocator());
-        return *this;
+        return add(json::serialize(value, ctx_));
     }
 
     array_builder& add(rapidjson::Value v)
@@ -280,18 +279,23 @@ public:
     }
 
     template <typename T>
-    object_builder& add(rapidjson::Value::StringRefType member_name,
-                        const T& value)
+    object_builder& add(std::string_view member_name, const T& value)
     {
-        value_.AddMember(member_name, json::serialize(value, ctx_),
-                         ctx_.allocator());
-        return *this;
+        return add(member_name, json::serialize(value, ctx_));
     }
 
-    object_builder& add(rapidjson::Value::StringRefType member_name,
-                        rapidjson::Value v)
+    object_builder& add(std::string_view member_name, rapidjson::Value value)
     {
-        value_.AddMember(member_name, std::move(v), ctx_.allocator());
+        rapidjson::Value name{
+            member_name.data(),
+            static_cast<rapidjson::SizeType>(member_name.size())};
+        return add(std::move(name), std::move(value));
+    }
+
+    object_builder& add(rapidjson::Value member_name, rapidjson::Value value)
+    {
+        value_.AddMember(std::move(member_name), std::move(value),
+                         ctx_.allocator());
         return *this;
     }
 

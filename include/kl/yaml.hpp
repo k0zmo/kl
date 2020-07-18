@@ -205,8 +205,7 @@ public:
     template <typename T>
     sequence_builder& add(const T& value)
     {
-        node_.push_back(yaml::serialize(value, ctx_));
-        return *this;
+        return add(yaml::serialize(value, ctx_));
     }
 
     sequence_builder& add(YAML::Node v)
@@ -235,8 +234,7 @@ public:
     template <typename T, typename Key>
     map_builder& add(const Key& member_name, const T& value)
     {
-        node_[member_name] = yaml::serialize(value, ctx_);
-        return *this;
+        return add(member_name, yaml::serialize(value, ctx_));
     }
 
     template <typename Key>
