@@ -645,7 +645,7 @@ template <typename T, typename Ret, typename... Args>
 std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T* instance)
 {
     return {[mem_func, instance](Args&&... args) {
-        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
+        return (instance->*mem_func)(std::forward<Args>(args)...);
     }};
 }
 
@@ -654,7 +654,7 @@ std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
                                       const T* instance)
 {
     return {[mem_func, instance](Args&&... args) {
-        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
+        return (instance->*mem_func)(std::forward<Args>(args)...);
     }};
 }
 
@@ -662,7 +662,7 @@ template <typename T, typename Ret, typename... Args>
 std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T& instance)
 {
     return {[mem_func, &instance](Args&&... args) {
-        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
+        return (instance.*mem_func)(std::forward<Args>(args)...);
     }};
 }
 
@@ -671,7 +671,7 @@ std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
                                       const T& instance)
 {
     return {[mem_func, &instance](Args&&... args) {
-        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
+        return (instance.*mem_func)(std::forward<Args>(args)...);
     }};
 }
 
@@ -680,7 +680,7 @@ std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
                                       std::shared_ptr<T> instance)
 {
     return {[mem_func, instance](Args&&... args) {
-        return std::mem_fn(mem_func)(instance, std::forward<Args>(args)...);
+        return ((*instance).*mem_func)(std::forward<Args>(args)...);
     }};
 }
 
@@ -690,7 +690,7 @@ std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
 {
     return {[mem_func, instance](Args&&... args) {
         if (auto ptr = instance.lock())
-            return std::mem_fn(mem_func)(ptr, std::forward<Args>(args)...);
+            return ((*ptr).*mem_func)(std::forward<Args>(args)...);
     }};
 }
 
