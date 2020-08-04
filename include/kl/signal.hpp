@@ -393,6 +393,8 @@ public:
         return make_connection(std::move(connection_info));
     }
 
+    connection operator+=(slot_type slot) { return connect(std::move(slot)); }
+
     // Emits signal
     void operator()(Args... args)
     {

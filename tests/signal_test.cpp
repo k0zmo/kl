@@ -19,7 +19,7 @@ struct Baz
     void bar(int& z) const { ++z; }
     static void foo(bool& z) { z = !z; }
 };
-}
+} // namespace test
 
 TEST_CASE("signal")
 {
@@ -46,17 +46,15 @@ TEST_CASE("signal")
     {
         static const int arg = 2;
         kl::signal<float(int)> s;
-        s.connect([&](int a) {
+        s += [&](int a) {
             REQUIRE(arg == a);
             return a * 3.14f;
-        });
+        };
         REQUIRE(!s.empty());
         REQUIRE(s.num_slots() == 1);
 
         s(arg);
-        s(arg, [&](float srv) {
-            REQUIRE(arg * 3.14f == Approx(srv));
-        });
+        s(arg, [&](float srv) { REQUIRE(arg * 3.14f == Approx(srv)); });
 
         s.disconnect_all_slots();
         REQUIRE(s.empty());
@@ -74,8 +72,8 @@ TEST_CASE("signal")
             ++counter;
             return a * 3.14f;
         };
-        s.connect(l);
-        s.connect(l);
+        s += l;
+        s += l;
         REQUIRE(!s.empty());
         REQUIRE(s.num_slots() == 2);
 
@@ -98,7 +96,7 @@ TEST_CASE("signal")
     SECTION("connect free function")
     {
         kl::signal<void(bool&)> s;
-        s.connect(&test::foo);
+        s += &test::foo;
 
         bool v = true;
         s(v);
@@ -111,23 +109,21 @@ TEST_CASE("signal")
     {
         test::Baz obj;
         kl::signal<void(int&)> s;
-        s.connect(kl::make_slot(&test::Baz::bar, &obj));
-        s.connect(
-            kl::make_slot(&test::Baz::bar, const_cast<const test::Baz*>(&obj)));
+        s += kl::make_slot(&test::Baz::bar, &obj);
+        s += kl::make_slot(&test::Baz::bar, const_cast<const test::Baz*>(&obj));
 
         test::Baz& ref = obj;
-        s.connect(kl::make_slot(&test::Baz::bar, ref));
+        s += kl::make_slot(&test::Baz::bar, ref);
 
         const test::Baz& cref = obj;
-        s.connect(kl::make_slot(&test::Baz::bar, cref));
+        s += kl::make_slot(&test::Baz::bar, cref);
 
         // use bind directly
-        s.connect(
-            std::bind(static_cast<void (test::Baz::*)(int&)>(&test::Baz::bar),
-                std::ref(obj), std::placeholders::_1));
-        s.connect(std::bind(
+        s += std::bind(static_cast<void (test::Baz::*)(int&)>(&test::Baz::bar),
+                       std::ref(obj), std::placeholders::_1);
+        s += std::bind(
             static_cast<void (test::Baz::*)(int&) const>(&test::Baz::bar),
-            std::cref(obj), std::placeholders::_1));
+            std::cref(obj), std::placeholders::_1);
         int z = 0;
         s(z);
         REQUIRE(z == 6);
@@ -137,9 +133,8 @@ TEST_CASE("signal")
     {
         auto obj = std::make_shared<test::Baz>();
         kl::signal<void(int&)> s;
-        s.connect(kl::make_slot(&test::Baz::bar, obj));
-        s.connect(
-            kl::make_slot(&test::Baz::bar, std::weak_ptr<test::Baz>(obj)));
+        s += kl::make_slot(&test::Baz::bar, obj);
+        s += kl::make_slot(&test::Baz::bar, std::weak_ptr<test::Baz>(obj));
         CHECK(obj.use_count() == 2);
         int z = 0;
         s(z);
@@ -149,7 +144,7 @@ TEST_CASE("signal")
     SECTION("connect static member function")
     {
         kl::signal<void(bool&)> s;
-        s.connect(&test::Baz::foo);
+        s += &test::Baz::foo;
 
         bool v = false;
         s(v);
@@ -163,7 +158,7 @@ TEST_CASE("signal")
     SECTION("move signal object")
     {
         kl::signal<void(bool&)> s;
-        auto c = s.connect(&test::Baz::foo);
+        auto c = s += &test::Baz::foo;
 
         bool v{false};
         s(v);
@@ -201,7 +196,10 @@ TEST_CASE("signal")
     {
         kl::signal<void()> s;
         bool shot{};
-        s.connect([&] { shot = true; return 99; });
+        s += [&] {
+            shot = true;
+            return 99;
+        };
         s();
         REQUIRE(shot);
     }
@@ -211,8 +209,8 @@ TEST_CASE("signal")
         kl::signal<void()> s0;
         kl::signal<int()> s1;
 
-        s0.connect([] {});
-        s1.connect([] { return 99; });
+        s0 += [] {};
+        s1 += [] { return 99; };
 
         s0();
         s1();
@@ -246,8 +244,8 @@ TEST_CASE("signal")
         kl::signal<void(int)> s;
         kl::signal<void(int)> t;
 
-        t.connect([](int i) { REQUIRE(i == 2); });
-        s.connect(kl::make_slot(t));
+        t += [](int i) { REQUIRE(i == 2); };
+        s += kl::make_slot(t);
         s(2);
     }
 }
@@ -267,7 +265,7 @@ TEST_CASE("connection")
     {
         kl::signal<void()> s;
         int cnt = 0;
-        kl::connection c = s.connect([&] { ++cnt; });
+        kl::connection c = s += [&] { ++cnt; };
         REQUIRE(c.connected());
         s();
         REQUIRE(cnt == 1);
@@ -283,8 +281,8 @@ TEST_CASE("connection")
     SECTION("hash a connection")
     {
         kl::signal<void()> s;
-        kl::connection c1 = s.connect([&] {; });
-        kl::connection c2 = s.connect([&] {; });
+        kl::connection c1 = s += [] {};
+        kl::connection c2 = s += [] {};
 
         auto hasher = std::hash<kl::connection>{};
 
@@ -307,7 +305,7 @@ TEST_CASE("connection")
     {
         kl::signal<void()> s;
         int cnt = 0;
-        kl::connection c1 = s.connect([&] { ++cnt; });
+        kl::connection c1 = s += [&] { ++cnt; };
         s();
         REQUIRE(cnt == 1);
 
@@ -329,7 +327,7 @@ TEST_CASE("connection")
     {
         kl::signal<void()> s;
         int cnt = 0;
-        kl::connection c1 = s.connect([&] { ++cnt; });
+        kl::connection c1 = s += [&] { ++cnt; };
 
         {
             auto b = c1.get_blocker();
@@ -350,7 +348,7 @@ TEST_CASE("connection")
     {
         kl::signal<void()> s;
         int cnt = 0;
-        kl::connection c1 = s.connect([&] { ++cnt; });
+        kl::connection c1 = s += [&] { ++cnt; };
 
         {
             auto b = c1.get_blocker();
@@ -400,7 +398,7 @@ TEST_CASE("scoped_connection")
     {
         kl::signal<void()> s;
         {
-            kl::scoped_connection sc = s.connect([&] {});
+            kl::scoped_connection sc = s += [] {};
             REQUIRE(!s.empty());
         }
         REQUIRE(s.empty());
@@ -411,7 +409,7 @@ TEST_CASE("scoped_connection")
         kl::signal<void()> s;
         kl::connection c;
         {
-            kl::scoped_connection sc = s.connect([&] {});
+            kl::scoped_connection sc = s += [] {};
             REQUIRE(!s.empty());
             c = sc.release();
         }
@@ -438,10 +436,10 @@ TEST_CASE("signal combiners")
     // We use push model - with lambdas and all it's not that bad
 
     kl::signal<float(float, float)> sig;
-    sig.connect(&test::product);
-    sig.connect(&test::quotient);
-    sig.connect(&test::sum);
-    sig.connect(&test::difference);
+    sig += &test::product;
+    sig += &test::quotient;
+    sig += &test::sum;
+    sig += &test::difference;
 
     SECTION("optional last value")
     {
@@ -480,9 +478,9 @@ TEST_CASE("signal combiners")
 TEST_CASE("stopping signal emission")
 {
     kl::signal<int()> signal;
-    signal.connect([] { return 10; });
-    signal.connect([] { return 100; });
-    signal.connect([] { return 1000; });
+    signal += [] { return 10; };
+    signal += [] { return 100; };
+    signal += [] { return 1000; };
 
     SECTION("run all")
     {
@@ -510,13 +508,11 @@ TEST_CASE("stopping signal emission")
     {
         int cnt = 0;
         kl::signal<void()> s;
-        s.connect([&] { cnt++; });
-        s.connect([&] { cnt++; });
-        s.connect([&] { cnt++; });
+        s += [&] { cnt++; };
+        s += [&] { cnt++; };
+        s += [&] { cnt++; };
 
-        s([&] {
-            return cnt >= 1;
-        });
+        s([&] { return cnt >= 1; });
 
         REQUIRE(cnt == 1);
     }
@@ -529,40 +525,37 @@ TEST_CASE("connect/disconnect during signal emission")
     public:
         Test()
         {
-            c0 = sig.connect([&] {
+            c0 = sig += [&] {
                 trace.push_back(0);
                 do_run();
                 return 0;
-            });
+            };
 
-            c1 = sig.connect([&] {
+            c1 = sig += [&] {
                 REQUIRE(false); // never called because c1.disconnect()
                 do_run();
                 return 0;
-            });
+            };
 
-            c2 = sig.connect([&] {
+            c2 = sig += [&] {
                 trace.push_back(2);
                 do_run();
                 return 0;
-            });
+            };
         }
 
-        void run()
-        {
-            sig();
-        }
+        void run() { sig(); }
 
     private:
         void do_run()
         {
             trace.push_back(99);
-            sig.connect([&] {
+            sig += [&] {
                 // This is called only during 2nd run
                 trace.push_back(4);
                 do_run();
                 return 1;
-            });
+            };
             c1.disconnect();
         }
 
@@ -591,12 +584,12 @@ TEST_CASE("one-time slot connection with a next emission in a handler")
 
     SECTION("base case")
     {
-        c = s.connect([&] {
+        c = s += [&] {
             c.disconnect();
             ++i;
-        });
-        s.connect([&] { ++i; });
-        s.connect([&] { ++i; });
+        };
+        s += [&] { ++i; };
+        s += [&] { ++i; };
 
         s();
         CHECK(i == 3);
@@ -607,17 +600,17 @@ TEST_CASE("one-time slot connection with a next emission in a handler")
     SECTION("emit after disconnect")
     {
         bool re_emit = true;
-        c = s.connect([&] {
+        c = s += [&] {
             ++i;
             if (re_emit)
             {
                 re_emit = false;
                 s();
             }
-        });
+        };
 
-        s.connect([&] { ++i; });
-        s.connect([&] { ++i; });
+        s += [&] { ++i; };
+        s += [&] { ++i; };
 
         s();
         CHECK(i == 6);
@@ -625,14 +618,14 @@ TEST_CASE("one-time slot connection with a next emission in a handler")
 
     SECTION("emit after disconnect")
     {
-        c = s.connect([&] {
+        c = s += [&] {
             c.disconnect();
             ++i;
             s();
-        });
+        };
 
-        s.connect([&] { ++i; });
-        s.connect([&] { ++i; });
+        s += [&] { ++i; };
+        s += [&] { ++i; };
 
         s();
         CHECK(i == 5);
@@ -647,12 +640,12 @@ TEST_CASE("add slot to signal during emission")
 
     SECTION("add at back")
     {
-        s.connect([&] {
+        s += [&] {
             ++i;
             s.connect([&] { ++i; });
-        });
-        s.connect([&] { ++i; });
-        s.connect([&] { ++i; });
+        };
+        s += [&] { ++i; };
+        s += [&] { ++i; };
 
         s();
         CHECK(i == 3);
@@ -666,12 +659,12 @@ TEST_CASE("add slot to signal during emission")
 
     SECTION("add at front")
     {
-        s.connect([&] {
+        s += [&] {
             ++i;
             s.connect([&] { ++i; }, kl::at_front);
-        });
-        s.connect([&] { ++i; });
-        s.connect([&] { ++i; });
+        };
+        s += [&] { ++i; };
+        s += [&] { ++i; };
 
         s();
         CHECK(i == 3);
@@ -695,8 +688,8 @@ TEST_CASE("by value vs by const ref")
 
         // We should get exaclty one copy constructor and one move constructor
         // for each slot invocation (+1 move for extended connection)
-        s0.connect([](std::vector<int> vec) { REQUIRE(vec.size() == 5); });
-        s0.connect([](std::vector<int> vec) { REQUIRE(vec.size() == 5); });
+        s0 += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
+        s0 += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
         s0.connect_extended([](kl::connection, std::vector<int> vec) {
             REQUIRE(vec.size() == 5);
         });
@@ -705,10 +698,8 @@ TEST_CASE("by value vs by const ref")
         });
 
         // No copy/move ctor in this case
-        s1.connect(
-            [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); });
-        s1.connect(
-            [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); });
+        s1 += [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); };
+        s1 += [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); };
         s1.connect_extended([](kl::connection, const std::vector<int>& vec) {
             REQUIRE(vec.size() == 7);
         });
@@ -729,8 +720,8 @@ TEST_CASE("by value vs by const ref")
         // We should get exaclty one copy constructor for each slot invocation
         signal<void(const std::vector<int>&)> s;
 
-        s.connect([](std::vector<int> vec) { REQUIRE(vec.size() == 5); });
-        s.connect([](std::vector<int> vec) { REQUIRE(vec.size() == 5); });
+        s += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
+        s += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
 
         s(std::vector<int>{0, 1, 2, 3, 4}, [] {});
         s(std::vector<int>{0, 1, 2, 3, 4});
@@ -748,11 +739,11 @@ TEST_CASE("make_slot and KL_SLOT macro inside class contructor")
     public:
         C(signal<void(int)>& s)
         {
-            s.connect(kl::make_slot(&C::handler, this));
+            s += kl::make_slot(&C::handler, this);
             C& inst = *this;
-            s.connect(kl::make_slot(&C::handler, inst));
+            s += kl::make_slot(&C::handler, inst);
 #if defined(KL_SLOT)
-            s.connect(KL_SLOT(handler));
+            s += KL_SLOT(handler);
 #endif
         }
 
@@ -788,8 +779,8 @@ TEST_CASE("disconnect all slots during emission")
             s.disconnect_all_slots();
             ++i;
         };
-        s.connect(callback);
-        s.connect(callback);
+        s += callback;
+        s += callback;
 
         s();
         CHECK(i == 1);
@@ -800,9 +791,12 @@ TEST_CASE("disconnect all slots during emission")
 
     SECTION("disconnect in the middle")
     {
-        s.connect([&] { ++i; });
-        s.connect([&] { ++i; s.disconnect_all_slots(); });
-        s.connect([&] { ++i; });
+        s += [&] { ++i; };
+        s += [&] {
+            ++i;
+            s.disconnect_all_slots();
+        };
+        s += [&] { ++i; };
 
         s();
         CHECK(i == 2);
