@@ -95,56 +95,6 @@ struct is_same<T, U> : std::integral_constant<bool, std::is_same_v<T, U>>
 {
 };
 
-// C++17 stuff
-template <bool value>
-using bool_constant = std::integral_constant<bool, value>;
-
-template <typename...>
-struct conjunction : std::true_type {};
-
-template <typename B1>
-struct conjunction<B1> : B1 {};
-
-template <typename B1, typename... Bn>
-struct conjunction<B1, Bn...>
-    : std::conditional_t<B1::value != false, conjunction<Bn...>, B1>
-{
-};
-
-template <typename...>
-struct disjunction : std::false_type {};
-
-template <typename B1>
-struct disjunction<B1> : B1 {};
-
-template <typename B1, typename... Bn>
-struct disjunction<B1, Bn...>
-    : std::conditional_t<B1::value != false, B1, disjunction<Bn...>>
-{
-};
-
-template <typename B>
-struct negation : bool_constant<!B::value> {};
-
-template <typename... Ts>
-inline constexpr bool conjuction_v = conjunction<Ts...>::value;
-
-template <typename... Ts>
-inline constexpr bool disjunction_v = disjunction<Ts...>::value;
-
-template <typename T>
-inline constexpr bool negation_v = negation<T>::value;
-
-// Use it as template parameter like so: enable_if<std::is_integral<T>> = true
-template <typename... Ts>
-using enable_if = std::enable_if_t<conjuction_v<Ts...>, bool>;
-
-// C++14 stuff for MSVC2013
-template <typename...>
-struct make_void_t { using type = void; };
-template <typename... Ts>
-using void_t = typename make_void_t<Ts...>::type;
-
 // C++20 stuff
 template <typename T>
 struct remove_cvref
@@ -160,7 +110,7 @@ using remove_cvref_t = typename remove_cvref<T>::type;
     template <typename T, typename = void>                                     \
     struct has_##type : std::false_type {};                                    \
     template <typename T>                                                      \
-    struct has_##type<T, kl::void_t<typename T::type>> : std::true_type {};    \
+    struct has_##type<T, std::void_t<typename T::type>> : std::true_type {};   \
     template <typename T>                                                      \
     inline constexpr bool has_##type##_v = has_##type<T>::value;
 
@@ -168,6 +118,6 @@ using remove_cvref_t = typename remove_cvref<T>::type;
     template <typename T, typename = void>                                     \
     struct name : std::false_type {};                                          \
     template <typename T>                                                      \
-    struct name<T, kl::void_t<decltype(expr)>> : std::true_type {};            \
+    struct name<T, std::void_t<decltype(expr)>> : std::true_type {};           \
     template <typename T>                                                      \
     inline constexpr bool name##_v = name<T>::value;

@@ -24,7 +24,7 @@ struct is_enum_reflectable : std::false_type {};
 // we check is_defined only if Enum is an actual enum type.
 template <typename Enum>
 struct is_enum_reflectable<Enum, true>
-    : bool_constant<detail::has_describe_enum_v<Enum>>
+    : std::bool_constant<detail::has_describe_enum_v<Enum>>
 {
 };
 
@@ -33,7 +33,7 @@ inline constexpr bool is_enum_reflectable_v = is_enum_reflectable<T>::value;
 
 template <typename T>
 using is_enum_nonreflectable =
-    bool_constant<std::is_enum_v<T> && !is_enum_reflectable_v<T>>;
+    std::bool_constant<std::is_enum_v<T> && !is_enum_reflectable_v<T>>;
 
 template <typename T>
 inline constexpr bool is_enum_nonreflectable_v =

@@ -33,7 +33,7 @@ void visit_by_index(kl::binary_reader& r, kl::type_pack<Head, Tail...>,
 
 template <typename T>
 struct not_boost_variant_void
-    : kl::bool_constant<!std::is_same<T, boost::detail::variant::void_>::value>
+    : std::bool_constant<!std::is_same<T, boost::detail::variant::void_>::value>
 {
 };
 

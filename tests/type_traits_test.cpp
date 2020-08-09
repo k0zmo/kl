@@ -89,14 +89,4 @@ TEST_CASE("type_traits")
         static_assert(kl::is_same<void, void, void, void>::value, "???");
         static_assert(!kl::is_same<void, bool, void>::value, "???");
     }
-
-    SECTION("conjunction && disjunction")
-    {
-        static_assert(!kl::conjunction<kl::is_same<void, void>,
-                                       kl::is_same<void, bool>>::value,
-                      "???");
-        static_assert(kl::disjunction<kl::is_same<void, void>,
-                                      kl::is_same<void, bool>>::value,
-                      "???");
-    }
 }

@@ -313,7 +313,7 @@ KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
 
 template <typename T>
 struct is_map_alike
-    : conjunction<
+    : std::conjunction<
         has_value_type<T>,
         has_iterator<T>,
         has_mapped_type<T>,
@@ -321,10 +321,10 @@ struct is_map_alike
 
 template <typename T>
 struct is_vector_alike
-    : conjunction<
+    : std::conjunction<
         has_value_type<T>,
         has_iterator<T>,
-        negation<has_c_str<T>>> {};
+        std::negation<has_c_str<T>>> {};
 
 // encode implementation
 
@@ -357,9 +357,9 @@ void encode(const Map& map, Context& ctx)
     ctx.emitter() << YAML::EndMap;
 }
 
-template <
-    typename Vector, typename Context,
-    enable_if<negation<is_map_alike<Vector>>, is_vector_alike<Vector>> = true>
+template <typename Vector, typename Context,
+          enable_if<std::negation<is_map_alike<Vector>>,
+                    is_vector_alike<Vector>> = true>
 void encode(const Vector& vec, Context& ctx)
 {
     ctx.emitter() << YAML::BeginSeq;
@@ -482,9 +482,9 @@ YAML::Node to_yaml(const Map& map, Context& ctx)
 }
 
 // For all T's that quacks like a std::vector
-template <
-    typename Vector, typename Context,
-    enable_if<negation<is_map_alike<Vector>>, is_vector_alike<Vector>> = true>
+template <typename Vector, typename Context,
+          enable_if<std::negation<is_map_alike<Vector>>,
+                    is_vector_alike<Vector>> = true>
 YAML::Node to_yaml(const Vector& vec, Context& ctx)
 {
     YAML::Node arr{YAML::NodeType::Sequence};
@@ -642,7 +642,7 @@ void from_yaml(Map& out, const YAML::Node& value)
     }
 }
 
-template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
+template <typename Vector, enable_if<std::negation<is_map_alike<Vector>>,
                                      is_vector_alike<Vector>> = true>
 void from_yaml(Vector& out, const YAML::Node& value)
 {

@@ -393,7 +393,7 @@ KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
 
 template <typename T>
 struct is_map_alike
-    : conjunction<
+    : std::conjunction<
         has_value_type<T>,
         has_iterator<T>,
         has_mapped_type<T>,
@@ -401,7 +401,7 @@ struct is_map_alike
 
 template <typename T>
 struct is_vector_alike
-    : conjunction<
+    : std::conjunction<
         has_value_type<T>,
         has_iterator<T>> {};
 
@@ -503,9 +503,9 @@ void encode(const Map& map, Context& ctx)
     ctx.writer().EndObject();
 }
 
-template <
-    typename Vector, typename Context,
-    enable_if<negation<is_map_alike<Vector>>, is_vector_alike<Vector>> = true>
+template <typename Vector, typename Context,
+          enable_if<std::negation<is_map_alike<Vector>>,
+                    is_vector_alike<Vector>> = true>
 void encode(const Vector& vec, Context& ctx)
 {
     ctx.writer().StartArray();
@@ -580,9 +580,9 @@ void encode(const std::optional<T>& opt, Context& ctx)
 // Checks if we can construct a Json object with given T
 template <typename T>
 using is_json_constructible =
-    bool_constant<std::is_constructible_v<rapidjson::Value, T> &&
-                  // We want reflectable unscoped enum to handle ourselves
-                  !std::is_enum_v<T>>;
+    std::bool_constant<std::is_constructible_v<rapidjson::Value, T> &&
+                       // We want reflectable unscoped enum to handle ourselves
+                       !std::is_enum_v<T>>;
 
 // For all T's that we can directly create rapidjson::Value value from
 template <typename JsonConstructible, typename Context,
@@ -634,9 +634,9 @@ rapidjson::Value to_json(char (&str)[N], Context& ctx)
 }
 
 // For all T's that quacks like a std::map
-template <
-    typename Map, typename Context,
-    enable_if<negation<is_json_constructible<Map>>, is_map_alike<Map>> = true>
+template <typename Map, typename Context,
+          enable_if<std::negation<is_json_constructible<Map>>,
+                    is_map_alike<Map>> = true>
 rapidjson::Value to_json(const Map& map, Context& ctx)
 {
     static_assert(std::is_constructible_v<std::string, typename Map::key_type>,
@@ -655,10 +655,10 @@ rapidjson::Value to_json(const Map& map, Context& ctx)
 }
 
 // For all T's that quacks like a std::vector
-template <
-    typename Vector, typename Context,
-    enable_if<negation<is_json_constructible<Vector>>,
-              negation<is_map_alike<Vector>>, is_vector_alike<Vector>> = true>
+template <typename Vector, typename Context,
+          enable_if<std::negation<is_json_constructible<Vector>>,
+                    std::negation<is_map_alike<Vector>>,
+                    is_vector_alike<Vector>> = true>
 rapidjson::Value to_json(const Vector& vec, Context& ctx)
 {
     rapidjson::Value arr{rapidjson::kArrayType};
@@ -737,7 +737,7 @@ rapidjson::Value to_json(const std::optional<T>& opt, Context& ctx)
 // from_json implementation
 
 template <typename T>
-struct is_64bit : kl::bool_constant<sizeof(T) == 8> {};
+struct is_64bit : std::bool_constant<sizeof(T) == 8> {};
 
 [[noreturn]] inline void throw_lossy_conversion()
 {
@@ -763,7 +763,7 @@ public:
 
     // int8, int16 and int32
     template <typename T,
-              enable_if<std::is_signed<T>, negation<is_64bit<T>>> = true>
+              enable_if<std::is_signed<T>, std::negation<is_64bit<T>>> = true>
     explicit operator T() const
     {
         if (value_.IsInt())
@@ -784,7 +784,7 @@ public:
 
     // uint8, uint16 and uint32
     template <typename T,
-              enable_if<std::is_unsigned<T>, negation<is_64bit<T>>> = true>
+              enable_if<std::is_unsigned<T>, std::negation<is_64bit<T>>> = true>
     explicit operator T() const
     {
         if (value_.IsUint())
@@ -875,7 +875,7 @@ void from_json(Map& out, const rapidjson::Value& value)
     }
 }
 
-template <typename Vector, enable_if<negation<is_map_alike<Vector>>,
+template <typename Vector, enable_if<std::negation<is_map_alike<Vector>>,
                                      is_vector_alike<Vector>> = true>
 void from_json(Vector& out, const rapidjson::Value& value)
 {

@@ -71,10 +71,10 @@ void decode_vector(kl::binary_reader& r, std::vector<T>& vec,
 }
 
 template <typename T>
-using is_trivially_serializable = kl::bool_constant<is_simple<T>::value>;
+using is_trivially_serializable = std::bool_constant<is_simple<T>::value>;
 
 template <typename T>
-using is_trivially_deserializable = kl::bool_constant<is_simple<T>::value>;
+using is_trivially_deserializable = std::bool_constant<is_simple<T>::value>;
 } // namespace detail
 
 template <typename T>

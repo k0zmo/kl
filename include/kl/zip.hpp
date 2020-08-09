@@ -241,8 +241,9 @@ template <typename... Seqs>
 zip_range<Seqs...> make_zip(Seqs&&... seqs)
 {
     static_assert(
-        conjunction<disjunction<negation<std::is_rvalue_reference<Seqs&&>>,
-                                is_rvalue_compatible<Seqs>>...>::value,
+        std::conjunction<
+            std::disjunction<std::negation<std::is_rvalue_reference<Seqs&&>>,
+                             is_rvalue_compatible<Seqs>>...>::value,
         "make_zip doesn't work on prvalue ranges unless given range "
         "is defined otherwise using is_rvalue_compatible trait");
     return zip_range<Seqs...>{std::forward<Seqs>(seqs)...};

@@ -67,7 +67,7 @@ protected:
 
 template <typename T>
 using is_simple =
-    kl::bool_constant<std::is_arithmetic<T>::value || std::is_enum<T>::value>;
+    std::bool_constant<std::is_arithmetic<T>::value || std::is_enum<T>::value>;
 
 } // namespace detail
 

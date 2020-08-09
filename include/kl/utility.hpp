@@ -13,23 +13,18 @@ constexpr auto underlying_cast(Enum e) noexcept
     return static_cast<std::underlying_type_t<Enum>>(e);
 }
 
-template <typename T, std::size_t N>
-constexpr auto countof(const T (&arr)[N]) noexcept
-{
-    (void)arr;
-    return N;
-}
+// Use it as template parameter like so: enable_if<std::is_integral<T>> = true
+template <typename... Ts>
+using enable_if = std::enable_if_t<std::conjunction_v<Ts...>, bool>;
 
-template <typename To, typename From>
-To bitwise_cast(From from) noexcept
+template <typename To, typename From,
+          enable_if<std::bool_constant<sizeof(To) == sizeof(From)>,
+                    std::is_trivially_copyable<To>,
+                    std::is_trivially_copyable<From>> = true>
+To bit_cast(const From& from) noexcept
 {
-    static_assert(sizeof(To) == sizeof(From),
-                  "Size of destination and source objects must be equal.");
-    static_assert(std::is_trivially_copyable_v<To>,
-                  "To type must be trivially copyable.");
-    static_assert(std::is_trivially_copyable_v<From>,
-                  "From type must be trivially copyable");
-
+    static_assert(std::is_default_constructible_v<To>,
+                  "To must be default constructible");
     To to;
     std::memcpy(&to, &from, sizeof(to));
     return to;
