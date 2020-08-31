@@ -77,7 +77,6 @@ elseif(KL_USE_OPENCPPCOVERAGE)
     )
 endif()
 
-include(PrecompileHeaders)
 kl_precompile_headers(kl-tests
     HEADERS
         string

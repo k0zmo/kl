@@ -62,6 +62,14 @@ if(KL_ENABLE_YAML)
             )
         endif()
         set_target_properties(yaml-cpp PROPERTIES FOLDER external)
+        kl_precompile_headers(yaml-cpp HEADERS
+            string
+            ostream
+            istream
+            ios
+            map
+            vector
+        )
     endif()
 endif()
 
