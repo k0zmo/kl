@@ -1170,14 +1170,14 @@ TEST_CASE("yaml: to_sequence and to_map")
                            {"zxc", 222, false, {1}}};
 
     auto values = kl::yaml::to_sequence(ctx)
-        .add(vz[0])
-        .add(kl::yaml::serialize(vz[1], ctx))
-        .done();
+                      .add(vz[0])
+                      .add(kl::yaml::serialize(vz[1], ctx))
+                      .done();
 
     auto obj = kl::yaml::to_map(ctx)
-        .add("ctx", 22)
-        .add("values", std::move(values))
-        .done();
+                   .add("ctx", 22)
+                   .add("values", std::move(values))
+                   .done();
 
     YAML::Emitter emitter;
     emitter << YAML::EMITTER_MANIP::Flow << obj;

@@ -163,9 +163,8 @@ TEST_CASE("json")
                             "type must be an integral but is a kStringType");
         REQUIRE_THROWS_WITH(json::deserialize<bool>(str),
                             "type must be a boolean but is a kStringType");
-        REQUIRE_THROWS_WITH(
-            json::deserialize<float>(str),
-            "type must be a number but is a kStringType");
+        REQUIRE_THROWS_WITH(json::deserialize<float>(str),
+                            "type must be a number but is a kStringType");
         REQUIRE_NOTHROW(json::deserialize<std::string>(str));
 
         rapidjson::Document arr{rapidjson::kArrayType};
@@ -1047,9 +1046,8 @@ using event_c = std::tuple<std::string, bool, std::vector<int>>;
 
 TEST_CASE("json::view - two-phase deserialization")
 {
-    auto j =
-        R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}},)"
-        R"({"type":"c","data":["d1",false,[1,2,3]]}])"_json;
+    auto j = R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}},)"
+             R"({"type":"c","data":["d1",false,[1,2,3]]}])"_json;
     auto objs = kl::json::deserialize<std::vector<event>>(j);
     REQUIRE(objs.size() == 2);
     CHECK(objs[0].type == event_type::a);
@@ -1066,10 +1064,10 @@ TEST_CASE("json::view - two-phase deserialization")
     CHECK((*objs[1].data).IsArray());
     CHECK(objs[1].data->IsArray());
 
-    auto [a,b,c] = kl::json::deserialize<event_c>(objs[1].data);
+    auto [a, b, c] = kl::json::deserialize<event_c>(objs[1].data);
     CHECK(a == "d1");
     CHECK_FALSE(b);
-    CHECK_THAT(c, Catch::Equals<int>({1,2,3}));
+    CHECK_THAT(c, Catch::Equals<int>({1, 2, 3}));
 
     CHECK(kl::json::dump(objs) ==
           R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}})"
@@ -1176,14 +1174,14 @@ TEST_CASE("json: to_array and to_object")
                            {"zxc", 222, false, {1}}};
 
     auto values = kl::json::to_array(ctx)
-        .add(vz[0])
-        .add(kl::json::serialize(vz[1], ctx))
-        .done();
+                      .add(vz[0])
+                      .add(kl::json::serialize(vz[1], ctx))
+                      .done();
 
     auto obj = kl::json::to_object(ctx)
-        .add("ctx", 22)
-        .add("values", std::move(values))
-        .done();
+                   .add("ctx", 22)
+                   .add("values", std::move(values))
+                   .done();
 
     CHECK(to_string(obj) ==
           R"({"ctx":22,"values":[{"a":"asd","b":3,"c":true,"d":[1,2,34]},)"
