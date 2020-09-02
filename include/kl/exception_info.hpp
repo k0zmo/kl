@@ -2,17 +2,14 @@
 
 // Based on http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2017/p0640r0.pdf
 
+#include <boost/core/demangle.hpp>
+
 #include <sstream>
 #include <memory>
 #include <type_traits>
 #include <typeinfo>
 #include <utility>
 #include <cstddef>
-
-#if defined(__GNUG__) && !defined(KL_NO_DEMANGLE)
-#  include <cxxabi.h>
-#  include <cstdlib>
-#endif
 
 namespace kl {
 
@@ -30,34 +27,33 @@ public:
     std::shared_ptr<exception_info_node_base> next_{};
 };
 
-#if defined(__GNUG__) && !defined(KL_NO_DEMANGLE)
-
-inline auto demangled(const char* name) noexcept
+struct demangled_type_name
 {
-    int status = -4;
-    std::unique_ptr<char, void (*)(void*)> demangled{
-        abi::__cxa_demangle(name, nullptr, nullptr, &status), std::free};
-    return demangled;
-}
+    friend std::ostream& operator<<(std::ostream& os, demangled_type_name dtn)
+    {
+        boost::core::scoped_demangled_name name{dtn.ti.name()};
+        const char* p = name.get();
+        if (!p)
+            p = dtn.ti.name();
+        return os << p;
+    }
 
-#  define KL_TYPE_ID_PRETTY_NAME(x) ::kl::detail::demangled((x).name()).get()
-#else
-#  define KL_TYPE_ID_PRETTY_NAME(x) (x).name()
-#endif
+    const std::type_info& ti;
+};
 
 template <typename T>
 auto diagnostic_info_impl(std::ostream& os, const std::type_info& tag,
                           const T& value, int)
     -> decltype((os << value), void())
 {
-    os << KL_TYPE_ID_PRETTY_NAME(tag) << " = " << value << '\n';
+    os << demangled_type_name{tag} << " = " << value << '\n';
 }
 
 template <typename T>
 void diagnostic_info_impl(std::ostream& os, const std::type_info& tag,
                           const T& value, ...)
 {
-    os << KL_TYPE_ID_PRETTY_NAME(tag) << " = [";
+    os << demangled_type_name{tag} << " = [";
 
     constexpr const char* hex = "0123456789ABCDEF";
     const auto bytes =
@@ -287,10 +283,11 @@ template <typename E>
 [[nodiscard]] std::string exception_diagnostic_info(const E& e)
 {
     std::ostringstream ss;
+    using detail::demangled_type_name;
 
     if constexpr (!std::is_polymorphic_v<E>)
     {
-        ss << "dynamic exception type: " << KL_TYPE_ID_PRETTY_NAME(typeid(E))
+        ss << "dynamic exception type: " << demangled_type_name{typeid(E)}
            << '\n';
     }
     else
@@ -300,12 +297,12 @@ template <typename E>
                 dynamic_cast<const detail::exception_with_info_base*>(ep))
         {
             ss << "dynamic exception type: "
-               << KL_TYPE_ID_PRETTY_NAME(p->exception_type) << '\n';
+               << demangled_type_name{p->exception_type} << '\n';
         }
         else
         {
-            ss << "dynamic exception type: "
-               << KL_TYPE_ID_PRETTY_NAME(typeid(e)) << '\n';
+            ss << "dynamic exception type: " << demangled_type_name{typeid(e)}
+               << '\n';
         }
 
         if (const auto* p = dynamic_cast<const std::exception*>(ep))
