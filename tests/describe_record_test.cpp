@@ -51,4 +51,6 @@ TEST_CASE("describe record")
     static_assert(std::tuple_size<decltype(f2)>::value == 1, "");
     CHECK(std::get<0>(f2).name() == "ull"s);
     CHECK(std::get<0>(f2).get() == b.ull);
+
+    (void)describe_bases(kl::record<B>);
 }

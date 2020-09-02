@@ -99,6 +99,8 @@ function(kl_precompile_headers _target)
         target_sources(${_target} PRIVATE ${host_file} ${arg_PREFIX_FILE})
         if(arg_SOURCE_GROUP)
             source_group(${arg_SOURCE_GROUP} FILES ${host_file} ${arg_PREFIX_FILE})
+        else()
+            source_group("Precompile Header Files" FILES ${host_file} ${arg_PREFIX_FILE})
         endif()
         set_source_files_properties(${host_file} PROPERTIES
             COMPILE_OPTIONS "${host_file_flags}"

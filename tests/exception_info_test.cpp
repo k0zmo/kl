@@ -6,6 +6,7 @@
 #include <exception>
 #include <vector>
 #include <stdexcept>
+#include <cstring>
 
 namespace {
 

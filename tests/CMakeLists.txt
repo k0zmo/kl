@@ -79,26 +79,11 @@ endif()
 
 kl_precompile_headers(kl-tests
     HEADERS
-        string
-        vector
-        memory
-        chrono
-        functional
-        algorithm
-        map
-        set
-        cstring
-        sstream
-        fstream
-        unordered_map
         boost/optional.hpp
-        boost/optional/optional_io.hpp
-        boost/endian/arithmetic.hpp
         boost/variant.hpp
-        boost/iterator/iterator_facade.hpp
-        boost/utility/string_view.hpp
-        gsl/string_span
-        gsl/span
+        istream
+        ostream
+        ios
         catch2/catch.hpp
     EXCLUDE
         main_test.cpp

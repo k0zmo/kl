@@ -2,6 +2,8 @@
 
 #include "kl/binary_rw.hpp"
 
+#include <gsl/span_ext>
+
 #include <vector>
 
 namespace kl {
