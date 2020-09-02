@@ -110,6 +110,11 @@ TEST_CASE("ctti")
     using namespace std::string_literals;
     using namespace test;
 
+    SECTION("name of simplest types")
+    {
+        CHECK(kl::ctti::name<int>() == "int");
+    }
+
     SECTION("type not registered")
     {
         using T = std::vector<int>;

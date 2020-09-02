@@ -74,7 +74,7 @@ struct ctti
     using base_types = typename detail::base_types<Reflected>::type;
 
     template <typename Reflected>
-    static std::string name() noexcept
+    static std::string name()
     {
         return boost::typeindex::type_id<Reflected>().pretty_name();
     }
