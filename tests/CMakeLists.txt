@@ -77,15 +77,14 @@ elseif(KL_USE_OPENCPPCOVERAGE)
     )
 endif()
 
-kl_precompile_headers(kl-tests
-    HEADERS
-        boost/optional.hpp
-        boost/variant.hpp
-        istream
-        ostream
-        ios
-        catch2/catch.hpp
-    EXCLUDE
-        main_test.cpp
-    SOURCE_GROUP pch
-)
+if(COMMAND target_precompile_headers)
+    target_precompile_headers(kl-tests PRIVATE
+        <boost/optional.hpp>
+        <boost/variant.hpp>
+        <istream>
+        <ostream>
+        <ios>
+        <catch2/catch.hpp>
+    )
+    set_source_files_properties(main_test.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
+endif()
