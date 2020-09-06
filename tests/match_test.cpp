@@ -2,6 +2,8 @@
 
 #include <catch2/catch.hpp>
 
+#include <boost/variant.hpp>
+
 namespace test {
 
 bool foo(int) { return true; }

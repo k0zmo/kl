@@ -2,6 +2,8 @@
 
 #include <catch2/catch.hpp>
 
+#include <vector>
+
 namespace {
 namespace ns {
 namespace inner {

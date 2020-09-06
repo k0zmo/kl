@@ -1,7 +1,9 @@
 #include "kl/file_view.hpp"
 
 #include <catch2/catch.hpp>
+
 #include <fstream>
+#include <stdexcept>
 #include <string>
 
 TEST_CASE("file_view")

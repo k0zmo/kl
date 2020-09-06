@@ -1,8 +1,13 @@
 #pragma once
 
 #include "kl/enum_traits.hpp"
+#include "kl/utility.hpp"
 
+#include <boost/iterator/iterator_categories.hpp>
 #include <boost/iterator/iterator_facade.hpp>
+
+#include <cstddef>
+#include <type_traits>
 
 namespace kl {
 

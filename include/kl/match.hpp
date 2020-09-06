@@ -2,7 +2,11 @@
 
 #include "kl/type_traits.hpp"
 
-#include <boost/variant.hpp>
+#include <boost/variant/apply_visitor.hpp>
+#include <boost/variant/static_visitor.hpp>
+
+#include <type_traits>
+#include <utility>
 
 namespace kl {
 namespace detail {

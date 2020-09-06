@@ -1,6 +1,8 @@
 #include "kl/base64.hpp"
 #include "kl/utility.hpp"
 
+#include <cstring>
+
 namespace kl {
 
 std::string base64_encode(gsl::span<const std::byte> s)

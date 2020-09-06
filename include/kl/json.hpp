@@ -12,15 +12,20 @@
 #undef GetObject
 #endif
 
+#include <rapidjson/allocators.h>
 #include <rapidjson/document.h>
+#include <rapidjson/error/error.h>
 #include <rapidjson/error/en.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
-#include <optional>
+#include <cstdint>
 #include <exception>
+#include <optional>
 #include <string>
 #include <string_view>
+#include <tuple>
+#include <type_traits>
 
 namespace kl::json {
 

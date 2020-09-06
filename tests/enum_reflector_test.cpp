@@ -5,6 +5,7 @@
 #include <boost/optional/optional_io.hpp>
 
 #include <string>
+#include <string_view>
 
 namespace {
 namespace ns {

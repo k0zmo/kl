@@ -1,6 +1,5 @@
 #include "kl/file_view.hpp"
 
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -8,6 +7,9 @@
 
 #include <system_error>
 #include <cassert>
+#include <cstddef>
+#include <utility>
+#include <errno.h>
 
 namespace kl {
 namespace {

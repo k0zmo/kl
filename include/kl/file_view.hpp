@@ -3,7 +3,6 @@
 #include <gsl/span>
 
 #include <cstddef>
-#include <memory>
 
 namespace kl {
 
