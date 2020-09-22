@@ -25,6 +25,18 @@ TEST_CASE("file_view")
         REQUIRE(s.empty());
     }
 
+    SECTION("read file that's already opened")
+    {
+        std::ofstream strm{"test-opened.tmp",
+                           std::ios::trunc | std::ios::out | std::ios::binary};
+        strm << "Test\nHello.";
+        strm.flush();
+
+        kl::file_view view{"test-opened.tmp"};
+        auto s = view.get_bytes();
+        REQUIRE(s.size_bytes() == 11);
+    }
+
     SECTION("read file")
     {
         {

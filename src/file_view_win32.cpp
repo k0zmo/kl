@@ -62,15 +62,29 @@ struct invalid_handle_value_policy
     // INVALID_HANDLE_VALUE cannot be assigned to HANDLE in constexpr context
     static constexpr LONG_PTR empty = static_cast<LONG_PTR>(-1);
 };
+
+[[noreturn]] void throw_system_error()
+{
+    throw std::system_error{static_cast<int>(::GetLastError()),
+                            std::system_category()};
+}
 } // namespace
 
 file_view::file_view(const char* file_path)
 {
-    handle<invalid_handle_value_policy> file_handle{::CreateFileA(
-        file_path, GENERIC_READ, 0x0, nullptr, OPEN_EXISTING, 0x0, nullptr)};
+    handle<invalid_handle_value_policy> file_handle{
+        ::CreateFileA(file_path, GENERIC_READ, FILE_SHARE_READ, nullptr,
+                      OPEN_EXISTING, 0x0, nullptr)};
     if (!file_handle)
-        throw std::system_error{static_cast<int>(::GetLastError()),
-                                std::system_category()};
+    {
+        // Try again with RW sharing as the target file might be already be
+        // opened in this mode.
+        file_handle = ::CreateFileA(file_path, GENERIC_READ,
+                                    FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr,
+                                    OPEN_EXISTING, 0x0, nullptr);
+        if (!file_handle)
+            throw_system_error();
+    }
 
     LARGE_INTEGER file_size = {};
     ::GetFileSizeEx(file_handle.get(), &file_size);
@@ -80,14 +94,12 @@ file_view::file_view(const char* file_path)
     handle<null_handle_policy> mapping_handle{::CreateFileMappingA(
         file_handle.get(), nullptr, PAGE_READONLY, 0, 0, nullptr)};
     if (!mapping_handle)
-        throw std::system_error{static_cast<int>(::GetLastError()),
-                                std::system_category()};
+        throw_system_error();
 
     void* file_view =
         ::MapViewOfFile(mapping_handle.get(), FILE_MAP_READ, 0, 0, 0);
     if (!file_view)
-        throw std::system_error{static_cast<int>(::GetLastError()),
-                                std::system_category()};
+        throw_system_error();
 
     contents_ = gsl::span{static_cast<const std::byte*>(file_view),
                           static_cast<std::size_t>(file_size.QuadPart)};
