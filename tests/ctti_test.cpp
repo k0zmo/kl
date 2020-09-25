@@ -16,7 +16,7 @@ struct A
     std::vector<int> y;
     int z; // Not reflectable
 };
-KL_DESCRIBE_FIELDS(A, x, y)
+KL_REFLECT_STRUCT(A, x, y)
 
 struct S
 {
@@ -25,7 +25,13 @@ struct S
     std::array<float, 3> c;
     A aa;
 };
-KL_DESCRIBE_FIELDS(S, a, b, c, aa)
+KL_REFLECT_STRUCT(S, a, b, c, aa)
+
+struct Sdev : S
+{
+    int adev;
+};
+KL_REFLECT_STRUCT(Sdev, a, b, adev)
 
 namespace ns {
 namespace inner {
@@ -40,21 +46,20 @@ public:
 
 private:
     // because `d` and `e` are private
-    template <typename Self>
-    friend constexpr auto describe_fields(kl::record_class<T>, Self&&) noexcept;
+    template <typename Visitor, typename Self>
+    friend constexpr void reflect_struct(Visitor&&, Self&&,
+                                         ::kl::record_class<T>);
     std::string d;
     std::vector<std::string> e;
 };
-KL_DESCRIBE_BASES(T, A, S)
-KL_DESCRIBE_FIELDS(T, d, e)
+KL_REFLECT_STRUCT_DERIVED(T, (A, S), d, e)
 } // namespace inner
 
 struct B : A
 {
     int zzz;
 };
-KL_DESCRIBE_BASES(B, A)
-KL_DESCRIBE_FIELDS(B, zzz)
+KL_REFLECT_STRUCT_DERIVED(B, A, zzz)
 } // namespace ns
 
 struct ZZZ
@@ -64,7 +69,7 @@ struct ZZZ
     int& ref_a = a;
     const int& ref_b = b;
 };
-KL_DESCRIBE_FIELDS(ZZZ, a, b, ref_a, ref_b)
+KL_REFLECT_STRUCT(ZZZ, a, b, ref_a, ref_b)
 } // namespace test
 
 namespace {
@@ -93,12 +98,12 @@ namespace test {
 
 std::ostream& operator<<(std::ostream& os, const A& a)
 {
-    kl::ctti::reflect(a, [&os](auto fi) {
-        os << fi.name() << ": ";
+    kl::ctti::reflect(a, [&os](auto& field, auto name) {
+        os << name << ": ";
         // This is used so GCC 7 and 8 will also consider `operator<<` for
         // vector<T> and array<T,N> defined above (see
         // https://godbolt.org/z/dw9DdN)
-        trampoline_operator(os, fi.get());
+        trampoline_operator(os, field);
         os << "\n";
     });
     return os;
@@ -119,26 +124,17 @@ TEST_CASE("ctti")
     {
         using T = std::vector<int>;
         REQUIRE(!kl::ctti::is_reflectable<T>);
-
-        static_assert(
-            std::is_same<kl::ctti::base_types<T>, kl::type_pack<>>::value,
-            "???");
     }
 
     SECTION("global type A")
     {
         REQUIRE(kl::ctti::is_reflectable<A>);
         REQUIRE(kl::ctti::num_fields<A>() == 2);
-        REQUIRE(kl::ctti::total_num_fields<A>() == 2);
-
-        static_assert(
-            std::is_same<kl::ctti::base_types<A>, kl::type_pack<>>::value,
-            "???");
 
         std::ostringstream ss;
         A a = {"ZXC", {1,2,3}, 0};
-        kl::ctti::reflect(a, [&ss](auto fi){
-            ss << fi.name() << ": " << fi.get() << "\n";
+        kl::ctti::reflect(a, [&ss](auto& field, auto name){
+            ss << name << ": " << field << "\n";
         });
 
         REQUIRE(ss.str() == "x: ZXC\ny: 1, 2, 3\n");
@@ -149,13 +145,7 @@ TEST_CASE("ctti")
         using B = ns::B;
 
         REQUIRE(kl::ctti::is_reflectable<B>);
-        REQUIRE(kl::ctti::num_fields<B>() == 1);
-        REQUIRE(kl::ctti::total_num_fields<B>() == 3);
-
-        static_assert(
-            std::is_same<kl::ctti::base_types<B>, kl::type_pack<A>>::value,
-            "???");
-        REQUIRE(kl::ctti::base_types<B>::value == 1);
+        REQUIRE(kl::ctti::num_fields<B>() == 3);
 
         std::ostringstream ss;
         B b;
@@ -163,8 +153,8 @@ TEST_CASE("ctti")
         b.y = {0, 1337};
         b.zzz = 123;
         b.z = 0;
-        kl::ctti::reflect(b, [&ss](auto fi) {
-            ss << fi.name() << ": " << fi.get() << "\n";
+        kl::ctti::reflect(b, [&ss](auto& field, auto name) {
+            ss << name << ": " << field << "\n";
         });
 
         REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
@@ -182,8 +172,8 @@ TEST_CASE("ctti")
         const B& ref_b = b;
 
         std::ostringstream ss;
-        kl::ctti::reflect(ref_b, [&ss](auto fi) {
-            ss << fi.name() << ": " << fi.get() << "\n";
+        kl::ctti::reflect(ref_b, [&ss](auto& field, auto name) {
+            ss << name << ": " << field << "\n";
         });
 
         REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
@@ -192,19 +182,37 @@ TEST_CASE("ctti")
     SECTION("type S in namespace ns with std::array<>")
     {
         REQUIRE(kl::ctti::is_reflectable<S>);
-        REQUIRE(kl::ctti::num_fields<S>() == 4);
-        REQUIRE(kl::ctti::total_num_fields<S>() == 4);
+        static_assert(kl::ctti::num_fields<S>() == 4);
 
         const S s = {5, false, {3.14f}, A{"ZXC", {1, 2, 3, 4, 5, 6}, 0}};
 
         std::ostringstream ss;
         ss << std::boolalpha;
-        kl::ctti::reflect(s, [&ss](auto fi) {
-            ss << fi.name() << ": " << fi.get() << "\n";
+        kl::ctti::reflect(s, [&ss](auto& field, auto name) {
+            ss << name << ": " << field << "\n";
         });
 
         REQUIRE(ss.str() == "a: 5\nb: false\nc: 3.14, 0, 0\naa: x: ZXC\ny: 1, "
                             "2, 3, 4, 5, 6\n\n");
+    }
+
+    SECTION("type Sdev")
+    {
+        REQUIRE(kl::ctti::is_reflectable<Sdev>);
+        static_assert(kl::ctti::num_fields<Sdev>() == 3);
+
+        Sdev sd{};
+        sd.a = 3400;
+        sd.b = true;
+        sd.adev = 114;
+
+        std::ostringstream ss;
+        ss << std::boolalpha;
+        kl::ctti::reflect(sd, [&ss](auto& field, auto name) {
+            ss << name << ": " << field << "\n";
+        });
+
+        REQUIRE(ss.str() == "a: 3400\nb: true\nadev: 114\n");
     }
 
     SECTION("type T with multi-inheritance in 2-level deep namespace")
@@ -212,8 +220,7 @@ TEST_CASE("ctti")
         using T = ns::inner::T;
 
         REQUIRE(kl::ctti::is_reflectable<T>);
-        REQUIRE(kl::ctti::num_fields<T>() == 2);
-        REQUIRE(kl::ctti::total_num_fields<T>() == 2 + 2+ 4);
+        REQUIRE(kl::ctti::num_fields<T>() == 2 + 2+ 4);
 
         T t{"HELLO",{"WORLD", "Hello"}};
         t.a = 2;
@@ -222,35 +229,11 @@ TEST_CASE("ctti")
 
         std::ostringstream ss;
         ss << std::boolalpha;
-        kl::ctti::reflect(t, [&ss](auto fi) {
-            ss << fi.name() << ": " << fi.get() << "\n";
+        kl::ctti::reflect(t, [&ss](auto& field, auto name) {
+            ss << name << ": " << field << "\n";
         });
         REQUIRE(ss.str() == "x: \ny: .\na: 2\nb: true\nc: 2.71, 3.14, "
                             "1.67\naa: x: \ny: .\n\nd: HELLO\ne: WORLD, "
                             "Hello\n");
     }
-
-    using field_desc_type = decltype(
-        describe_fields(kl::record<test::ZZZ>, std::declval<test::ZZZ>()));
-
-    static_assert(
-        std::is_same<
-            typename std::tuple_element_t<0, field_desc_type>::original_type,
-            int>::value,
-        "");
-    static_assert(
-        std::is_same<
-            typename std::tuple_element_t<1, field_desc_type>::original_type,
-            const int>::value,
-        "");
-    static_assert(
-        std::is_same<
-            typename std::tuple_element_t<2, field_desc_type>::original_type,
-            int&>::value,
-        "");
-    static_assert(
-        std::is_same<
-            typename std::tuple_element_t<3, field_desc_type>::original_type,
-            const int&>::value,
-        "");
 }

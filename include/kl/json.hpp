@@ -567,11 +567,11 @@ template <typename Reflectable, typename Context,
 void encode(const Reflectable& refl, Context& ctx)
 {
     ctx.writer().StartObject();
-    ctti::reflect(refl, [&ctx](auto fi) {
-        if (!ctx.skip_field(fi.name(), fi.get()))
+    ctti::reflect(refl, [&ctx](auto& field, auto name) {
+        if (!ctx.skip_field(name, field))
         {
-            ctx.writer().Key(fi.name());
-            json::dump(fi.get(), ctx);
+            ctx.writer().Key(name);
+            json::dump(field, ctx);
         }
     });
     ctx.writer().EndObject();
@@ -721,11 +721,11 @@ template <typename Reflectable, typename Context,
 rapidjson::Value to_json(const Reflectable& refl, Context& ctx)
 {
     rapidjson::Value obj{rapidjson::kObjectType};
-    ctti::reflect(refl, [&obj, &ctx](auto fi) {
-        if (!ctx.skip_field(fi.name(), fi.get()))
+    ctti::reflect(refl, [&obj, &ctx](auto& field, auto name) {
+        if (!ctx.skip_field(name, field))
         {
-            auto json = json::serialize(fi.get(), ctx);
-            obj.AddMember(rapidjson::StringRef(fi.name()), std::move(json),
+            auto json = json::serialize(field, ctx);
+            obj.AddMember(rapidjson::StringRef(name), std::move(json),
                           ctx.allocator());
         }
     });
@@ -956,15 +956,15 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
     if (value.IsObject())
     {
         const auto obj = value.GetObject();
-        ctti::reflect(out, [&obj](auto fi) {
+        ctti::reflect(out, [&obj](auto& field, auto name) {
             try
             {
-                json::deserialize(fi.get(), json::at(obj, fi.name()));
+                json::deserialize(field, json::at(obj, name));
             }
             catch (deserialize_error& ex)
             {
                 std::string msg =
-                    "error when deserializing field " + std::string(fi.name());
+                    "error when deserializing field " + std::string(name);
                 ex.add(msg.c_str());
                 throw;
             }
@@ -972,17 +972,17 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
     }
     else if (value.IsArray())
     {
-        if (value.Size() > ctti::total_num_fields<Reflectable>())
+        if (value.Size() > ctti::num_fields<Reflectable>())
         {
             throw deserialize_error{"array size is greater than "
                                     "declared struct's field "
                                     "count"};
         }
         const auto arr = value.GetArray();
-        ctti::reflect(out, [&arr, index = 0U](auto fi) mutable {
+        ctti::reflect(out, [&arr, index = 0U](auto& field, auto name) mutable {
             try
             {
-                json::deserialize(fi.get(), json::at(arr, index));
+                json::deserialize(field, json::at(arr, index));
                 ++index;
             }
             catch (deserialize_error& ex)

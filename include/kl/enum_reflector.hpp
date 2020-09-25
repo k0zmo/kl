@@ -1,7 +1,7 @@
 #pragma once
 
 #include "kl/type_traits.hpp"
-#include "kl/describe_enum.hpp"
+#include "kl/reflect_enum.hpp"
 
 #include <string_view>
 #include <type_traits>
@@ -13,7 +13,7 @@ namespace kl {
 
 namespace detail {
 
-KL_VALID_EXPR_HELPER(has_describe_enum, describe_enum(::kl::enum_<T>))
+KL_VALID_EXPR_HELPER(has_reflect_enum, reflect_enum(::kl::enum_<T>))
 } // namespace detail
 
 template <typename Enum, bool is_enum = std::is_enum_v<Enum>>
@@ -24,7 +24,7 @@ struct is_enum_reflectable : std::false_type {};
 // we check is_defined only if Enum is an actual enum type.
 template <typename Enum>
 struct is_enum_reflectable<Enum, true>
-    : std::bool_constant<detail::has_describe_enum_v<Enum>>
+    : std::bool_constant<detail::has_reflect_enum_v<Enum>>
 {
 };
 
@@ -47,17 +47,17 @@ struct enum_reflector
 
     static_assert(is_enum_reflectable_v<enum_type>,
                   "Enum must be a reflectable enum. "
-                  "Define describe_enum(kl::enum_class<Enum>) function");
+                  "Define reflect_enum(kl::enum_class<Enum>) function");
 
     static constexpr std::size_t count() noexcept
     {
-        return describe_enum(enum_<enum_type>).size();
+        return reflect_enum(enum_<enum_type>).size();
     }
 
     static constexpr std::optional<enum_type>
         from_string(std::string_view str) noexcept
     {
-        const auto rng = describe_enum(enum_<enum_type>);
+        const auto rng = reflect_enum(enum_<enum_type>);
         for (const auto& vn : rng)
         {
             if (str == vn.name)
@@ -72,7 +72,7 @@ struct enum_reflector
         // expression which under the table uses `auto&&` to extend the lifetime
         // of it. Thus we assign the expression to `auto` and only then we loop
         // over it.
-        const auto rng = describe_enum(enum_<enum_type>);
+        const auto rng = reflect_enum(enum_<enum_type>);
         for (const auto& vn : rng)
         {
             if (vn.value == value)
@@ -92,7 +92,7 @@ struct enum_reflector
 private:
     static constexpr auto values_impl() noexcept
     {
-        constexpr auto rng = describe_enum(enum_<enum_type>);
+        constexpr auto rng = reflect_enum(enum_<enum_type>);
         std::array<enum_type, rng.size()> values{};
         auto it = rng.begin();
         for (auto& value : values)
@@ -109,7 +109,7 @@ constexpr enum_reflector<Enum> reflect() noexcept
 {
     static_assert(is_enum_reflectable_v<Enum>,
                   "E must be a reflectable enum - defined using "
-                  "KL_DESCRIBE_ENUM macro");
+                  "KL_REFLECT_ENUM macro");
     return {};
 }
 

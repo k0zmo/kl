@@ -1,11 +1,11 @@
 #include "kl/yaml.hpp"
-#include "kl/describe_enum.hpp"
+#include "kl/reflect_enum.hpp"
 
 #include <iterator>
 
 namespace YAML {
 
-KL_DESCRIBE_ENUM(NodeType::value, Undefined, Null, Scalar, Sequence, Map)
+KL_REFLECT_ENUM(NodeType::value, Undefined, Null, Scalar, Sequence, Map)
 } // namespace YAML
 
 namespace kl::yaml {

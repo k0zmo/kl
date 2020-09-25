@@ -1024,14 +1024,14 @@ enum class event_type
     b,
     c
 };
-KL_DESCRIBE_ENUM(event_type, a, b, c)
+KL_REFLECT_ENUM(event_type, a, b, c)
 
 struct event
 {
     event_type type;
     kl::json::view data;
 };
-KL_DESCRIBE_FIELDS(event, type, data)
+KL_REFLECT_STRUCT(event, type, data)
 
 struct event_a
 {
@@ -1039,7 +1039,7 @@ struct event_a
     bool f2;
     std::string f3;
 };
-KL_DESCRIBE_FIELDS(event_a, f1, f2, f3)
+KL_REFLECT_STRUCT(event_a, f1, f2, f3)
 
 using event_c = std::tuple<std::string, bool, std::vector<int>>;
 } // namespace

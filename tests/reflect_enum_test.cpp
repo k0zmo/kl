@@ -1,4 +1,4 @@
-#include "kl/describe_enum.hpp"
+#include "kl/reflect_enum.hpp"
 
 #include <catch2/catch.hpp>
 
@@ -13,13 +13,13 @@ enum class A
     c
 };
 
-KL_DESCRIBE_ENUM(A, a, (b, BB), c)
+KL_REFLECT_ENUM(A, a, (b, BB), c)
 } // namespace
 
-TEST_CASE("describe enum")
+TEST_CASE("reflect enum")
 {
     using namespace std::string_literals;
-    const auto rng = describe_enum(kl::enum_<A>);
+    const auto rng = reflect_enum(kl::enum_<A>);
 
     REQUIRE(rng.size() == 3);
     auto it = rng.begin();

@@ -418,13 +418,13 @@ template <typename Reflectable, typename Context,
 void encode(const Reflectable& refl, Context& ctx)
 {
     ctx.emitter() << YAML::BeginMap;
-    ctti::reflect(refl, [&ctx](auto fi) {
-        if (!ctx.skip_field(fi.name(), fi.get()))
+    ctti::reflect(refl, [&ctx](auto& field, auto name) {
+        if (!ctx.skip_field(name, field))
         {
             ctx.emitter() << YAML::Key;
-            ctx.emitter() << fi.name();
+            ctx.emitter() << name;
             ctx.emitter() << YAML::Value;
-            yaml::dump(fi.get(), ctx);
+            yaml::dump(field, ctx);
         }
     });
     ctx.emitter() << YAML::EndMap;
@@ -544,9 +544,9 @@ template <typename Reflectable, typename Context,
 YAML::Node to_yaml(const Reflectable& refl, Context& ctx)
 {
     YAML::Node obj{YAML::NodeType::Map};
-    ctti::reflect(refl, [&obj, &ctx](auto fi) {
-        if (!ctx.skip_field(fi.name(), fi.get()))
-            obj[fi.name()] = yaml::serialize(fi.get(), ctx);
+    ctti::reflect(refl, [&obj, &ctx](auto& field, auto name) {
+        if (!ctx.skip_field(name, field))
+            obj[name] = yaml::serialize(field, ctx);
     });
     return obj;
 }
@@ -719,15 +719,15 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
 {
     if (value.IsMap())
     {
-        ctti::reflect(out, [&value](auto fi) {
+        ctti::reflect(out, [&value](auto& field, auto name) {
             try
             {
-                yaml::deserialize(fi.get(), yaml::at(value, fi.name()));
+                yaml::deserialize(field, yaml::at(value, name));
             }
             catch (deserialize_error& ex)
             {
                 std::string msg =
-                    "error when deserializing field " + std::string(fi.name());
+                    "error when deserializing field " + std::string(name);
                 ex.add(msg.c_str());
                 throw;
             }
@@ -735,16 +735,17 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
     }
     else if (value.IsSequence())
     {
-        if (value.size() > ctti::total_num_fields<Reflectable>())
+        if (value.size() > ctti::num_fields<Reflectable>())
         {
             throw deserialize_error{"sequence size is greater than "
                                     "declared struct's field "
                                     "count"};
         }
-        ctti::reflect(out, [&value, index = 0U](auto fi) mutable {
+        ctti::reflect(out, [&value, index = 0U](auto& field,
+                                                auto name) mutable {
             try
             {
-                yaml::deserialize(fi.get(), yaml::at(value, index));
+                yaml::deserialize(field, yaml::at(value, index));
                 ++index;
             }
             catch (deserialize_error& ex)

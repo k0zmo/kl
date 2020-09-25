@@ -1,12 +1,12 @@
 #include "kl/json.hpp"
-#include "kl/describe_enum.hpp"
+#include "kl/reflect_enum.hpp"
 
 #include <iterator>
 
 namespace rapidjson {
 
-KL_DESCRIBE_ENUM(Type, kNullType, kFalseType, kTrueType, kObjectType,
-                 kArrayType, kStringType, kNumberType)
+KL_REFLECT_ENUM(Type, kNullType, kFalseType, kTrueType, kObjectType, kArrayType,
+                kStringType, kNumberType)
 } // namespace rapidjson
 
 namespace kl::json {
