@@ -366,6 +366,44 @@ public:
 private:
     const rapidjson::Value& value_;
 };
+
+class array_extractor
+{
+public:
+    explicit array_extractor(const rapidjson::Value& value) : value_{value}
+    {
+        json::expect_array(value_);
+    }
+
+    template <typename T>
+    array_extractor& extract(T& out, unsigned index)
+    {
+        index_ = index;
+        return extract<T>(out);
+    }
+
+    template <typename T>
+    array_extractor& extract(T& out)
+    {
+        try
+        {
+            json::deserialize(out, json::at(value_.GetArray(), index_));
+            ++index_;
+            return *this;
+        }
+        catch (deserialize_error& ex)
+        {
+            std::string msg =
+                "error when deserializing element " + std::to_string(index_);
+            ex.add(msg.c_str());
+            throw;
+        }
+    }
+
+private:
+    const rapidjson::Value& value_;
+    unsigned index_{};
+};
 } // namespace detail
 
 template <typename Context>
@@ -378,6 +416,11 @@ template <typename Context>
 auto to_object(Context& ctx)
 {
     return detail::object_builder<Context>{ctx};
+}
+
+inline auto from_array(const rapidjson::Value& value)
+{
+    return detail::array_extractor{value};
 }
 
 inline auto from_object(const rapidjson::Value& value)

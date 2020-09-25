@@ -1187,3 +1187,32 @@ TEST_CASE("json: to_array and to_object")
           R"({"ctx":22,"values":[{"a":"asd","b":3,"c":true,"d":[1,2,34]},)"
           R"({"a":"zxc","b":222,"c":false,"d":[1]}]})");
 }
+
+TEST_CASE("json: from_array and from_object")
+{
+    const auto j =
+        R"({"ctx":123,"array":[{"r":331,"d":5.6},{"something":true},3]})"_json;
+
+    int ctx;
+    kl::json::view av;
+    kl::json::from_object(j).extract("ctx", ctx).extract("array", av);
+    REQUIRE(ctx == 123);
+    const auto& jarr = kl::json::at(j.GetObject(), "array");
+    REQUIRE(jarr == av.value());
+
+    inner_t inn;
+    kl::json::view view;
+    int i;
+    kl::json::from_array(jarr).extract(inn).extract(view, 1).extract(i);
+    REQUIRE(inn.r == 331);
+    REQUIRE(inn.d == Approx(5.6));
+    REQUIRE(i == 3);
+
+    bool smth;
+    kl::json::from_object(view.value()).extract("something", smth);
+    REQUIRE(smth);
+
+    REQUIRE_THROWS_WITH(kl::json::from_array(jarr).extract(smth, 2),
+                        "type must be a boolean but is a kNumberType\n"
+                        "error when deserializing element 2");
+}

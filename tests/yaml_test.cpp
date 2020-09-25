@@ -1186,3 +1186,40 @@ TEST_CASE("yaml: to_sequence and to_map")
     CHECK(str == R"({ctx: 22, values: [{a: asd, b: 3, c: true, d: [1, 2, 34]})"
                  R"(, {a: zxc, b: 222, c: false, d: [1]}]})");
 }
+
+TEST_CASE("yaml: from_sequence and from_map")
+{
+    const auto y =
+        R"(ctx: 123
+array:
+  - r: 331
+    d: 5.6
+  - something: true
+  - 3)"_yaml;
+
+    int ctx;
+    kl::yaml::view av;
+    kl::yaml::from_map(y).extract("ctx", ctx).extract("array", av);
+    REQUIRE(ctx == 123);
+    const auto& yseq = kl::yaml::at(y, "array");
+    REQUIRE(yseq == av.value());
+
+    inner_t inn;
+    kl::yaml::view view;
+    int i;
+    kl::yaml::from_sequence(av.value())
+        .extract(inn)
+        .extract(view, 1)
+        .extract(i);
+    REQUIRE(inn.r == 331);
+    REQUIRE(inn.d == Approx(5.6));
+    REQUIRE(i == 3);
+
+    bool smth;
+    kl::yaml::from_map(view.value()).extract("something", smth);
+    REQUIRE(smth);
+
+    REQUIRE_THROWS_WITH(kl::yaml::from_sequence(av.value()).extract(smth, 2),
+                        "yaml-cpp: error at line 6, column 5: bad conversion\n"
+                        "error when deserializing element 2");
+}

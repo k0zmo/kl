@@ -282,6 +282,44 @@ public:
 private:
     const YAML::Node& node_;
 };
+
+class sequence_extractor
+{
+public:
+    explicit sequence_extractor(const YAML::Node& node) : node_{node}
+    {
+        yaml::expect_sequence(node_);
+    }
+
+    template <typename T>
+    sequence_extractor& extract(T& out, unsigned index)
+    {
+        index_ = index;
+        return extract<T>(out);
+    }
+
+    template <typename T>
+    sequence_extractor& extract(T& out)
+    {
+        try
+        {
+            yaml::deserialize(out, yaml::at(node_, index_));
+            ++index_;
+            return *this;
+        }
+        catch (deserialize_error& ex)
+        {
+            std::string msg =
+                "error when deserializing element " + std::to_string(index_);
+            ex.add(msg.c_str());
+            throw;
+        }
+    }
+
+private:
+    const YAML::Node& node_;
+    unsigned index_{};
+};
 } // namespace detail
 
 template <typename Context>
@@ -294,6 +332,11 @@ template <typename Context>
 auto to_map(Context& ctx)
 {
     return detail::map_builder<Context>{ctx};
+}
+
+inline auto from_sequence(const YAML::Node& node)
+{
+    return detail::sequence_extractor{node};
 }
 
 inline auto from_map(const YAML::Node& node)
