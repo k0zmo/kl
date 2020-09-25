@@ -340,7 +340,7 @@ private:
 class object_extractor
 {
 public:
-    explicit object_extractor(const rapidjson::Value& value) noexcept
+    explicit object_extractor(const rapidjson::Value& value)
         : value_{value}
     {
         json::expect_object(value_);

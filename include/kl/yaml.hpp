@@ -257,7 +257,7 @@ private:
 class map_extractor
 {
 public:
-    explicit map_extractor(const YAML::Node& node) noexcept : node_{node}
+    explicit map_extractor(const YAML::Node& node) : node_{node}
     {
         yaml::expect_map(node_);
     }
