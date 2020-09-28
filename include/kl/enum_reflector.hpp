@@ -2,10 +2,10 @@
 
 #include "kl/type_traits.hpp"
 #include "kl/reflect_enum.hpp"
+#include "kl/range.hpp"
 
 #include <string_view>
 #include <type_traits>
-#include <cstring>
 #include <array>
 #include <optional>
 
@@ -51,7 +51,8 @@ struct enum_reflector
 
     static constexpr std::size_t count() noexcept
     {
-        return reflect_enum(enum_<enum_type>).size();
+        const auto rng = reflect_enum(enum_<enum_type>);
+        return count_impl(rng);
     }
 
     static constexpr std::optional<enum_type>
@@ -93,7 +94,7 @@ private:
     static constexpr auto values_impl() noexcept
     {
         constexpr auto rng = reflect_enum(enum_<enum_type>);
-        std::array<enum_type, rng.size()> values{};
+        std::array<enum_type, count_impl(rng)> values{};
         auto it = rng.begin();
         for (auto& value : values)
         {
@@ -101,6 +102,18 @@ private:
             ++it;
         }
         return values;
+    }
+
+    static constexpr std::size_t
+        count_impl(kl::enum_reflection_view<enum_type> rng) noexcept
+    {
+        std::size_t acc{};
+        for (const auto vn : rng)
+        {
+            (void)vn;
+            ++acc;
+        }
+        return acc;
     }
 };
 

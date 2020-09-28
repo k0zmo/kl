@@ -21,7 +21,6 @@ TEST_CASE("reflect enum")
     using namespace std::string_literals;
     const auto rng = reflect_enum(kl::enum_<A>);
 
-    REQUIRE(rng.size() == 3);
     auto it = rng.begin();
     REQUIRE(it != rng.end());
     CHECK(it->name == "a"s);
@@ -38,5 +37,5 @@ TEST_CASE("reflect enum")
     CHECK(it->value == A::c);
     ++it;
 
-    REQUIRE(it == rng.end());
+    REQUIRE_FALSE(it != rng.end());
 }

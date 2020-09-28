@@ -1,7 +1,6 @@
 #pragma once
 
 #include "kl/detail/macro.hpp"
-#include "kl/range.hpp"
 
 /*
  * Requirements: boost 1.57+, C++14 compiler and preprocessor
@@ -33,11 +32,14 @@ KL_REFLECT_ENUM(enum_, A, (B, bb), C)
 
  * Above definition is expanded to:
 
-     static constexpr ::kl::enum_value_name<enum_> kl_enum_description356[] = {
-         {enum_::A, "A"}, {enum_::B, "bb"}, {enum_::C, "C"}};
+     inline constexpr ::kl::enum_reflection_pair<enum_>
+         kl_enum_description356[] = {{enum_::A, "A"},
+                                     {enum_::B, "bb"},
+                                     {enum_::C, "C"},
+                                     {enum_{}, nullptr}};
      constexpr auto reflect_enum(::kl::enum_class<enum_>) noexcept
      {
-         return ::kl::range{kl_enum_description356};
+         return ::kl::enum_reflection_view{kl_enum_description356};
      }
  */
 
@@ -52,10 +54,37 @@ inline constexpr auto enum_ = enum_class<Enum>{};
 // clang-format on
 
 template <typename Enum>
-struct enum_value_name
+struct enum_reflection_pair
 {
     Enum value;
     const char* name;
+};
+
+struct enum_reflection_sentinel
+{
+    template <typename Enum>
+    constexpr friend bool operator!=(const enum_reflection_pair<Enum>* it,
+                                     enum_reflection_sentinel) noexcept
+    {
+        return it && it->name;
+    }
+};
+
+template <typename Enum>
+class enum_reflection_view
+{
+public:
+    constexpr explicit enum_reflection_view(
+        const kl::enum_reflection_pair<Enum>* first) noexcept
+        : first_{first}
+    {
+    }
+
+    constexpr auto begin() const noexcept { return first_; }
+    constexpr auto end() const noexcept { return enum_reflection_sentinel{}; }
+
+private:
+    const kl::enum_reflection_pair<Enum>* first_;
 };
 } // namespace kl
 
@@ -66,23 +95,25 @@ struct enum_value_name
     KL_REFLECT_ENUM_IMPL(name_, values_, __COUNTER__)
 
 #define KL_REFLECT_ENUM_IMPL(name_, values_, counter_)                         \
-    inline constexpr ::kl::enum_value_name<name_> KL_REFLECT_ENUM_VAR_NAME(    \
-        counter_)[] = {KL_REFLECT_ENUM_VALUE_NAME_PAIRS(name_, values_)};      \
+    inline constexpr ::kl::enum_reflection_pair<name_>                         \
+        KL_REFLECT_ENUM_VARNAME(counter_)[] = {                                \
+            KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_){name_{},          \
+                                                             nullptr}};        \
     constexpr auto reflect_enum(::kl::enum_class<name_>) noexcept              \
     {                                                                          \
-        return ::kl::range{KL_REFLECT_ENUM_VAR_NAME(counter_)};                \
+        return ::kl::enum_reflection_view{KL_REFLECT_ENUM_VARNAME(counter_)};  \
     }
 
-#define KL_REFLECT_ENUM_VAR_NAME(counter_)                                     \
+#define KL_REFLECT_ENUM_VARNAME(counter_)                                      \
     KL_CONCAT(kl_enum_description, counter_)
 
-#define KL_REFLECT_ENUM_VALUE_NAME_PAIRS(name_, values_)                       \
-    KL_TUPLE_FOR_EACH2(name_, values_, KL_REFLECT_ENUM_VALUE_NAME_PAIR)
+#define KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_)                       \
+    KL_TUPLE_FOR_EACH2(name_, values_, KL_REFLECT_ENUM_REFLECTION_PAIR)
 
-#define KL_REFLECT_ENUM_VALUE_NAME_PAIR(name_, value_)                         \
-    KL_REFLECT_ENUM_VALUE_NAME_PAIR2(name_, KL_ARG_TO_TUPLE(value_))
+#define KL_REFLECT_ENUM_REFLECTION_PAIR(name_, value_)                         \
+    KL_REFLECT_ENUM_REFLECTION_PAIR2(name_, KL_ARG_TO_TUPLE(value_))
 
 // Assumes value_ is a tuple: (x) or (x, y)
-#define KL_REFLECT_ENUM_VALUE_NAME_PAIR2(name_, value_)                        \
+#define KL_REFLECT_ENUM_REFLECTION_PAIR2(name_, value_)                        \
     {name_::KL_TUPLE_ELEM(0, value_),                                          \
      KL_STRINGIZE(KL_TUPLE_SECOND_OR_FIRST_ELEM(value_))},
