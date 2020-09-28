@@ -1,11 +1,6 @@
 #pragma once
 
-#include <boost/preprocessor/stringize.hpp>
-#include <boost/preprocessor/punctuation/remove_parens.hpp>
-#include <boost/preprocessor/repetition/repeat.hpp>
-#include <boost/preprocessor/tuple/elem.hpp>
-#include <boost/preprocessor/tuple/size.hpp>
-#include <boost/preprocessor/variadic/to_tuple.hpp>
+#include "kl/detail/macro.hpp"
 
 #include <cstddef>
 
@@ -53,7 +48,7 @@ KL_REFLECT_STRUCT_DERIVED(B, A, str)
 
      constexpr std::size_t reflect_num_fields(::kl::record_class<A>) noexcept
      {
-         return 2;
+         return 3;
      }
 
      template <typename Visitor, typename Self>
@@ -97,12 +92,11 @@ inline constexpr auto record = record_class<Record>{};
 } // namespace kl
 
 #define KL_REFLECT_STRUCT(type_, ...)                                          \
-    KL_REFLECT_STRUCT_TUPLE(type_, BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__))
+    KL_REFLECT_STRUCT_TUPLE(type_, KL_VARIADIC_TO_TUPLE(__VA_ARGS__))
 
 #define KL_REFLECT_STRUCT_DERIVED(type_, bases_, ...)                          \
-    KL_REFLECT_STRUCT_DERIVED_TUPLE(type_,                                     \
-                                    KL_REFLECT_STRUCT_ARG_TO_TUPLE(bases_),    \
-                                    BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__))
+    KL_REFLECT_STRUCT_DERIVED_TUPLE(type_, KL_ARG_TO_TUPLE(bases_),            \
+                                    KL_VARIADIC_TO_TUPLE(__VA_ARGS__))
 
 #define KL_REFLECT_STRUCT_TUPLE(type_, fields_)                                \
     template <typename Visitor, typename Self>                                 \
@@ -115,7 +109,7 @@ inline constexpr auto record = record_class<Record>{};
     [[maybe_unused]] constexpr std::size_t reflect_num_fields(                 \
         ::kl::record_class<type_>) noexcept                                    \
     {                                                                          \
-        return BOOST_PP_TUPLE_SIZE(fields_);                                   \
+        return KL_TUPLE_SIZE(fields_);                                         \
     }
 
 #define KL_REFLECT_STRUCT_DERIVED_TUPLE(type_, bases_, fields_)                \
@@ -130,38 +124,24 @@ inline constexpr auto record = record_class<Record>{};
     [[maybe_unused]] constexpr std::size_t reflect_num_fields(                 \
         ::kl::record_class<type_>) noexcept                                    \
     {                                                                          \
-        return BOOST_PP_TUPLE_SIZE(fields_) +                                  \
+        return KL_TUPLE_SIZE(fields_) +                                        \
                KL_REFLECT_STRUCT_NUM_BASE_FIELDS(bases_) 0;                    \
     }
 
 #define KL_REFLECT_STRUCT_VIS_MEMBERS(fields_)                                 \
-    BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(fields_),                              \
-                    KL_REFLECT_STRUCT_FOR_EACH_IN_TUPLE,                       \
-                    (fields_, KL_REFLECT_STRUCT_VIS_MEMBER))
+    KL_TUPLE_FOR_EACH(fields_, KL_REFLECT_STRUCT_VIS_MEMBER)
 
-#define KL_REFLECT_STRUCT_VIS_BASES(bases_)                                    \
-    BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(bases_),                               \
-                    KL_REFLECT_STRUCT_FOR_EACH_IN_TUPLE,                       \
-                    (bases_, KL_REFLECT_STRUCT_VIS_BASE))
+#define KL_REFLECT_STRUCT_VIS_BASES(fields_)                                   \
+    KL_TUPLE_FOR_EACH(fields_, KL_REFLECT_STRUCT_VIS_BASE)
 
-#define KL_REFLECT_STRUCT_NUM_BASE_FIELDS(bases_)                              \
-    BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(bases_),                               \
-                    KL_REFLECT_STRUCT_FOR_EACH_IN_TUPLE,                       \
-                    (bases_, KL_REFLECT_STRUCT_NUM_FIELDS))
+#define KL_REFLECT_STRUCT_NUM_BASE_FIELDS(fields_)                             \
+    KL_TUPLE_FOR_EACH(fields_, KL_REFLECT_STRUCT_NUM_FIELDS)
 
 #define KL_REFLECT_STRUCT_VIS_MEMBER(name_)                                    \
-    vis(self.name_, BOOST_PP_STRINGIZE(name_));
+    vis(self.name_, KL_STRINGIZE(name_));
 
 #define KL_REFLECT_STRUCT_VIS_BASE(base_)                                      \
     reflect_struct(vis, self, ::kl::record<base_>);
 
 #define KL_REFLECT_STRUCT_NUM_FIELDS(base_)                                    \
     reflect_num_fields(::kl::record<base_>) +
-
-// tuple_macro is ((tuple), macro)
-#define KL_REFLECT_STRUCT_FOR_EACH_IN_TUPLE(_, index_, tuple_macro_)           \
-    BOOST_PP_TUPLE_ELEM(1, tuple_macro_)                                       \
-    (BOOST_PP_TUPLE_ELEM(index_, BOOST_PP_TUPLE_ELEM(0, tuple_macro_)))
-
-// Makes sure arg is a tuple (works for tuples and single arg)
-#define KL_REFLECT_STRUCT_ARG_TO_TUPLE(arg_) (BOOST_PP_REMOVE_PARENS(arg_))

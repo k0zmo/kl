@@ -1,18 +1,7 @@
 #pragma once
 
+#include "kl/detail/macro.hpp"
 #include "kl/range.hpp"
-
-#include <boost/preprocessor/arithmetic/dec.hpp>
-#include <boost/preprocessor/cat.hpp>
-#include <boost/preprocessor/stringize.hpp>
-#include <boost/preprocessor/punctuation/remove_parens.hpp>
-#include <boost/preprocessor/control/if.hpp>
-#include <boost/preprocessor/repetition/repeat.hpp>
-#include <boost/preprocessor/repetition/enum.hpp>
-#include <boost/preprocessor/tuple/elem.hpp>
-#include <boost/preprocessor/tuple/size.hpp>
-#include <boost/preprocessor/tuple/push_back.hpp>
-#include <boost/preprocessor/variadic/to_tuple.hpp>
 
 /*
  * Requirements: boost 1.57+, C++14 compiler and preprocessor
@@ -37,6 +26,7 @@ KL_REFLECT_ENUM(enum_, A, (B, bb), C)
      kl::enum_reflector<ns::enum_>::from_string("bb");
      kl::enum_reflector<ns::enum_>::count();
      kl::enum_reflector<ns::enum_>::values();
+ * Alternatively, use kl::reflect<ns::enum_>()
 
  * Remarks: Macro KL_REFLECT_ENUM works for unscoped as well as scoped
    enums
@@ -53,12 +43,13 @@ KL_REFLECT_ENUM(enum_, A, (B, bb), C)
 
 namespace kl {
 
+// clang-format off
 template <typename Enum>
-class enum_class
-{
-};
+class enum_class {};
+
 template <typename Enum>
 inline constexpr auto enum_ = enum_class<Enum>{};
+// clang-format on
 
 template <typename Enum>
 struct enum_value_name
@@ -69,67 +60,29 @@ struct enum_value_name
 } // namespace kl
 
 #define KL_REFLECT_ENUM(name_, ...)                                            \
-    KL_REFLECT_ENUM_TUPLE(name_, BOOST_PP_VARIADIC_TO_TUPLE(__VA_ARGS__))
+    KL_REFLECT_ENUM_TUPLE(name_, KL_VARIADIC_TO_TUPLE(__VA_ARGS__))
 
 #define KL_REFLECT_ENUM_TUPLE(name_, values_)                                  \
-    KL_REFLECT_ENUM_BASE(name_, values_, __COUNTER__)
+    KL_REFLECT_ENUM_IMPL(name_, values_, __COUNTER__)
 
-#define KL_REFLECT_ENUM_BASE(name_, values_, counter_)                         \
+#define KL_REFLECT_ENUM_IMPL(name_, values_, counter_)                         \
     inline constexpr ::kl::enum_value_name<name_> KL_REFLECT_ENUM_VAR_NAME(    \
-        counter_)[] = {                                                        \
-        KL_REFLECT_ENUM_VALUE_NAME_PAIRS(                                      \
-            name_, (KL_REFLECT_ENUM_ARGS_TO_TUPLES(values_)))};                \
-    constexpr auto reflect_enum(::kl::enum_class<name_>) noexcept             \
+        counter_)[] = {KL_REFLECT_ENUM_VALUE_NAME_PAIRS(name_, values_)};      \
+    constexpr auto reflect_enum(::kl::enum_class<name_>) noexcept              \
     {                                                                          \
         return ::kl::range{KL_REFLECT_ENUM_VAR_NAME(counter_)};                \
     }
 
 #define KL_REFLECT_ENUM_VAR_NAME(counter_)                                     \
-    BOOST_PP_CAT(kl_enum_description, counter_)
-
-// Assumes value_ is a tuple: (x, y) or (x, x)
-#define KL_REFLECT_ENUM_VALUE_NAME_PAIR(name_, value_)                         \
-    {                                                                          \
-        name_::KL_REFLECT_ENUM_GET_ENUM_VALUE(value_),                         \
-        KL_REFLECT_ENUM_GET_ENUM_STRING(value_),                               \
-    },
+    KL_CONCAT(kl_enum_description, counter_)
 
 #define KL_REFLECT_ENUM_VALUE_NAME_PAIRS(name_, values_)                       \
-    BOOST_PP_REPEAT(BOOST_PP_TUPLE_SIZE(values_),                              \
-                    KL_REFLECT_ENUM_FOR_EACH_IN_TUPLE,                         \
-                    (name_, values_, KL_REFLECT_ENUM_VALUE_NAME_PAIR))
+    KL_TUPLE_FOR_EACH2(name_, values_, KL_REFLECT_ENUM_VALUE_NAME_PAIR)
 
-#define KL_REFLECT_ENUM_GET_ENUM_VALUE(arg_) BOOST_PP_TUPLE_ELEM(0, arg_)
+#define KL_REFLECT_ENUM_VALUE_NAME_PAIR(name_, value_)                         \
+    KL_REFLECT_ENUM_VALUE_NAME_PAIR2(name_, KL_ARG_TO_TUPLE(value_))
 
-#define KL_REFLECT_ENUM_GET_ENUM_STRING_IMPL(arg_)                             \
-    BOOST_PP_IF(BOOST_PP_DEC(BOOST_PP_TUPLE_SIZE(arg_)),                       \
-                BOOST_PP_TUPLE_ELEM(1, arg_), BOOST_PP_TUPLE_ELEM(0, arg_))
-
-#define KL_REFLECT_ENUM_GET_ENUM_STRING(arg_)                                  \
-    BOOST_PP_STRINGIZE(KL_REFLECT_ENUM_GET_ENUM_STRING_IMPL(arg_))
-
-// makes sure arg is a tuple (works for tuples and single arg)
-#define KL_REFLECT_ENUM_ARG_TO_TUPLE(arg_) (BOOST_PP_REMOVE_PARENS(arg_))
-
-// (x) -> (x, x)
-// (x, y) -> (x, y)   :nop
-// (x, y, z) -> (x, y, z) :nop
-#define KL_REFLECT_ENUM_ARG_TO_TUPLES_TRANSFORM(arg_)                          \
-    BOOST_PP_IF(BOOST_PP_DEC(BOOST_PP_TUPLE_SIZE(arg_)), arg_,                 \
-                BOOST_PP_TUPLE_PUSH_BACK(arg_, BOOST_PP_TUPLE_ELEM(0, arg_)))
-
-#define KL_REFLECT_ENUM_ARG_TO_TUPLES(arg_)                                    \
-    KL_REFLECT_ENUM_ARG_TO_TUPLES_TRANSFORM(KL_REFLECT_ENUM_ARG_TO_TUPLE(arg_))
-
-#define KL_REFLECT_ENUM_ARGS_TO_TUPLES_IMPL(_, index_, args_)                  \
-    KL_REFLECT_ENUM_ARG_TO_TUPLES(BOOST_PP_TUPLE_ELEM(index_, args_))
-
-#define KL_REFLECT_ENUM_ARGS_TO_TUPLES(args_)                                  \
-    BOOST_PP_ENUM(BOOST_PP_TUPLE_SIZE(args_),                                  \
-                  KL_REFLECT_ENUM_ARGS_TO_TUPLES_IMPL, args_)
-
-// tuple_macro_ is (arg, (tuple), macro)
-#define KL_REFLECT_ENUM_FOR_EACH_IN_TUPLE(_, index_, tuple_macro_)             \
-    BOOST_PP_TUPLE_ELEM(2, tuple_macro_)                                       \
-    (BOOST_PP_TUPLE_ELEM(0, tuple_macro_),                                     \
-     BOOST_PP_TUPLE_ELEM(index_, BOOST_PP_TUPLE_ELEM(1, tuple_macro_)))
+// Assumes value_ is a tuple: (x) or (x, y)
+#define KL_REFLECT_ENUM_VALUE_NAME_PAIR2(name_, value_)                        \
+    {name_::KL_TUPLE_ELEM(0, value_),                                          \
+     KL_STRINGIZE(KL_TUPLE_SECOND_OR_FIRST_ELEM(value_))},
