@@ -6,7 +6,7 @@ TEST_CASE("defer")
 {
     int i = 0;
     {
-        KL_DEFER({ i = 1; });
+        KL_DEFER(i = 1);
         i = 2;
     }
     REQUIRE(i == 1);
