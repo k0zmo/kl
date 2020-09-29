@@ -2,11 +2,12 @@
 
 #include <boost/preprocessor/arithmetic/dec.hpp>
 #include <boost/preprocessor/cat.hpp>
-#include <boost/preprocessor/stringize.hpp>
-#include <boost/preprocessor/punctuation/remove_parens.hpp>
 #include <boost/preprocessor/control/if.hpp>
+#include <boost/preprocessor/punctuation/remove_parens.hpp>
 #include <boost/preprocessor/repetition/repeat.hpp>
+#include <boost/preprocessor/stringize.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
+#include <boost/preprocessor/tuple/push_back.hpp>
 #include <boost/preprocessor/tuple/size.hpp>
 #include <boost/preprocessor/variadic/to_tuple.hpp>
 
@@ -31,11 +32,23 @@
 // Returns the tuple element of given index
 #define KL_TUPLE_ELEM(index_, tuple_) BOOST_PP_TUPLE_ELEM(index_, tuple_)
 
-// If given tuple has at least two elements returns the 2nd one, otherwise
-// returns the 1st one
-#define KL_TUPLE_SECOND_OR_FIRST_ELEM(tuple_)                                  \
-    BOOST_PP_IF(KL_TUPLE_SIZE_MINUS_ONE(tuple_), KL_TUPLE_ELEM(1, tuple_),     \
-                KL_TUPLE_ELEM(0, tuple_))
+// Append arg_ to the tuple_
+#define KL_TUPLE_PUSH_BACK(tuple_, arg_) BOOST_PP_TUPLE_PUSH_BACK(tuple_, arg_)
+
+// Transform given arg_ to the tuple (if necessary) and clones the first element
+// if result tuple is only an 1-element tuple so that final result is always >=2
+// element tuple
+#define KL_TUPLE_EXTEND_BY_FIRST(arg_)                                         \
+    KL_TUPLE_EXTEND_BY_FIRST_IMPL(KL_ARG_TO_TUPLE(arg_))
+
+// Transform given tuple_  by cloning the first element if the given tuple is
+// only an 1-element tuple:
+//   (x)       -> (x, x)
+//   (x, y)    -> (x, y)    :nop
+//   (x, y, z) -> (x, y, z) :nop
+#define KL_TUPLE_EXTEND_BY_FIRST_IMPL(tuple_)                                  \
+    BOOST_PP_IF(KL_TUPLE_SIZE_MINUS_ONE(tuple_), tuple_,                       \
+                KL_TUPLE_PUSH_BACK(tuple_, KL_TUPLE_ELEM(0, tuple_)))
 
 // Does the for each for tuple. Body is a macro invoked with (tuple_[i])
 #define KL_TUPLE_FOR_EACH(tuple_, body_)                                       \

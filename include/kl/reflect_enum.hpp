@@ -111,9 +111,9 @@ private:
     KL_TUPLE_FOR_EACH2(name_, values_, KL_REFLECT_ENUM_REFLECTION_PAIR)
 
 #define KL_REFLECT_ENUM_REFLECTION_PAIR(name_, value_)                         \
-    KL_REFLECT_ENUM_REFLECTION_PAIR2(name_, KL_ARG_TO_TUPLE(value_))
+    KL_REFLECT_ENUM_REFLECTION_PAIR2(name_, KL_TUPLE_EXTEND_BY_FIRST(value_))
 
-// Assumes value_ is a tuple: (x) or (x, y)
+// Assumes value_ is a tuple: (x, x) or (x, y) where `x` is the name and `y` is
+// the string form of the enum value
 #define KL_REFLECT_ENUM_REFLECTION_PAIR2(name_, value_)                        \
-    {name_::KL_TUPLE_ELEM(0, value_),                                          \
-     KL_STRINGIZE(KL_TUPLE_SECOND_OR_FIRST_ELEM(value_))},
+    {name_::KL_TUPLE_ELEM(0, value_), KL_STRINGIZE(KL_TUPLE_ELEM(1, value_))},
