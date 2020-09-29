@@ -66,7 +66,7 @@ struct enum_reflection_sentinel
     constexpr friend bool operator!=(const enum_reflection_pair<Enum>* it,
                                      enum_reflection_sentinel) noexcept
     {
-        return it && it->name;
+        return it->name;
     }
 };
 
