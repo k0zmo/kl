@@ -1,0 +1,10 @@
+parameters:
+  version: 6
+
+steps:
+  - bash: |
+      sudo apt-get update -qq
+      sudo apt-get install clang-${{ parameters.version }}
+      sudo update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-${{ parameters.version }} 250
+      sudo update-alternatives --install /usr/bin/clang clang /usr/bin/clang-${{ parameters.version }} 250
+    displayName: 'Install Clang'
