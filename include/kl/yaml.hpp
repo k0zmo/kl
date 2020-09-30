@@ -348,8 +348,9 @@ namespace detail {
 std::string type_name(const YAML::Node& value);
 
 using ::kl::detail::has_reserve_v;
+using ::kl::detail::is_growable_range;
 using ::kl::detail::is_map_alike;
-using ::kl::detail::is_vector_alike;
+using ::kl::detail::is_range;
 
 // encode implementation
 
@@ -370,7 +371,7 @@ void encode(const std::string& str, Context& ctx)
 {
     // We repeat encode() for std::string even though yaml-cpp has a native
     // support for it. This is because encode() has higher priority than dump()
-    // for supported types and our encode for "vector alike" catches this case
+    // for supported types and our encode for "range alike" catches this case
     // which is not what we want for the strings. Also, we don't provide const
     // char* overload since yaml-cpp's overload calls std::string variant in the
     // end.
@@ -381,26 +382,25 @@ template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
 void encode(const Map& map, Context& ctx)
 {
     ctx.emitter() << YAML::BeginMap;
-    for (const auto& kv : map)
+    for (const auto& [key, value] : map)
     {
-        if (!ctx.skip_field(kv.first, kv.second))
+        if (!ctx.skip_field(key, value))
         {
             ctx.emitter() << YAML::Key;
-            ctx.emitter() << kv.first;
+            ctx.emitter() << key;
             ctx.emitter() << YAML::Value;
-            yaml::dump(kv.second, ctx);
+            yaml::dump(value, ctx);
         }
     }
     ctx.emitter() << YAML::EndMap;
 }
 
-template <typename Vector, typename Context,
-          enable_if<std::negation<is_map_alike<Vector>>,
-                    is_vector_alike<Vector>> = true>
-void encode(const Vector& vec, Context& ctx)
+template <typename Range, typename Context,
+          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
+void encode(const Range& rng, Context& ctx)
 {
     ctx.emitter() << YAML::BeginSeq;
-    for (const auto& v : vec)
+    for (const auto& v : rng)
         yaml::dump(v, ctx);
     ctx.emitter() << YAML::EndSeq;
 }
@@ -510,22 +510,21 @@ YAML::Node to_yaml(const Map& map, Context& ctx)
                   "std::string must be constructible from the Map's key type");
 
     YAML::Node obj{YAML::NodeType::Map};
-    for (const auto& kv : map)
+    for (const auto& [key, value] : map)
     {
-        if (!ctx.skip_field(kv.first, kv.second))
-            obj[kv.first] = yaml::serialize(kv.second, ctx);
+        if (!ctx.skip_field(key, value))
+            obj[key] = yaml::serialize(value, ctx);
     }
     return obj;
 }
 
-// For all T's that quacks like a std::vector
-template <typename Vector, typename Context,
-          enable_if<std::negation<is_map_alike<Vector>>,
-                    is_vector_alike<Vector>> = true>
-YAML::Node to_yaml(const Vector& vec, Context& ctx)
+// For all T's that quacks like a range
+template <typename Range, typename Context,
+          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
+YAML::Node to_yaml(const Range& rng, Context& ctx)
 {
     YAML::Node arr{YAML::NodeType::Sequence};
-    for (const auto& v : vec)
+    for (const auto& v : rng)
         arr.push_back(yaml::serialize(v, ctx));
     return arr;
 }
@@ -679,22 +678,24 @@ void from_yaml(Map& out, const YAML::Node& value)
     }
 }
 
-template <typename Vector, enable_if<std::negation<is_map_alike<Vector>>,
-                                     is_vector_alike<Vector>> = true>
-void from_yaml(Vector& out, const YAML::Node& value)
+template <typename GrowableRange,
+          enable_if<std::negation<is_map_alike<GrowableRange>>,
+                    is_range<GrowableRange>> = true>
+void from_yaml(GrowableRange& out, const YAML::Node& value)
 {
     yaml::expect_sequence(value);
 
     out.clear();
-    if constexpr (has_reserve_v<Vector>)
+    if constexpr (has_reserve_v<GrowableRange>)
         out.reserve(value.size());
 
     for (const auto& item : value)
     {
         try
         {
-            // There's no way to construct T directly in the Vector
-            out.push_back(yaml::deserialize<typename Vector::value_type>(item));
+            // There's no way to construct T directly in the GrowableRange
+            out.push_back(
+                yaml::deserialize<typename GrowableRange::value_type>(item));
         }
         catch (deserialize_error& ex)
         {

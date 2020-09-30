@@ -36,7 +36,7 @@ public:
     view(const rapidjson::Value& value) : value_{&value} {}
 
     const rapidjson::Value& value() const { return *value_; }
-    operator const rapidjson::Value&() const { return value(); }
+    operator const rapidjson::Value &() const { return value(); }
 
     explicit operator bool() const { return value_ != nullptr; }
     const rapidjson::Value* operator->() const { return value_; }
@@ -432,8 +432,9 @@ namespace detail {
 std::string type_name(const rapidjson::Value& value);
 
 using ::kl::detail::has_reserve_v;
+using ::kl::detail::is_growable_range;
 using ::kl::detail::is_map_alike;
-using ::kl::detail::is_vector_alike;
+using ::kl::detail::is_range;
 
 // encode implementation
 
@@ -522,24 +523,23 @@ template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
 void encode(const Map& map, Context& ctx)
 {
     ctx.writer().StartObject();
-    for (const auto& kv : map)
+    for (const auto& [key, value] : map)
     {
-        if (!ctx.skip_field(kv.first, kv.second))
+        if (!ctx.skip_field(key, value))
         {
-            encode_key(kv.first, ctx);
-            json::dump(kv.second, ctx);
+            encode_key(key, ctx);
+            json::dump(value, ctx);
         }
     }
     ctx.writer().EndObject();
 }
 
-template <typename Vector, typename Context,
-          enable_if<std::negation<is_map_alike<Vector>>,
-                    is_vector_alike<Vector>> = true>
-void encode(const Vector& vec, Context& ctx)
+template <typename Range, typename Context,
+          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
+void encode(const Range& rng, Context& ctx)
 {
     ctx.writer().StartArray();
-    for (const auto& v : vec)
+    for (const auto& v : rng)
         json::dump(v, ctx);
     ctx.writer().EndArray();
 }
@@ -673,26 +673,25 @@ rapidjson::Value to_json(const Map& map, Context& ctx)
                   "std::string must be constructible from the Map's key type");
 
     rapidjson::Value obj{rapidjson::kObjectType};
-    for (const auto& kv : map)
+    for (const auto& [key, value] : map)
     {
-        if (!ctx.skip_field(kv.first, kv.second))
+        if (!ctx.skip_field(key, value))
         {
-            obj.AddMember(rapidjson::StringRef(kv.first),
-                          json::serialize(kv.second, ctx), ctx.allocator());
+            obj.AddMember(rapidjson::StringRef(key),
+                          json::serialize(value, ctx), ctx.allocator());
         }
     }
     return obj;
 }
 
-// For all T's that quacks like a std::vector
-template <typename Vector, typename Context,
-          enable_if<std::negation<is_json_constructible<Vector>>,
-                    std::negation<is_map_alike<Vector>>,
-                    is_vector_alike<Vector>> = true>
-rapidjson::Value to_json(const Vector& vec, Context& ctx)
+// For all T's that quacks like a range
+template <typename Range, typename Context,
+          enable_if<std::negation<is_json_constructible<Range>>,
+                    std::negation<is_map_alike<Range>>, is_range<Range>> = true>
+rapidjson::Value to_json(const Range& rng, Context& ctx)
 {
     rapidjson::Value arr{rapidjson::kArrayType};
-    for (const auto& v : vec)
+    for (const auto& v : rng)
         arr.PushBack(json::serialize(v, ctx), ctx.allocator());
     return arr;
 }
@@ -766,8 +765,10 @@ rapidjson::Value to_json(const std::optional<T>& opt, Context& ctx)
 
 // from_json implementation
 
+// clang-format off
 template <typename T>
 struct is_64bit : std::bool_constant<sizeof(T) == 8> {};
+// clang-format n
 
 [[noreturn]] inline void throw_lossy_conversion()
 {
@@ -905,22 +906,23 @@ void from_json(Map& out, const rapidjson::Value& value)
     }
 }
 
-template <typename Vector, enable_if<std::negation<is_map_alike<Vector>>,
-                                     is_vector_alike<Vector>> = true>
-void from_json(Vector& out, const rapidjson::Value& value)
+template <typename GrowableRange,
+          enable_if<std::negation<is_map_alike<GrowableRange>>,
+                    is_growable_range<GrowableRange>> = true>
+void from_json(GrowableRange& out, const rapidjson::Value& value)
 {
     json::expect_array(value);
 
     out.clear();
-    if constexpr (has_reserve_v<Vector>)
+    if constexpr (has_reserve_v<GrowableRange>)
         out.reserve(value.Size());
 
     for (const auto& item : value.GetArray())
     {
         try
         {
-            // There's no way to construct T directly in the Vector
-            out.push_back(json::deserialize<typename Vector::value_type>(item));
+            // There's no way to construct T directly in the GrowableRange
+            out.push_back(json::deserialize<typename GrowableRange::value_type>(item));
         }
         catch (deserialize_error& ex)
         {
