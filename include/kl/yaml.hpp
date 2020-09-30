@@ -1,6 +1,6 @@
 #pragma once
 
-#include "kl/type_traits.hpp"
+#include "kl/detail/concepts.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_set.hpp"
@@ -25,7 +25,7 @@ public:
     view(YAML::Node node) : node_{std::move(node)} {}
 
     const YAML::Node& value() const { return node_; }
-    operator const YAML::Node &() const { return value(); }
+    operator const YAML::Node&() const { return value(); }
 
     explicit operator bool() const { return !!node_; }
     const YAML::Node* operator->() const { return &node_; }
@@ -228,8 +228,7 @@ template <typename Context>
 class map_builder
 {
 public:
-    explicit map_builder(Context& ctx)
-        : ctx_{ctx}, node_{YAML::NodeType::Map}
+    explicit map_builder(Context& ctx) : ctx_{ctx}, node_{YAML::NodeType::Map}
     {
     }
 
@@ -348,28 +347,9 @@ namespace detail {
 
 std::string type_name(const YAML::Node& value);
 
-KL_HAS_TYPEDEF_HELPER(value_type)
-KL_HAS_TYPEDEF_HELPER(iterator)
-KL_HAS_TYPEDEF_HELPER(mapped_type)
-KL_HAS_TYPEDEF_HELPER(key_type)
-
-KL_VALID_EXPR_HELPER(has_c_str, std::declval<T&>().c_str())
-KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
-
-template <typename T>
-struct is_map_alike
-    : std::conjunction<
-        has_value_type<T>,
-        has_iterator<T>,
-        has_mapped_type<T>,
-        has_key_type<T>> {};
-
-template <typename T>
-struct is_vector_alike
-    : std::conjunction<
-        has_value_type<T>,
-        has_iterator<T>,
-        std::negation<has_c_str<T>>> {};
+using ::kl::detail::has_reserve_v;
+using ::kl::detail::is_map_alike;
+using ::kl::detail::is_vector_alike;
 
 // encode implementation
 
@@ -383,6 +363,18 @@ template <typename Context>
 void encode(std::nullptr_t, Context& ctx)
 {
     ctx.emitter() << YAML::Null;
+}
+
+template <typename Context>
+void encode(const std::string& str, Context& ctx)
+{
+    // We repeat encode() for std::string even though yaml-cpp has a native
+    // support for it. This is because encode() has higher priority than dump()
+    // for supported types and our encode for "vector alike" catches this case
+    // which is not what we want for the strings. Also, we don't provide const
+    // char* overload since yaml-cpp's overload calls std::string variant in the
+    // end.
+    ctx.emitter() << str;
 }
 
 template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
@@ -445,7 +437,7 @@ void encode(const enum_set<Enum>& set, Context& ctx)
     static_assert(is_enum_reflectable_v<Enum>,
                   "Only sets of reflectable enums are supported");
     ctx.emitter() << YAML::BeginSeq;
-    for (const auto possible_value : enum_reflector<Enum>::values())
+    for (const auto possible_value : reflect<Enum>().values())
     {
         if (set.test(possible_value))
             yaml::dump(kl::to_string(possible_value), ctx);
@@ -572,7 +564,7 @@ YAML::Node to_yaml(const enum_set<Enum>& set, Context& ctx)
                   "Only sets of reflectable enums are supported");
     YAML::Node arr{YAML::NodeType::Sequence};
 
-    for (const auto possible_value : enum_reflector<Enum>::values())
+    for (const auto possible_value : reflect<Enum>().values())
     {
         if (set.test(possible_value))
             arr.push_back(to_yaml(possible_value, ctx));

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "kl/type_traits.hpp"
+#include "kl/detail/concepts.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_set.hpp"
@@ -9,7 +9,7 @@
 
 // Undefine Win32 macro
 #if defined(GetObject)
-#undef GetObject
+#  undef GetObject
 #endif
 
 #include <rapidjson/allocators.h>
@@ -36,7 +36,7 @@ public:
     view(const rapidjson::Value& value) : value_{&value} {}
 
     const rapidjson::Value& value() const { return *value_; }
-    operator const rapidjson::Value &() const { return value(); }
+    operator const rapidjson::Value&() const { return value(); }
 
     explicit operator bool() const { return value_ != nullptr; }
     const rapidjson::Value* operator->() const { return value_; }
@@ -340,8 +340,7 @@ private:
 class object_extractor
 {
 public:
-    explicit object_extractor(const rapidjson::Value& value)
-        : value_{value}
+    explicit object_extractor(const rapidjson::Value& value) : value_{value}
     {
         json::expect_object(value_);
     }
@@ -432,26 +431,9 @@ namespace detail {
 
 std::string type_name(const rapidjson::Value& value);
 
-KL_HAS_TYPEDEF_HELPER(value_type)
-KL_HAS_TYPEDEF_HELPER(iterator)
-KL_HAS_TYPEDEF_HELPER(mapped_type)
-KL_HAS_TYPEDEF_HELPER(key_type)
-
-KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
-
-template <typename T>
-struct is_map_alike
-    : std::conjunction<
-        has_value_type<T>,
-        has_iterator<T>,
-        has_mapped_type<T>,
-        has_key_type<T>> {};
-
-template <typename T>
-struct is_vector_alike
-    : std::conjunction<
-        has_value_type<T>,
-        has_iterator<T>> {};
+using ::kl::detail::has_reserve_v;
+using ::kl::detail::is_map_alike;
+using ::kl::detail::is_vector_alike;
 
 // encode implementation
 
@@ -592,7 +574,7 @@ void encode(const enum_set<Enum>& set, Context& ctx)
     static_assert(is_enum_reflectable_v<Enum>,
                   "Only sets of reflectable enums are supported");
     ctx.writer().StartArray();
-    for (const auto possible_value : enum_reflector<Enum>::values())
+    for (const auto possible_value : reflect<Enum>().values())
     {
         if (set.test(possible_value))
             json::dump(kl::to_string(possible_value), ctx);
@@ -749,7 +731,7 @@ rapidjson::Value to_json(const enum_set<Enum>& set, Context& ctx)
                   "Only sets of reflectable enums are supported");
     rapidjson::Value arr{rapidjson::kArrayType};
 
-    for (const auto possible_value : enum_reflector<Enum>::values())
+    for (const auto possible_value : reflect<Enum>().values())
     {
         if (set.test(possible_value))
             arr.PushBack(to_json(possible_value, ctx), ctx.allocator());
