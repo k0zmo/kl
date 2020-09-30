@@ -1,6 +1,6 @@
 #pragma once
 
-#include "kl/detail/macro.hpp"
+#include "kl/detail/macros.hpp"
 
 namespace kl {
 namespace detail {
