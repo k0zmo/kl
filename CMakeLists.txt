@@ -16,6 +16,8 @@ endif()
 
 cmake_dependent_option(KL_TEST "Generate the test target." ON
     "${kl_master_project}" OFF)
+cmake_dependent_option(KL_BENCH "Generate the benchmark target." OFF
+    "${kl_master_project};KL_TEST" OFF)
 cmake_dependent_option(KL_DEV_BUILD "Enable compiler flags useful while developing kl." ON
     "${kl_master_project}" OFF)
 cmake_dependent_option(KL_USE_OPENCPPCOVERAGE "Use OpenCppCoverage to calculate code coverage." OFF
@@ -39,4 +41,7 @@ add_subdirectory(src)
 if(KL_TEST)
     enable_testing()
     add_subdirectory(tests)
+endif()
+if(KL_BENCH)
+    add_subdirectory(bench)
 endif()
