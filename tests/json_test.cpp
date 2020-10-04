@@ -81,6 +81,26 @@ TEST_CASE("json")
         REQUIRE(it->value.GetDouble() == Approx(3.145926));
     }
 
+    SECTION("serialize Manual")
+    {
+        auto j = json::serialize(Manual{});
+        REQUIRE(j.IsObject());
+
+        auto obj = j.GetObject();
+        auto it = obj.FindMember("Ar");
+        REQUIRE(it != obj.end());
+        REQUIRE(it->value.GetInt() == 1337);
+        it = obj.FindMember("Ad");
+        REQUIRE(it != obj.end());
+        REQUIRE(it->value.GetDouble() == Approx(3.145926));
+        it = obj.FindMember("B");
+        REQUIRE(it != obj.end());
+        REQUIRE(it->value.GetInt() == 416);
+        it = obj.FindMember("C");
+        REQUIRE(it != obj.end());
+        REQUIRE(it->value.GetDouble() == Approx(2.71828));
+    }
+
     SECTION("deserialize inner_t - missing one field")
     {
         auto j = R"({"d": 1.0})"_json;
@@ -107,6 +127,37 @@ TEST_CASE("json")
         auto obj = json::deserialize<inner_t>(j);
         REQUIRE(obj.r == 2);
         REQUIRE(obj.d == 1.0);
+    }
+
+    SECTION("deserialize Manual - missing one field")
+    {
+        auto j = R"({"Ad": 3.0, "B": 331, "C": 7.66})"_json;
+        REQUIRE_THROWS_AS(json::deserialize<Manual>(j),
+                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<Manual>(j),
+                            "type must be an integral but is a kNullType\n"
+                            "error when deserializing field Ar\n"
+                            "error when deserializing type " +
+                                kl::ctti::name<Manual>());
+
+        j = R"({"Ad": 3.0, "Ar": 21, "C": 7.66})"_json;
+        REQUIRE_THROWS_AS(json::deserialize<Manual>(j),
+                          json::deserialize_error);
+        REQUIRE_THROWS_WITH(json::deserialize<Manual>(j),
+                            "type must be an integral but is a kNullType\n"
+                            "error when deserializing field B\n"
+                            "error when deserializing type " +
+                                kl::ctti::name<Manual>());
+    }
+
+    SECTION("deserialize Manual")
+    {
+        auto j = R"({"Ad": 3.0, "Ar": 21, "B": 331, "C": 7.66})"_json;
+        auto obj = json::deserialize<Manual>(j);
+        REQUIRE(obj.a.d == 3.0);
+        REQUIRE(obj.a.r == 21);
+        REQUIRE(obj.b == 331);
+        REQUIRE(obj.c == Approx(7.66));
     }
 
     SECTION("deserialize to string_view - invalid type")
@@ -837,6 +888,12 @@ TEST_CASE("json dump")
     SECTION("inner_t")
     {
         CHECK(json::dump(inner_t{}) == R"({"r":1337,"d":3.1459259999999999})");
+    }
+
+    SECTION("Manual")
+    {
+        CHECK(json::dump(Manual{}) ==
+              R"({"Ar":1337,"Ad":3.1459259999999999,"B":416,"C":2.71828})");
     }
 
     SECTION("different types and 'modes' for enums")

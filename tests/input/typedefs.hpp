@@ -24,6 +24,26 @@ struct inner_t
 };
 KL_REFLECT_STRUCT(inner_t, r, d)
 
+struct Manual
+{
+    inner_t a;
+    int b = 416;
+    double c = 2.71828;
+};
+template <typename Visitor, typename Self>
+constexpr void reflect_struct(Visitor&& vis, Self&& self,
+                              ::kl::record_class<Manual>)
+{
+    vis(self.a.r, "Ar");
+    vis(self.a.d, "Ad");
+    vis(self.b, "B");
+    vis(self.c, "C");
+}
+constexpr std::size_t reflect_num_fields(::kl::record_class<Manual>) noexcept
+{
+    return 4U;
+}
+
 enum class colour_space
 {
     rgb,

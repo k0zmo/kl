@@ -22,7 +22,7 @@ KL_REFLECT_STRUCT_DERIVED(B, A, ull)
 
 } // namespace
 
-TEST_CASE("reflect record")
+TEST_CASE("reflect struct")
 {
     using namespace std::string_literals;
 

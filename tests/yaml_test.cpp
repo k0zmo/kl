@@ -66,6 +66,21 @@ TEST_CASE("yaml")
         CHECK(y["d"].as<double>() == Approx(3.145926));
     }
 
+    SECTION("serialize Manual")
+    {
+        auto y = yaml::serialize(Manual{});
+        REQUIRE(y.IsMap());
+
+        REQUIRE(y["Ar"]);
+        CHECK(y["Ar"].as<int>() == 1337);
+        REQUIRE(y["Ad"]);
+        CHECK(y["Ad"].as<double>() == Approx(3.145926));
+        REQUIRE(y["B"]);
+        CHECK(y["B"].as<int>() == 416);
+        REQUIRE(y["C"]);
+        CHECK(y["C"].as<double>() == Approx(2.71828));
+    }
+
     SECTION("deserialize inner_t - empty yaml")
     {
         REQUIRE_THROWS_AS(yaml::deserialize<inner_t>({}),
@@ -102,6 +117,36 @@ TEST_CASE("yaml")
         auto obj = yaml::deserialize<inner_t>(y);
         REQUIRE(obj.r == 2);
         REQUIRE(obj.d == 1.0);
+    }
+
+    SECTION("deserialize Manual - missing one field")
+    {
+        auto y = "Ad: 1.0\nB: 22\nC: 6.777"_yaml;
+        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y),
+                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y),
+                            "type must be a scalar but is a Null\n"
+                            "error when deserializing field Ar\n"
+                            "error when deserializing type " +
+                                kl::ctti::name<Manual>());
+        y = "Ad: 1.0\nAr: 2\nC: 6.777"_yaml;
+        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y),
+                          yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y),
+                            "type must be a scalar but is a Null\n"
+                            "error when deserializing field B\n"
+                            "error when deserializing type " +
+                                kl::ctti::name<Manual>());
+    }
+
+    SECTION("deserialize Manual")
+    {
+        auto y = "Ad: 1.0\nAr: 2\nB: 22\nC: 6.777"_yaml;
+        auto obj = yaml::deserialize<Manual>(y);
+        REQUIRE(obj.a.r == 2);
+        REQUIRE(obj.a.d == 1.0);
+        REQUIRE(obj.b == 22);
+        REQUIRE(obj.c == Approx(6.777));
     }
 
     SECTION("deserialize to string_view - invalid type")
@@ -809,6 +854,11 @@ TEST_CASE("yaml dump")
     SECTION("inner_t")
     {
         CHECK(yaml::dump(inner_t{}) == "r: 1337\nd: 3.145926");
+    }
+
+    SECTION("Manual")
+    {
+        CHECK(yaml::dump(Manual{}) == "Ar: 1337\nAd: 3.145926\nB: 416\nC: 2.71828");
     }
 
     SECTION("different types and 'modes' for enums")
