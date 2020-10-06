@@ -72,18 +72,20 @@ struct enum_reflection_sentinel
     }
 };
 
-template <typename Enum>
+template <typename Enum, std::size_t N>
 class enum_reflection_view
 {
 public:
     constexpr explicit enum_reflection_view(
-        const kl::enum_reflection_pair<Enum>* first) noexcept
-        : first_{first}
+        const kl::enum_reflection_pair<Enum> (&arr)[N]) noexcept
+        : first_{arr}
     {
+        static_assert(N > 1); // N includes null terminator
     }
 
     constexpr auto begin() const noexcept { return first_; }
     constexpr auto end() const noexcept { return enum_reflection_sentinel{}; }
+    constexpr auto size() const noexcept { return N - 1; }
 
 private:
     const kl::enum_reflection_pair<Enum>* first_;

@@ -51,8 +51,7 @@ struct enum_reflector
 
     static constexpr std::size_t count() noexcept
     {
-        const auto rng = reflect_enum(enum_<enum_type>);
-        return count_impl(rng);
+        return reflect_enum(enum_<enum_type>).size();
     }
 
     static constexpr std::optional<enum_type>
@@ -94,7 +93,7 @@ private:
     static constexpr auto values_impl() noexcept
     {
         constexpr auto rng = reflect_enum(enum_<enum_type>);
-        std::array<enum_type, count_impl(rng)> values{};
+        std::array<enum_type, rng.size()> values{};
         auto it = rng.begin();
         for (auto& value : values)
         {
@@ -102,18 +101,6 @@ private:
             ++it;
         }
         return values;
-    }
-
-    static constexpr std::size_t
-        count_impl(kl::enum_reflection_view<enum_type> rng) noexcept
-    {
-        std::size_t acc{};
-        for (const auto vn : rng)
-        {
-            (void)vn;
-            ++acc;
-        }
-        return acc;
     }
 };
 

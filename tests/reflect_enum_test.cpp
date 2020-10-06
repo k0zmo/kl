@@ -14,12 +14,15 @@ enum class A
 };
 
 KL_REFLECT_ENUM(A, a, (b, BB), c)
+
 } // namespace
 
 TEST_CASE("reflect enum")
 {
     using namespace std::string_literals;
     const auto rng = reflect_enum(kl::enum_<A>);
+
+    REQUIRE(rng.size() == 3);
 
     auto it = rng.begin();
     REQUIRE(it != rng.end());
