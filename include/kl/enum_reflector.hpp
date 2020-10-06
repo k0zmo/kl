@@ -73,6 +73,17 @@ struct enum_reflector
         // of it. Thus we assign the expression to `auto` and only then we loop
         // over it.
         const auto rng = reflect_enum(enum_<enum_type>);
+
+        // Help GCC and MSVC do a lookup (Clang is smart enough) in common
+        // case when enum values starts from 0 and does not have any wholes
+        const auto num_value = static_cast<std::size_t>(value);
+        if (num_value < rng.size())
+        {
+            const auto it = rng.begin() + num_value;
+            if (it->value == value)
+                return it->name;
+        }
+
         for (const auto& vn : rng)
         {
             if (vn.value == value)
