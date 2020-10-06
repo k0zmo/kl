@@ -32,14 +32,16 @@ KL_REFLECT_ENUM(enum_, A, (B, bb), C)
 
  * Above definition is expanded to:
 
-     inline constexpr ::kl::enum_reflection_pair<enum_>
-         kl_enum_description356[] = {{enum_::A, "A"},
-                                     {enum_::B, "bb"},
-                                     {enum_::C, "C"},
-                                     {enum_{}, nullptr}};
+     namespace kl_reflect_enum_ {
+     inline constexpr ::kl::enum_reflection_pair<enum_> reflection_data[] = {
+         {enum_::A, "A"},
+         {enum_::B, "bb"},
+         {enum_::C, "C"},
+         {enum_{}, nullptr}};
+     }
      constexpr auto reflect_enum(::kl::enum_class<enum_>) noexcept
      {
-         return ::kl::enum_reflection_view{kl_enum_description356};
+         return ::kl::enum_reflection_view{kl_reflect_enum_::reflection_data};
      }
  */
 
@@ -89,23 +91,22 @@ private:
 } // namespace kl
 
 #define KL_REFLECT_ENUM(name_, ...)                                            \
-    KL_REFLECT_ENUM_TUPLE(name_, KL_VARIADIC_TO_TUPLE(__VA_ARGS__))
+    KL_REFLECT_ENUM_IMPL(name_, KL_VARIADIC_TO_TUPLE(__VA_ARGS__))
 
-#define KL_REFLECT_ENUM_TUPLE(name_, values_)                                  \
-    KL_REFLECT_ENUM_IMPL(name_, values_, __COUNTER__)
-
-#define KL_REFLECT_ENUM_IMPL(name_, values_, counter_)                         \
-    inline constexpr ::kl::enum_reflection_pair<name_>                         \
-        KL_REFLECT_ENUM_VARNAME(counter_)[] = {                                \
-            KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_){name_{},          \
-                                                             nullptr}};        \
+#define KL_REFLECT_ENUM_IMPL(name_, values_)                                   \
+    namespace KL_REFLECT_ENUM_NSNAME(name_)                                    \
+    {                                                                          \
+        inline constexpr ::kl::enum_reflection_pair<name_> reflection_data[] = \
+            {KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_){name_{},         \
+                                                              nullptr}};       \
+    }                                                                          \
     constexpr auto reflect_enum(::kl::enum_class<name_>) noexcept              \
     {                                                                          \
-        return ::kl::enum_reflection_view{KL_REFLECT_ENUM_VARNAME(counter_)};  \
+        return ::kl::enum_reflection_view{                                     \
+            KL_REFLECT_ENUM_NSNAME(name_)::reflection_data};                   \
     }
 
-#define KL_REFLECT_ENUM_VARNAME(counter_)                                      \
-    KL_CONCAT(kl_enum_description, counter_)
+#define KL_REFLECT_ENUM_NSNAME(name_) KL_CONCAT(kl_reflect_, name_)
 
 #define KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_)                       \
     KL_TUPLE_FOR_EACH2(name_, values_, KL_REFLECT_ENUM_REFLECTION_PAIR)
