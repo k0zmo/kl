@@ -2,6 +2,8 @@
 
 #include "kl/detail/macros.hpp"
 
+#include <cstddef>
+
 /*
  * Requirements: boost 1.57+, C++14 compiler and preprocessor
  * Sample usage:
