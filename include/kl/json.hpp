@@ -4,6 +4,7 @@
 #include "kl/ctti.hpp"
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_set.hpp"
+#include "kl/json_fwd.hpp"
 #include "kl/tuple.hpp"
 #include "kl/utility.hpp"
 
@@ -88,17 +89,6 @@ private:
     bool skip_null_fields_;
 };
 
-template <typename T>
-std::string dump(const T& obj);
-
-template <typename T, typename Context>
-void dump(const T& obj, Context& ctx);
-
-template <typename T>
-struct serializer;
-
-using default_allocator = rapidjson::MemoryPoolAllocator<>;
-
 class owning_serialize_context
 {
 public:
@@ -147,27 +137,6 @@ private:
     default_allocator& allocator_;
     bool skip_null_fields_;
 };
-
-template <typename T>
-rapidjson::Document serialize(const T& obj);
-
-template <typename T, typename Context>
-rapidjson::Value serialize(const T& obj, Context& ctx);
-
-template <typename T>
-void deserialize(T& out, const rapidjson::Value& value);
-
-// Shorter version of from which can't be overloaded. Only use to invoke
-// the from() without providing a bit weird first parameter.
-template <typename T>
-T deserialize(const rapidjson::Value& value)
-{
-    static_assert(std::is_default_constructible_v<T>,
-                  "T must be default constructible");
-    T out;
-    json::deserialize(out, value);
-    return out;
-}
 
 struct deserialize_error : std::exception
 {
@@ -1169,6 +1138,18 @@ template <typename T>
 void deserialize(T& out, const rapidjson::Value& value)
 {
     detail::deserialize(out, value, priority_tag<2>{});
+}
+
+// Shorter version of from which can't be overloaded. Only use to invoke
+// the from() without providing a bit weird first parameter.
+template <typename T>
+T deserialize(const rapidjson::Value& value)
+{
+    static_assert(std::is_default_constructible_v<T>,
+                  "T must be default constructible");
+    T out;
+    json::deserialize(out, value);
+    return out;
 }
 } // namespace kl::json
 

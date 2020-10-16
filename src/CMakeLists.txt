@@ -69,6 +69,7 @@ add_library(kl::kl ALIAS kl)
 if(KL_ENABLE_JSON)
     add_library(kl-json
         ${kl_SOURCE_DIR}/include/kl/json.hpp
+        ${kl_SOURCE_DIR}/include/kl/json_fwd.hpp
         json.cpp
     )
     target_link_libraries(kl-json PUBLIC
@@ -83,6 +84,7 @@ endif()
 if(KL_ENABLE_YAML)
     add_library(kl-yaml
         ${kl_SOURCE_DIR}/include/kl/yaml.hpp
+        ${kl_SOURCE_DIR}/include/kl/yaml_fwd.hpp
         yaml.cpp
     )
     target_link_libraries(kl-yaml PUBLIC

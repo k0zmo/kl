@@ -6,6 +6,7 @@
 #include "kl/enum_set.hpp"
 #include "kl/tuple.hpp"
 #include "kl/utility.hpp"
+#include "kl/yaml_fwd.hpp"
 
 #include <yaml-cpp/yaml.h>
 
@@ -74,15 +75,6 @@ private:
     bool skip_null_fields_;
 };
 
-template <typename T>
-std::string dump(const T& obj);
-
-template <typename T, typename Context>
-void dump(const T& obj, Context& ctx);
-
-template <typename T>
-struct serializer;
-
 class serialize_context
 {
 public:
@@ -100,28 +92,6 @@ public:
 private:
     bool skip_null_fields_;
 };
-
-template <typename T>
-YAML::Node serialize(const T& obj);
-
-template <typename T, typename Context>
-YAML::Node serialize(const T& obj, Context& ctx);
-
-template <typename T>
-void deserialize(T& out, const YAML::Node& value);
-
-// Shorter version of from which can't be overloaded. Only use to invoke
-// the from() without providing a bit weird first parameter.
-template <typename T>
-T deserialize(const YAML::Node& value)
-{
-    static_assert(std::is_default_constructible_v<T>,
-                  "T must be default constructible");
-
-    T out;
-    yaml::deserialize(out, value);
-    return out;
-}
 
 struct deserialize_error : std::exception
 {
@@ -938,6 +908,19 @@ template <typename T>
 void deserialize(T& out, const YAML::Node& value)
 {
     return detail::deserialize(out, value, priority_tag<2>{});
+}
+
+// Shorter version of from which can't be overloaded. Only use to invoke
+// the from() without providing a bit weird first parameter.
+template <typename T>
+T deserialize(const YAML::Node& value)
+{
+    static_assert(std::is_default_constructible_v<T>,
+                  "T must be default constructible");
+
+    T out;
+    yaml::deserialize(out, value);
+    return out;
 }
 } // namespace kl::yaml
 
