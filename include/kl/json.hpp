@@ -97,7 +97,7 @@ public:
     {
     }
 
-    default_allocator& allocator() { return allocator_; }
+    json::allocator& allocator() { return alloc_; }
 
     template <typename Key, typename Value>
     bool skip_field(const Key&, const Value& value)
@@ -106,7 +106,7 @@ public:
     }
 
 private:
-    default_allocator allocator_;
+    json::allocator alloc_;
     bool skip_null_fields_;
 };
 
@@ -119,13 +119,13 @@ public:
     {
     }
 
-    explicit serialize_context(default_allocator& allocator,
+    explicit serialize_context(json::allocator& alloc,
                                bool skip_null_fields = true)
-        : allocator_{allocator}, skip_null_fields_{skip_null_fields}
+        : alloc_{alloc}, skip_null_fields_{skip_null_fields}
     {
     }
 
-    default_allocator& allocator() { return allocator_; }
+    json::allocator& allocator() { return alloc_; }
 
     template <typename Key, typename Value>
     bool skip_field(const Key&, const Value& value)
@@ -134,7 +134,7 @@ public:
     }
 
 private:
-    default_allocator& allocator_;
+    json::allocator& alloc_;
     bool skip_null_fields_;
 };
 

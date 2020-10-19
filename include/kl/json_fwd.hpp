@@ -20,8 +20,7 @@ void dump(const T& obj, Context& ctx);
 template <typename T>
 struct serializer;
 
-using default_allocator =
-    rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>;
+using allocator = rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>;
 
 class owning_serialize_context;
 class serialize_context;
