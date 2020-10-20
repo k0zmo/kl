@@ -65,12 +65,12 @@ bool is_null_value(const T& t)
 }
 
 template <typename Writer>
-class dump_context
+class default_dump_context
 {
 public:
     using writer_type = Writer;
 
-    explicit dump_context(Writer& writer, bool skip_null_fields = true)
+    explicit default_dump_context(Writer& writer, bool skip_null_fields = true)
         : writer_{writer}, skip_null_fields_{skip_null_fields}
     {
     }
@@ -109,17 +109,17 @@ private:
     bool skip_null_fields_;
 };
 
-class serialize_context
+class borrowing_serialize_context
 {
 public:
-    explicit serialize_context(rapidjson::Document& doc,
-                               bool skip_null_fields = true)
-        : serialize_context{doc.GetAllocator(), skip_null_fields}
+    explicit borrowing_serialize_context(rapidjson::Document& doc,
+                                         bool skip_null_fields = true)
+        : borrowing_serialize_context{doc.GetAllocator(), skip_null_fields}
     {
     }
 
-    explicit serialize_context(json::allocator& alloc,
-                               bool skip_null_fields = true)
+    explicit borrowing_serialize_context(json::allocator& alloc,
+                                         bool skip_null_fields = true)
         : alloc_{alloc}, skip_null_fields_{skip_null_fields}
     {
     }
@@ -213,11 +213,11 @@ void expect_array(const rapidjson::Value& value);
 
 namespace detail {
 
-template <typename Context>
+template <serialize_context C>
 class array_builder
 {
 public:
-    explicit array_builder(Context& ctx) noexcept
+    explicit array_builder(C& ctx) noexcept
         : ctx_{ctx}, value_{rapidjson::kArrayType}
     {
     }
@@ -238,15 +238,15 @@ public:
     operator rapidjson::Value() { return std::move(value_); }
 
 private:
-    Context& ctx_;
+    C& ctx_;
     rapidjson::Value value_;
 };
 
-template <typename Context>
+template <serialize_context C>
 class object_builder
 {
 public:
-    explicit object_builder(Context& ctx) noexcept
+    explicit object_builder(C& ctx) noexcept
         : ctx_{ctx}, value_{rapidjson::kObjectType}
     {
     }
@@ -301,7 +301,7 @@ public:
     operator rapidjson::Value() { return std::move(value_); }
 
 private:
-    Context& ctx_;
+    C& ctx_;
     rapidjson::Value value_;
 };
 
@@ -373,16 +373,16 @@ private:
 };
 } // namespace detail
 
-template <typename Context>
-auto to_array(Context& ctx)
+template <serialize_context C>
+auto to_array(C& ctx)
 {
-    return detail::array_builder<Context>{ctx};
+    return detail::array_builder{ctx};
 }
 
-template <typename Context>
-auto to_object(Context& ctx)
+template <serialize_context C>
+auto to_object(C& ctx)
 {
-    return detail::object_builder<Context>{ctx};
+    return detail::object_builder{ctx};
 }
 
 inline auto from_array(const rapidjson::Value& value)
@@ -405,89 +405,87 @@ using ::kl::detail::map_alike;
 
 // encode implementation
 
-template <typename Context>
-void encode(view v, Context& ctx)
+template <dump_context C>
+void encode(view v, C& ctx)
 {
     v.value().Accept(ctx.writer());
 }
 
-template <typename Context>
-void encode(std::nullptr_t, Context& ctx)
+template <dump_context C>
+void encode(std::nullptr_t, C& ctx)
 {
     ctx.writer().Null();
 }
 
-template <typename Context>
-void encode(bool b, Context& ctx)
+template <dump_context C>
+void encode(bool b, C& ctx)
 {
     ctx.writer().Bool(b);
 }
 
-template <typename Context>
-void encode(int i, Context& ctx)
+template <dump_context C>
+void encode(int i, C& ctx)
 {
     ctx.writer().Int(i);
 }
 
-template <typename Context>
-void encode(unsigned int u, Context& ctx)
+template <dump_context C>
+void encode(unsigned int u, C& ctx)
 {
     ctx.writer().Uint(u);
 }
 
-template <typename Context>
-void encode(std::int64_t i64, Context& ctx)
+template <dump_context C>
+void encode(std::int64_t i64, C& ctx)
 {
     ctx.writer().Int64(i64);
 }
 
-template <typename Context>
-void encode(std::uint64_t u64, Context& ctx)
+template <dump_context C>
+void encode(std::uint64_t u64, C& ctx)
 {
     ctx.writer().Uint64(u64);
 }
 
-template <typename Context>
-void encode(double d, Context& ctx)
+template <dump_context C>
+void encode(double d, C& ctx)
 {
     ctx.writer().Double(d);
 }
 
-template <typename Context>
-void encode(const typename Context::writer_type::Ch* str, Context& ctx)
+template <dump_context C>
+void encode(const typename C::writer_type::Ch* str, C& ctx)
 {
     ctx.writer().String(str);
 }
 
-template <typename Context>
-void encode(const std::basic_string<typename Context::writer_type::Ch>& str,
-            Context& ctx)
+template <dump_context C>
+void encode(const std::basic_string<typename C::writer_type::Ch>& str, C& ctx)
 {
     ctx.writer().String(str);
 }
 
-template <typename Context>
-void encode(std::basic_string_view<typename Context::writer_type::Ch> str,
-            Context& ctx)
+template <dump_context C>
+void encode(std::basic_string_view<typename C::writer_type::Ch> str, C& ctx)
 {
     ctx.writer().String(str.data(),
                         static_cast<rapidjson::SizeType>(str.length()));
 }
 
-template <typename Key, typename Context>
-void encode_key(const Key& key, Context& ctx)
+template <typename Key, dump_context C>
+void encode_key(const Key& key, C& ctx)
 {
     ctx.writer().Key(key.c_str(), static_cast<rapidjson::SizeType>(key.size()));
 }
 
-template <typename Context>
-void encode_key(const char* key, Context& ctx)
+template <dump_context C>
+void encode_key(const char* key, C& ctx)
 {
     ctx.writer().Key(key);
 }
 
-template <map_alike M, typename Context>
-void encode(const M& map, Context& ctx)
+template <map_alike M, dump_context C>
+void encode(const M& map, C& ctx)
 {
     ctx.writer().StartObject();
     for (const auto& [key, value] : map)
@@ -501,8 +499,8 @@ void encode(const M& map, Context& ctx)
     ctx.writer().EndObject();
 }
 
-template <std::ranges::range R, typename Context>
-void encode(const R& rng, Context& ctx)
+template <std::ranges::range R, dump_context C>
+void encode(const R& rng, C& ctx)
 {
     ctx.writer().StartArray();
     for (const auto& v : rng)
@@ -510,8 +508,8 @@ void encode(const R& rng, Context& ctx)
     ctx.writer().EndArray();
 }
 
-template <reflectable R, typename Context>
-void encode(const R& refl, Context& ctx)
+template <reflectable R, dump_context C>
+void encode(const R& refl, C& ctx)
 {
     ctx.writer().StartObject();
     ctti::reflect(refl, [&ctx](auto& field, auto name) {
@@ -524,9 +522,8 @@ void encode(const R& refl, Context& ctx)
     ctx.writer().EndObject();
 }
 
-template <typename Enum, typename Context>
-    requires std::is_enum_v<Enum>
-void encode(Enum e, Context& ctx)
+template <typename Enum, dump_context C> requires std::is_enum_v<Enum>
+void encode(Enum e, C& ctx)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
         json::dump(kl::to_string(e), ctx);
@@ -534,8 +531,8 @@ void encode(Enum e, Context& ctx)
         json::dump(underlying_cast(e), ctx);
 }
 
-template <typename Enum, typename Context>
-void encode(const enum_set<Enum>& set, Context& ctx)
+template <typename Enum, dump_context C>
+void encode(const enum_set<Enum>& set, C& ctx)
 {
     static_assert(is_enum_reflectable_v<Enum>,
                   "Only sets of reflectable enums are supported");
@@ -548,8 +545,8 @@ void encode(const enum_set<Enum>& set, Context& ctx)
     ctx.writer().EndArray();
 }
 
-template <typename... Ts, typename Context>
-void encode(const std::tuple<Ts...>& tuple, Context& ctx)
+template <typename... Ts, dump_context C>
+void encode(const std::tuple<Ts...>& tuple, C& ctx)
 {
     ctx.writer().StartArray();
     [&]<std::size_t... Is>(std::index_sequence<Is...>) {
@@ -558,8 +555,8 @@ void encode(const std::tuple<Ts...>& tuple, Context& ctx)
     ctx.writer().EndArray();
 }
 
-template <typename T, typename Context>
-void encode(const std::optional<T>& opt, Context& ctx)
+template <typename T, dump_context C>
+void encode(const std::optional<T>& opt, C& ctx)
 {
     if (!opt)
         ctx.writer().Null();
@@ -575,56 +572,56 @@ concept json_constructible =
     !std::is_enum_v<T>;
 
 // For all T's that we can directly create rapidjson::Value value from
-template <json_constructible T, typename Context>
-rapidjson::Value to_json(const T& value, Context& ctx)
+template <json_constructible T, serialize_context C>
+rapidjson::Value to_json(const T& value, C& ctx)
 {
     (void)ctx;
     return rapidjson::Value{value};
 }
 
-template <typename Context>
-rapidjson::Value to_json(view v, Context& ctx)
+template <serialize_context C>
+rapidjson::Value to_json(view v, C& ctx)
 {
     return rapidjson::Value{v.value(), ctx.allocator()};
 }
 
-template <typename Context>
-rapidjson::Value to_json(std::nullptr_t, Context&)
+template <serialize_context C>
+rapidjson::Value to_json(std::nullptr_t, C&)
 {
     return rapidjson::Value{};
 }
 
-template <typename Ch, typename Context>
-rapidjson::Value to_json(const std::basic_string<Ch>& str, Context& ctx)
+template <typename Ch, serialize_context C>
+rapidjson::Value to_json(const std::basic_string<Ch>& str, C& ctx)
 {
     return rapidjson::Value{str, ctx.allocator()};
 }
 
-template <typename Ch, typename Context>
-rapidjson::Value to_json(std::basic_string_view<Ch> str, Context& ctx)
+template <typename Ch, serialize_context C>
+rapidjson::Value to_json(std::basic_string_view<Ch> str, C& ctx)
 {
     return rapidjson::Value{str.data(),
                             static_cast<rapidjson::SizeType>(str.length()),
                             ctx.allocator()};
 }
 
-template <typename Context>
-rapidjson::Value to_json(const char* str, Context& ctx)
+template <serialize_context C>
+rapidjson::Value to_json(const char* str, C& ctx)
 {
     return rapidjson::Value{str, ctx.allocator()};
 }
 
 // For string literals
-template <std::size_t N, typename Context>
-rapidjson::Value to_json(char (&str)[N], Context&)
+template <std::size_t N, serialize_context C>
+rapidjson::Value to_json(char (&str)[N], C&)
 {
     // No need for allocator
     return rapidjson::Value{str, N - 1};
 }
 
 // For all T's that quacks like a std::map
-template <map_alike M, typename Context>
-rapidjson::Value to_json(const M& map, Context& ctx)
+template <map_alike M, serialize_context C>
+rapidjson::Value to_json(const M& map, C& ctx)
 {
     static_assert(std::is_constructible_v<std::string, typename M::key_type>,
                   "std::string must be constructible from the Map's key type");
@@ -642,8 +639,8 @@ rapidjson::Value to_json(const M& map, Context& ctx)
 }
 
 // For all T's that quacks like a range
-template <std::ranges::range R, typename Context>
-rapidjson::Value to_json(const R& rng, Context& ctx)
+template <std::ranges::range R, serialize_context C>
+rapidjson::Value to_json(const R& rng, C& ctx)
 {
     rapidjson::Value arr{rapidjson::kArrayType};
     for (const auto& v : rng)
@@ -652,8 +649,8 @@ rapidjson::Value to_json(const R& rng, Context& ctx)
 }
 
 // For all T's for which there's a type_info defined
-template <reflectable R, typename Context>
-rapidjson::Value to_json(const R& refl, Context& ctx)
+template <reflectable R, serialize_context C>
+rapidjson::Value to_json(const R& refl, C& ctx)
 {
     rapidjson::Value obj{rapidjson::kObjectType};
     ctti::reflect(refl, [&obj, &ctx](auto& field, auto name) {
@@ -667,8 +664,8 @@ rapidjson::Value to_json(const R& refl, Context& ctx)
     return obj;
 }
 
-template <typename Enum, typename Context> requires std::is_enum_v<Enum>
-rapidjson::Value to_json(Enum e, Context& ctx)
+template <typename Enum, serialize_context C> requires std::is_enum_v<Enum>
+rapidjson::Value to_json(Enum e, C& ctx)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
         return rapidjson::Value{rapidjson::StringRef(kl::to_string(e)),
@@ -677,8 +674,8 @@ rapidjson::Value to_json(Enum e, Context& ctx)
         return to_json(underlying_cast(e), ctx);
 }
 
-template <typename Enum, typename Context>
-rapidjson::Value to_json(const enum_set<Enum>& set, Context& ctx)
+template <typename Enum, serialize_context C>
+rapidjson::Value to_json(const enum_set<Enum>& set, C& ctx)
 {
     static_assert(is_enum_reflectable_v<Enum>,
                   "Only sets of reflectable enums are supported");
@@ -693,8 +690,8 @@ rapidjson::Value to_json(const enum_set<Enum>& set, Context& ctx)
     return arr;
 }
 
-template <typename... Ts, typename Context>
-rapidjson::Value to_json(const std::tuple<Ts...>& tuple, Context& ctx)
+template <typename... Ts, serialize_context C>
+rapidjson::Value to_json(const std::tuple<Ts...>& tuple, C& ctx)
 {
     rapidjson::Value arr{rapidjson::kArrayType};
     [&]<std::size_t... Is>(std::index_sequence<Is...>) {
@@ -704,8 +701,8 @@ rapidjson::Value to_json(const std::tuple<Ts...>& tuple, Context& ctx)
     return arr;
 }
 
-template <typename T, typename Context>
-rapidjson::Value to_json(const std::optional<T>& opt, Context& ctx)
+template <typename T, serialize_context C>
+rapidjson::Value to_json(const std::optional<T>& opt, C& ctx)
 {
     if (opt)
         return json::serialize(*opt, ctx);
@@ -1000,30 +997,30 @@ void from_json(std::optional<T>& out, const rapidjson::Value& value)
     out = json::deserialize<T>(value);
 }
 
-template <typename T, typename Context>
-void dump(const T&, Context&, priority_tag<0>)
+template <typename T, dump_context C>
+void dump(const T&, C&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
                   "Cannot dump an instance of type T - no viable "
                   "definition of encode provided");
 }
 
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<1>)
+template <typename T, dump_context C>
+auto dump(const T& obj, C& ctx, priority_tag<1>)
     -> decltype(encode(obj, ctx), void())
 {
     encode(obj, ctx);
 }
 
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<2>)
+template <typename T, dump_context C>
+auto dump(const T& obj, C& ctx, priority_tag<2>)
     -> decltype(json::serializer<T>::encode(obj, ctx), void())
 {
     json::serializer<T>::encode(obj, ctx);
 }
 
-template <typename T, typename Context>
-rapidjson::Value serialize(const T&, Context&, priority_tag<0>)
+template <typename T, serialize_context C>
+rapidjson::Value serialize(const T&, C&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
                   "Cannot serialize an instance of type T - no viable "
@@ -1031,15 +1028,15 @@ rapidjson::Value serialize(const T&, Context&, priority_tag<0>)
     return {}; // Keeps compiler happy
 }
 
-template <typename T, typename Context>
-auto serialize(const T& obj, Context& ctx, priority_tag<1>)
+template <typename T, serialize_context C>
+auto serialize(const T& obj, C& ctx, priority_tag<1>)
     requires requires { to_json(obj, ctx); }
 {
     return to_json(obj, ctx);
 }
 
-template <typename T, typename Context>
-auto serialize(const T& obj, Context& ctx, priority_tag<2>)
+template <typename T, serialize_context C>
+auto serialize(const T& obj, C& ctx, priority_tag<2>)
     requires requires { json::serializer<T>::to_json(obj, ctx); }
 {
     return json::serializer<T>::to_json(obj, ctx);
@@ -1074,14 +1071,14 @@ std::string dump(const T& obj)
     using namespace rapidjson;
     StringBuffer buf{};
     Writer<StringBuffer> wrt{buf};
-    dump_context<Writer<StringBuffer>> ctx{wrt};
+    default_dump_context<Writer<StringBuffer>> ctx{wrt};
 
     json::dump(obj, ctx);
     return {buf.GetString()};
 }
 
-template <typename T, typename Context>
-void dump(const T& obj, Context& ctx)
+template <typename T, dump_context C>
+void dump(const T& obj, C& ctx)
 {
     detail::dump(obj, ctx, priority_tag<2>{});
 }
@@ -1092,13 +1089,13 @@ rapidjson::Document serialize(const T& obj)
 {
     rapidjson::Document doc;
     rapidjson::Value& v = doc;
-    serialize_context ctx{doc};
+    borrowing_serialize_context ctx{doc};
     v = json::serialize(obj, ctx);
     return doc;
 }
 
-template <typename T, typename Context>
-rapidjson::Value serialize(const T& obj, Context& ctx)
+template <typename T, serialize_context C>
+rapidjson::Value serialize(const T& obj, C& ctx)
 {
     /*
       MSVC >= 19.28
