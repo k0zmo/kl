@@ -399,10 +399,9 @@ namespace detail {
 
 std::string type_name(const rapidjson::Value& value);
 
-using ::kl::detail::has_reserve_v;
-using ::kl::detail::is_growable_range;
-using ::kl::detail::is_map_alike;
-using ::kl::detail::is_range;
+using ::kl::detail::has_reserve;
+using ::kl::detail::growable_range;
+using ::kl::detail::map_alike;
 
 // encode implementation
 
@@ -487,8 +486,8 @@ void encode_key(const char* key, Context& ctx)
     ctx.writer().Key(key);
 }
 
-template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
-void encode(const Map& map, Context& ctx)
+template <map_alike M, typename Context>
+void encode(const M& map, Context& ctx)
 {
     ctx.writer().StartObject();
     for (const auto& [key, value] : map)
@@ -502,9 +501,8 @@ void encode(const Map& map, Context& ctx)
     ctx.writer().EndObject();
 }
 
-template <typename Range, typename Context,
-          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
-void encode(const Range& rng, Context& ctx)
+template <std::ranges::range R, typename Context>
+void encode(const R& rng, Context& ctx)
 {
     ctx.writer().StartArray();
     for (const auto& v : rng)
@@ -512,9 +510,8 @@ void encode(const Range& rng, Context& ctx)
     ctx.writer().EndArray();
 }
 
-template <typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
-void encode(const Reflectable& refl, Context& ctx)
+template <reflectable R, typename Context>
+void encode(const R& refl, Context& ctx)
 {
     ctx.writer().StartObject();
     ctti::reflect(refl, [&ctx](auto& field, auto name) {
@@ -527,7 +524,8 @@ void encode(const Reflectable& refl, Context& ctx)
     ctx.writer().EndObject();
 }
 
-template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
+template <typename Enum, typename Context>
+    requires std::is_enum_v<Enum>
 void encode(Enum e, Context& ctx)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
@@ -550,18 +548,14 @@ void encode(const enum_set<Enum>& set, Context& ctx)
     ctx.writer().EndArray();
 }
 
-template <typename Tuple, std::size_t... Is, typename Context>
-void encode_tuple(const Tuple& tuple, Context& ctx, std::index_sequence<Is...>)
-{
-    ctx.writer().StartArray();
-    (json::dump(std::get<Is>(tuple), ctx), ...);
-    ctx.writer().EndArray();
-}
-
 template <typename... Ts, typename Context>
 void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    encode_tuple(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
+    ctx.writer().StartArray();
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (..., json::dump(std::get<Is>(tuple), ctx));
+    }(std::make_index_sequence<sizeof...(Ts)>{});
+    ctx.writer().EndArray();
 }
 
 template <typename T, typename Context>
@@ -575,17 +569,14 @@ void encode(const std::optional<T>& opt, Context& ctx)
 
 // to_json implementation
 
-// Checks if we can construct a Json object with given T
 template <typename T>
-using is_json_constructible =
-    std::bool_constant<std::is_constructible_v<rapidjson::Value, T> &&
-                       // We want reflectable unscoped enum to handle ourselves
-                       !std::is_enum_v<T>>;
+concept json_constructible =
+    std::is_constructible_v<rapidjson::Value, T> &&
+    !std::is_enum_v<T>;
 
 // For all T's that we can directly create rapidjson::Value value from
-template <typename JsonConstructible, typename Context,
-          enable_if<is_json_constructible<JsonConstructible>> = true>
-rapidjson::Value to_json(const JsonConstructible& value, Context& ctx)
+template <json_constructible T, typename Context>
+rapidjson::Value to_json(const T& value, Context& ctx)
 {
     (void)ctx;
     return rapidjson::Value{value};
@@ -632,12 +623,10 @@ rapidjson::Value to_json(char (&str)[N], Context&)
 }
 
 // For all T's that quacks like a std::map
-template <typename Map, typename Context,
-          enable_if<std::negation<is_json_constructible<Map>>,
-                    is_map_alike<Map>> = true>
-rapidjson::Value to_json(const Map& map, Context& ctx)
+template <map_alike M, typename Context>
+rapidjson::Value to_json(const M& map, Context& ctx)
 {
-    static_assert(std::is_constructible_v<std::string, typename Map::key_type>,
+    static_assert(std::is_constructible_v<std::string, typename M::key_type>,
                   "std::string must be constructible from the Map's key type");
 
     rapidjson::Value obj{rapidjson::kObjectType};
@@ -653,10 +642,8 @@ rapidjson::Value to_json(const Map& map, Context& ctx)
 }
 
 // For all T's that quacks like a range
-template <typename Range, typename Context,
-          enable_if<std::negation<is_json_constructible<Range>>,
-                    std::negation<is_map_alike<Range>>, is_range<Range>> = true>
-rapidjson::Value to_json(const Range& rng, Context& ctx)
+template <std::ranges::range R, typename Context>
+rapidjson::Value to_json(const R& rng, Context& ctx)
 {
     rapidjson::Value arr{rapidjson::kArrayType};
     for (const auto& v : rng)
@@ -665,9 +652,8 @@ rapidjson::Value to_json(const Range& rng, Context& ctx)
 }
 
 // For all T's for which there's a type_info defined
-template <typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
-rapidjson::Value to_json(const Reflectable& refl, Context& ctx)
+template <reflectable R, typename Context>
+rapidjson::Value to_json(const R& refl, Context& ctx)
 {
     rapidjson::Value obj{rapidjson::kObjectType};
     ctti::reflect(refl, [&obj, &ctx](auto& field, auto name) {
@@ -681,7 +667,7 @@ rapidjson::Value to_json(const Reflectable& refl, Context& ctx)
     return obj;
 }
 
-template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
+template <typename Enum, typename Context> requires std::is_enum_v<Enum>
 rapidjson::Value to_json(Enum e, Context& ctx)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
@@ -707,20 +693,15 @@ rapidjson::Value to_json(const enum_set<Enum>& set, Context& ctx)
     return arr;
 }
 
-template <typename Tuple, typename Context, std::size_t... Is>
-rapidjson::Value tuple_to_json(const Tuple& tuple, Context& ctx,
-                               std::index_sequence<Is...>)
-{
-    rapidjson::Value arr{rapidjson::kArrayType};
-    (arr.PushBack(json::serialize(std::get<Is>(tuple), ctx), ctx.allocator()),
-     ...);
-    return arr;
-}
-
 template <typename... Ts, typename Context>
 rapidjson::Value to_json(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    return tuple_to_json(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
+    rapidjson::Value arr{rapidjson::kArrayType};
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (..., arr.PushBack(json::serialize(std::get<Is>(tuple), ctx),
+                           ctx.allocator()));
+    }(std::make_index_sequence<sizeof...(Ts)>{});
+    return arr;
 }
 
 template <typename T, typename Context>
@@ -732,11 +713,6 @@ rapidjson::Value to_json(const std::optional<T>& opt, Context& ctx)
 }
 
 // from_json implementation
-
-// clang-format off
-template <typename T>
-struct is_64bit : std::bool_constant<sizeof(T) == 8> {};
-// clang-format n
 
 [[noreturn]] inline void throw_lossy_conversion()
 {
@@ -752,6 +728,9 @@ Target narrow(Source src)
     return static_cast<Target>(src);
 }
 
+template <typename T>
+concept integral_64bit = std::integral<T> && sizeof(T) == 8;
+
 class integral_value_extractor
 {
 public:
@@ -761,8 +740,7 @@ public:
     }
 
     // int8, int16 and int32
-    template <typename T,
-              enable_if<std::is_signed<T>, std::negation<is_64bit<T>>> = true>
+    template <std::signed_integral T>
     explicit operator T() const
     {
         if (value_.IsInt())
@@ -773,7 +751,7 @@ public:
     // int64
     // It's a template operator instead of a just int64_t operator because long
     // and long long are distinct types on Linux (LP64)
-    template <typename T, enable_if<std::is_signed<T>, is_64bit<T>> = true>
+    template <std::signed_integral T> requires integral_64bit<T>
     explicit operator T() const
     {
         if (value_.IsInt64())
@@ -782,8 +760,7 @@ public:
     }
 
     // uint8, uint16 and uint32
-    template <typename T,
-              enable_if<std::is_unsigned<T>, std::negation<is_64bit<T>>> = true>
+    template <std::unsigned_integral T>
     explicit operator T() const
     {
         if (value_.IsUint())
@@ -792,7 +769,7 @@ public:
     }
 
     // uint64
-    template <typename T, enable_if<std::is_unsigned<T>, is_64bit<T>> = true>
+    template <std::unsigned_integral T> requires integral_64bit<T>
     explicit operator T() const
     {
         if (value_.IsUint64())
@@ -804,18 +781,18 @@ private:
     const rapidjson::Value& value_;
 };
 
-template <typename Integral, enable_if<std::is_integral<Integral>> = true>
-void from_json(Integral& out, const rapidjson::Value& value)
+template <std::integral I>
+void from_json(I& out, const rapidjson::Value& value)
 {
     json::expect_integral(value);
-    out = static_cast<Integral>(integral_value_extractor{value});
+    out = static_cast<I>(integral_value_extractor{value});
 }
 
-template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
-void from_json(Floating& out, const rapidjson::Value& value)
+template <std::floating_point F>
+void from_json(F& out, const rapidjson::Value& value)
 {
     json::expect_number(value);
-    out = static_cast<Floating>(value.GetDouble());
+    out = static_cast<F>(value.GetDouble());
 }
 
 inline void from_json(bool& out, const rapidjson::Value& value)
@@ -848,8 +825,8 @@ inline void from_json(view& out, const rapidjson::Value& value)
     out = view{value};
 }
 
-template <typename Map, enable_if<is_map_alike<Map>> = true>
-void from_json(Map& out, const rapidjson::Value& value)
+template <map_alike M>
+void from_json(M& out, const rapidjson::Value& value)
 {
     json::expect_object(value);
 
@@ -859,10 +836,10 @@ void from_json(Map& out, const rapidjson::Value& value)
     {
         try
         {
-            // There's no way to construct K and V directly in the Map
+            // There's no way to construct K and V directly in the map_alike
             out.emplace(
-                json::deserialize<typename Map::key_type>(obj.name),
-                json::deserialize<typename Map::mapped_type>(obj.value));
+                json::deserialize<typename M::key_type>(obj.name),
+                json::deserialize<typename M::mapped_type>(obj.value));
         }
         catch (deserialize_error& ex)
         {
@@ -874,23 +851,21 @@ void from_json(Map& out, const rapidjson::Value& value)
     }
 }
 
-template <typename GrowableRange,
-          enable_if<std::negation<is_map_alike<GrowableRange>>,
-                    is_growable_range<GrowableRange>> = true>
-void from_json(GrowableRange& out, const rapidjson::Value& value)
+template <growable_range R>
+void from_json(R& out, const rapidjson::Value& value)
 {
     json::expect_array(value);
 
     out.clear();
-    if constexpr (has_reserve_v<GrowableRange>)
+    if constexpr (has_reserve<R>)
         out.reserve(value.Size());
 
     for (const auto& item : value.GetArray())
     {
         try
         {
-            // There's no way to construct T directly in the GrowableRange
-            out.push_back(json::deserialize<typename GrowableRange::value_type>(item));
+            // There's no way to construct T directly in the growable_range
+            out.push_back(json::deserialize<typename R::value_type>(item));
         }
         catch (deserialize_error& ex)
         {
@@ -902,8 +877,8 @@ void from_json(GrowableRange& out, const rapidjson::Value& value)
     }
 }
 
-template <typename Reflectable>
-void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
+template <reflectable R>
+void reflectable_from_json(R& out, const rapidjson::Value& value)
 {
     if (value.IsObject())
     {
@@ -924,7 +899,7 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
     }
     else if (value.IsArray())
     {
-        if (value.Size() > ctti::num_fields<Reflectable>())
+        if (value.Size() > ctti::num_fields<R>())
         {
             throw deserialize_error{"array size is greater than "
                                     "declared struct's field "
@@ -953,8 +928,8 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
     }
 }
 
-template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
-void from_json(Reflectable& out, const rapidjson::Value& value)
+template <reflectable R>
+void from_json(R& out, const rapidjson::Value& value)
 {
     try
     {
@@ -963,13 +938,13 @@ void from_json(Reflectable& out, const rapidjson::Value& value)
     catch (deserialize_error& ex)
     {
         std::string msg = "error when deserializing type " +
-                          std::string(ctti::name<Reflectable>());
+                          std::string(ctti::name<R>());
         ex.add(msg.c_str());
         throw;
     }
 }
 
-template <typename Enum, enable_if<std::is_enum<Enum>> = true>
+template <typename Enum> requires std::is_enum_v<Enum>
 void from_json(Enum& out, const rapidjson::Value& value)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
@@ -1006,19 +981,14 @@ void from_json(enum_set<Enum>& out, const rapidjson::Value& value)
     }
 }
 
-template <typename Tuple, std::size_t... Is>
-void tuple_from_json(Tuple& out, rapidjson::Value::ConstArray arr,
-                     std::index_sequence<Is...>)
-{
-    (json::deserialize(std::get<Is>(out), json::at(arr, Is)), ...);
-}
-
 template <typename... Ts>
 void from_json(std::tuple<Ts...>& out, const rapidjson::Value& value)
 {
     json::expect_array(value);
-    tuple_from_json(out, value.GetArray(),
-                    std::make_index_sequence<sizeof...(Ts)>{});
+    const auto& arr = value.GetArray();
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (..., json::deserialize(std::get<Is>(out), json::at(arr, Is)));
+    }(std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T>
@@ -1063,14 +1033,14 @@ rapidjson::Value serialize(const T&, Context&, priority_tag<0>)
 
 template <typename T, typename Context>
 auto serialize(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(to_json(obj, ctx))
+    requires requires { to_json(obj, ctx); }
 {
     return to_json(obj, ctx);
 }
 
 template <typename T, typename Context>
 auto serialize(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(json::serializer<T>::to_json(obj, ctx))
+    requires requires { json::serializer<T>::to_json(obj, ctx); }
 {
     return json::serializer<T>::to_json(obj, ctx);
 }
@@ -1130,6 +1100,19 @@ rapidjson::Document serialize(const T& obj)
 template <typename T, typename Context>
 rapidjson::Value serialize(const T& obj, Context& ctx)
 {
+    /*
+      MSVC >= 19.28
+    using namespace json::detail;
+
+    if constexpr (requires { json::serializer<T>::to_json(obj, ctx); })
+        return json::serializer<T>::to_json(obj, ctx);
+    else if constexpr (requires { to_json(obj, ctx); })
+        return to_json(obj, ctx);
+    else
+        static_assert(always_false_v<T>,
+                      "Cannot serialize an instance of type T - no viable "
+                      "definition of to_json provided");
+    */
     return detail::serialize(obj, ctx, priority_tag<2>{});
 }
 
