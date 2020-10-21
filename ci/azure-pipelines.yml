@@ -1,88 +1,11 @@
 jobs:
-  - job: ubuntu18_gcc7
-    pool:
-      vmImage: 'ubuntu-18.04'
-    strategy:
-      matrix:
-        Release:
-          BuildType: Release
-        AddressSanitizer:
-          BuildType: ASan
-        UndefinedBehaviourSanitizer:
-          BuildType: UBSan
-    steps:
-      - script: |
-          which g++ && g++ --version
-          cmake --version
-        displayName: 'Check environment'
-      - template: templates/install-boost.yml
-      - script: |
-          sudo apt-get install ninja-build
-        displayName: 'Install Ninja'
-      - script: |
-          export LDFLAGS="-fuse-ld=gold"
-          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
-          cmake --build build
-        displayName: 'Build kl'
-      - script: |
-          cd build && ctest -VV --output-on-failure
-        displayName: 'Run CTest'
-
-  - job: ubuntu18_gcc7_coverage
-    pool:
-      vmImage: 'ubuntu-18.04'
-    steps:
-      - script: |
-          which g++ && g++ --version
-          cmake --version
-        displayName: 'Check environment'
-      - script: |
-          pip install --user codecov
-        displayName: 'Install codecov'
-      - template: templates/install-boost.yml
-      - template: templates/install-lcov.yml
-      - script: |
-          export LDFLAGS="-fuse-ld=gold"
-          export PATH=$(pwd)/_deps/lcov/bin:$PATH
-          cmake -S . -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Coverage
-          cmake --build build --parallel 4
-        displayName: 'Build kl'
-      - script: |
-          cd build && cmake --build . --target kl-coverage
-          ~/.local/bin/codecov -X gcov
-        displayName: 'Send code coverage data'
-
-  - job: ubuntu18_clang6
-    pool:
-      vmImage: 'ubuntu-18.04'
-    steps:
-      - template: templates/install-clang.yml
-        parameters:
-          version: '6.0'
-      - script: |
-          which clang++ && clang++ --version
-          cmake --version
-        displayName: 'Check environment'
-      - template: templates/install-boost.yml
-      - script: |
-          sudo apt-get install ninja-build
-        displayName: 'Install Ninja'
-      - script: |
-          export LDFLAGS="-fuse-ld=gold" CXX=clang++ CC=clang
-          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release
-          cmake --build build
-        displayName: 'Build kl'
-      - script: |
-          cd build && ctest -VV --output-on-failure
-        displayName: 'Run CTest'
-
-  - job: ubuntu18_gcc9
+  - job: ubuntu18_gcc10
     pool:
       vmImage: 'ubuntu-18.04'
     steps:
       - template: templates/install-gcc.yml
         parameters:
-          version: '9'
+          version: '10'
       - script: |
           which g++ && g++ --version
           cmake --version
@@ -93,35 +16,11 @@ jobs:
         displayName: 'Install Ninja'
       - script: |
           export LDFLAGS="-fuse-ld=gold"
-          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release -DKL_ENABLE_YAML=OFF
           cmake --build build
         displayName: 'Build kl'
       - script: |
           cd build && ctest -VV --output-on-failure
-        displayName: 'Run CTest'
-
-  - job: windows_vc2017
-    pool:
-      vmImage: 'vs2017-win2016'
-    variables:
-      CL: /MP
-    strategy:
-      matrix:
-        Win32:
-          Architecture: Win32
-        Win64:
-          Architecture: x64
-    steps:
-      - script: |
-          cmake --version
-        displayName: 'Check environment'
-      - template: templates/install-boost.yml
-      - script: |
-          cmake.exe -S . -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 15 2017" -A $(Architecture)
-          cmake.exe --build build --config Release
-        displayName: 'Build kl'
-      - script: |
-          cd build && ctest --build-config Release -VV --output-on-failure
         displayName: 'Run CTest'
 
   - job: windows_vc2019
@@ -141,7 +40,7 @@ jobs:
         displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
-          cmake.exe -S . -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 16 2019" -A $(Architecture)
+          cmake.exe -S . -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 16 2019" -A $(Architecture) -DKL_ENABLE_YAML=OFF
           cmake.exe --build build --config Release
         displayName: 'Build kl'
       - script: |
