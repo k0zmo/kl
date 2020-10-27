@@ -31,14 +31,6 @@ struct is_enum_reflectable<Enum, true>
 template <typename T>
 inline constexpr bool is_enum_reflectable_v = is_enum_reflectable<T>::value;
 
-template <typename T>
-using is_enum_nonreflectable =
-    std::bool_constant<std::is_enum_v<T> && !is_enum_reflectable_v<T>>;
-
-template <typename T>
-inline constexpr bool is_enum_nonreflectable_v =
-    is_enum_nonreflectable<T>::value;
-
 template <typename Enum>
 struct enum_reflector
 {
