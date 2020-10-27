@@ -84,10 +84,12 @@ struct enum_reflector
         return "(unknown)";
     }
 
-    static range<const enum_type*> values() noexcept
+    static auto values() noexcept
     {
         static constexpr auto value_list = values_impl();
-        return {value_list.data(), value_list.data() + value_list.size()};
+        static constexpr auto first = value_list.data();
+        static constexpr auto last = first + value_list.size();
+        return kl::range{first, last};
     }
 
     static constexpr auto constexpr_values() noexcept { return values_impl(); }

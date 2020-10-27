@@ -173,11 +173,11 @@ private:
 
 template <typename... Seqs>
 class zip_range
-    : public range<detail::zip_iterator<std::remove_reference_t<Seqs>...>>
+    : public kl::range<detail::zip_iterator<std::remove_reference_t<Seqs>...>>
 {
 public:
     using iterator = detail::zip_iterator<std::remove_reference_t<Seqs>...>;
-    using super_t = range<iterator>;
+    using super_t = kl::range<iterator>;
 
 public:
     explicit zip_range(const Seqs&... seqs)
@@ -191,11 +191,11 @@ public:
     }
 };
 
-class integral_range : public range<detail::integral_iterator>
+class integral_range : public kl::range<detail::integral_iterator>
 {
 public:
     using iterator = detail::integral_iterator;
-    using super_t = range<iterator>;
+    using super_t = kl::range<iterator>;
 
 public:
     integral_range(std::size_t first, std::size_t last) noexcept
@@ -206,11 +206,11 @@ public:
     size_t size() const noexcept { return end() - begin(); }
 };
 
-class inf_integral_range : public range<detail::inf_integral_iterator>
+class inf_integral_range : public kl::range<detail::inf_integral_iterator>
 {
 public:
     using iterator = detail::inf_integral_iterator;
-    using super_t = range<iterator>;
+    using super_t = kl::range<iterator>;
 
 public:
     inf_integral_range() : super_t{iterator{0}, iterator{0}} {}
