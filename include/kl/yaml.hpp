@@ -704,8 +704,9 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
                                     "declared struct's field "
                                     "count"};
         }
-        ctti::reflect(out, [&value, index = 0U](auto& field,
-                                                auto name) mutable {
+        ctti::reflect(out, [&value,
+                            index = 0U](auto& field,
+                                        [[maybe_unused]] auto name) mutable {
             try
             {
                 yaml::deserialize(field, yaml::at(value, index));
