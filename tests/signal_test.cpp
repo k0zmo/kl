@@ -225,7 +225,7 @@ TEST_CASE("signal")
     {
         int counter = 0;
         auto single_shot_slot = [&counter](kl::connection& conn,
-                                           const std::string& message) {
+                                           const std::string&) {
             conn.disconnect();
             ++counter;
         };
@@ -485,7 +485,7 @@ TEST_CASE("stopping signal emission")
     SECTION("run all")
     {
         int cnt = 0;
-        signal([&](int ret) {
+        signal([&](int) {
             ++cnt;
             return false;
         });

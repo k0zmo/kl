@@ -280,7 +280,7 @@ template <typename E>
 }
 
 template <typename E>
-[[nodiscard]] std::string exception_diagnostic_info(const E& e)
+[[nodiscard]] std::string exception_diagnostic_info([[maybe_unused]] const E& e)
 {
     std::ostringstream ss;
     using detail::demangled_type_name;

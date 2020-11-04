@@ -1013,7 +1013,7 @@ public:
     writer_type& writer() const { return writer_; }
 
     template <typename Key, typename Value>
-    bool skip_field(const Key& key, const Value& value)
+    bool skip_field(const Key& key, const Value&)
     {
         return !std::strcmp(key, "secret");
     }

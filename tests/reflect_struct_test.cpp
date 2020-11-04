@@ -30,7 +30,7 @@ TEST_CASE("reflect struct")
     std::tuple<int, bool, double> t{};
     unsigned acc{};
     reflect_struct(
-        [&](auto& field, auto name) {
+        [&](auto&, auto name) {
             switch (acc)
             {
             case 0:
@@ -64,7 +64,7 @@ TEST_CASE("reflect struct")
     std::string last_name;
     acc = {};
     reflect_struct(
-        [&](auto& field, auto name) {
+        [&](auto&, auto name) {
             ++acc;
             last_name = name;
         },

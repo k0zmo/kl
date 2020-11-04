@@ -599,7 +599,7 @@ rapidjson::Value to_json(view v, Context& ctx)
 }
 
 template <typename Context>
-rapidjson::Value to_json(std::nullptr_t, Context& ctx)
+rapidjson::Value to_json(std::nullptr_t, Context&)
 {
     return rapidjson::Value{};
 }
@@ -932,7 +932,7 @@ void reflectable_from_json(Reflectable& out, const rapidjson::Value& value)
                                     "count"};
         }
         const auto arr = value.GetArray();
-        ctti::reflect(out, [&arr, index = 0U](auto& field, auto name) mutable {
+        ctti::reflect(out, [&arr, index = 0U](auto& field, auto) mutable {
             try
             {
                 json::deserialize(field, json::at(arr, index));
