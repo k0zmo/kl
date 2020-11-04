@@ -399,8 +399,8 @@ namespace detail {
 
 std::string type_name(const rapidjson::Value& value);
 
-using ::kl::detail::has_reserve;
 using ::kl::detail::growable_range;
+using ::kl::detail::has_reserve;
 using ::kl::detail::map_alike;
 
 // encode implementation
@@ -834,9 +834,8 @@ void from_json(M& out, const rapidjson::Value& value)
         try
         {
             // There's no way to construct K and V directly in the map_alike
-            out.emplace(
-                json::deserialize<typename M::key_type>(obj.name),
-                json::deserialize<typename M::mapped_type>(obj.value));
+            out.emplace(json::deserialize<typename M::key_type>(obj.name),
+                        json::deserialize<typename M::mapped_type>(obj.value));
         }
         catch (deserialize_error& ex)
         {
@@ -934,8 +933,8 @@ void from_json(R& out, const rapidjson::Value& value)
     }
     catch (deserialize_error& ex)
     {
-        std::string msg = "error when deserializing type " +
-                          std::string(ctti::name<R>());
+        std::string msg =
+            "error when deserializing type " + std::string(ctti::name<R>());
         ex.add(msg.c_str());
         throw;
     }
@@ -1007,14 +1006,14 @@ void dump(const T&, C&, priority_tag<0>)
 
 template <typename T, dump_context C>
 auto dump(const T& obj, C& ctx, priority_tag<1>)
-    -> decltype(encode(obj, ctx), void())
+    requires requires { encode(obj, ctx); }
 {
     encode(obj, ctx);
 }
 
 template <typename T, dump_context C>
 auto dump(const T& obj, C& ctx, priority_tag<2>)
-    -> decltype(json::serializer<T>::encode(obj, ctx), void())
+    requires requires { json::serializer<T>::encode(obj, ctx); }
 {
     json::serializer<T>::encode(obj, ctx);
 }
@@ -1052,14 +1051,14 @@ void deserialize(T&, const rapidjson::Value&, priority_tag<0>)
 
 template <typename T>
 auto deserialize(T& out, const rapidjson::Value& value, priority_tag<1>)
-    -> decltype(from_json(out, value), void())
+    requires requires { from_json(out, value); }
 {
     from_json(out, value);
 }
 
 template <typename T>
 auto deserialize(T& out, const rapidjson::Value& value, priority_tag<2>)
-    -> decltype(json::serializer<T>::from_json(out, value), void())
+    requires requires { json::serializer<T>::from_json(out, value); }
 {
     json::serializer<T>::from_json(out, value);
 }
@@ -1080,6 +1079,19 @@ std::string dump(const T& obj)
 template <typename T, dump_context C>
 void dump(const T& obj, C& ctx)
 {
+    /*
+      MSVC >= 19.28
+    using namespace json::detail;
+
+    if constexpr (requires { json::serializer<T>::encode(obj, ctx); })
+        json::serializer<T>::encode(obj, ctx);
+    else if constexpr (requires { encode(obj, ctx); })
+        encode(obj, ctx);
+    else
+        static_assert(always_false_v<T>,
+                      "Cannot dump an instance of type T - no viable "
+                      "definition of encode provided");
+    */
     detail::dump(obj, ctx, priority_tag<2>{});
 }
 
@@ -1116,6 +1128,19 @@ rapidjson::Value serialize(const T& obj, C& ctx)
 template <typename T>
 void deserialize(T& out, const rapidjson::Value& value)
 {
+    /*
+      MSVC >= 19.28
+    using namespace json::detail;
+
+    if constexpr (requires { json::serializer<T>::from_json(out, value); })
+        json::serializer<T>::from_json(out, value);
+    else if constexpr (requires { from_json(out, value); })
+        from_json(out, value);
+    else
+        static_assert(always_false_v<T>,
+                      "Cannot deserialize an instance of type T - no viable "
+                      "definition of from_json provided");
+    */
     detail::deserialize(out, value, priority_tag<2>{});
 }
 

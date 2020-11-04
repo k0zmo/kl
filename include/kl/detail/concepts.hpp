@@ -30,4 +30,6 @@ concept map_alike = std::ranges::range<T> &&
         typename T::mapped_type;
     };
 
+template <typename T>
+concept arithmetic = std::integral<T> || std::floating_point<T>;
 } // namespace kl::detail

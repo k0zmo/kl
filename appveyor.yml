@@ -20,7 +20,7 @@ init:
 before_build:
   - cmd: mkdir build
   - cmd: cd build
-  - cmd: cmake -G "%CMAKE_GENERATOR_NAME%" -A %CMAKE_ARCH% -DKL_ENABLE_YAML=OFF ..
+  - cmd: cmake -G "%CMAKE_GENERATOR_NAME%" -A %CMAKE_ARCH% ..
 
 build_script:
   - cmd: cmake --build . --config Release -- /verbosity:minimal /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"

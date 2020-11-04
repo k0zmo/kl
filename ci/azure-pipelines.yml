@@ -16,7 +16,7 @@ jobs:
         displayName: 'Install Ninja'
       - script: |
           export LDFLAGS="-fuse-ld=gold"
-          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release -DKL_ENABLE_YAML=OFF
+          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release
           cmake --build build
         displayName: 'Build kl'
       - script: |
@@ -40,7 +40,7 @@ jobs:
         displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
-          cmake.exe -S . -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 16 2019" -A $(Architecture) -DKL_ENABLE_YAML=OFF
+          cmake.exe -S . -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 16 2019" -A $(Architecture)
           cmake.exe --build build --config Release
         displayName: 'Build kl'
       - script: |

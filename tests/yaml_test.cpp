@@ -317,7 +317,7 @@ TEST_CASE("yaml")
         optional_test t;
         t.non_opt = 23;
 
-        yaml::serialize_context ctx{false};
+        yaml::default_serialize_context ctx{false};
 
         REQUIRE(yaml::serialize(t, ctx).IsMap());
         REQUIRE(yaml::serialize(t, ctx).size() == 2);
@@ -934,14 +934,14 @@ TEST_CASE("yaml dump")
         t.non_opt = 23;
 
         YAML::Emitter emitter;
-        yaml::dump_context ctx{emitter, false};
+        yaml::default_dump_context ctx{emitter, false};
 
         yaml::dump(t, ctx);
         std::string res = emitter.c_str();
         CHECK(res == "non_opt: 23\nopt: ~");
 
         YAML::Emitter emitter2;
-        yaml::dump_context ctx2{emitter2, false};
+        yaml::default_dump_context ctx2{emitter2, false};
 
         t.opt = 78;
         yaml::dump(t, ctx2);
@@ -1239,7 +1239,7 @@ d:
 
 TEST_CASE("yaml: to_sequence and to_map")
 {
-    kl::yaml::serialize_context ctx;
+    kl::yaml::default_serialize_context ctx;
 
     std::vector<zxc> vz = {{"asd", 3, true, {1, 2, 34}},
                            {"zxc", 222, false, {1}}};
