@@ -1,13 +1,10 @@
 #pragma once
 
-#include "kl/range.hpp"
 #include "kl/tuple.hpp"
-#include "kl/type_traits.hpp"
 
+#include <iterator>
 #include <tuple>
 #include <type_traits>
-#include <iterator>
-#include <limits>
 
 namespace kl {
 namespace detail {
@@ -15,29 +12,16 @@ namespace detail {
 template <typename Seq>
 struct seq_traits
 {
-private:
-    using seq = std::remove_reference_t<Seq>;
-
-public:
-    using iterator = typename seq::iterator;
-    using reference = typename seq::reference;
-};
-
-template <typename Seq>
-struct seq_traits<const Seq>
-{
-private:
-    using seq = std::remove_reference_t<Seq>;
-
-public:
-    using iterator = typename seq::const_iterator;
-    using reference = typename seq::const_reference;
+    using iterator = decltype(std::begin(std::declval<Seq&>()));
+    using sentinel = decltype(std::end(std::declval<Seq&>()));
+    using reference = decltype(*std::begin(std::declval<Seq&>()));
 };
 
 template <typename Seq, std::size_t N>
 struct seq_traits<Seq[N]>
 {
     using iterator = std::add_pointer_t<Seq>;
+    using sentinel = iterator;
     using reference = std::add_lvalue_reference_t<Seq>;
 };
 
@@ -45,6 +29,7 @@ template <typename Seq, std::size_t N>
 struct seq_traits<const Seq[N]>
 {
     using iterator = std::add_pointer_t<const Seq>;
+    using sentinel = iterator;
     using reference = std::add_lvalue_reference_t<const Seq>;
 };
 
@@ -60,13 +45,32 @@ struct seq_traits<const Seq*> : seq_traits<Seq*>
 };
 
 template <typename... Seqs>
-class zip_iterator
+class zipped_sentinel
 {
     static_assert(sizeof...(Seqs) > 0, "Empty zip sequence not allowed");
 
 public:
-    using zip_pack = std::tuple<typename seq_traits<Seqs>::iterator...>;
+    explicit zipped_sentinel(typename seq_traits<Seqs>::sentinel... sentinels)
+        : pack_(std::make_tuple(std::move(sentinels)...))
+    {
+    }
 
+    template <typename Tuple>
+    bool not_equal(const Tuple& tup) const
+    {
+        return tuple::not_equal_fn::call(tup, pack_);
+    }
+
+private:
+     std::tuple<typename seq_traits<Seqs>::sentinel...> pack_;
+};
+
+template <typename... Seqs>
+class zipped_iterator
+{
+    static_assert(sizeof...(Seqs) > 0, "Empty zip sequence not allowed");
+
+public:
     using iterator_category = std::input_iterator_tag;
     using value_type = std::tuple<typename seq_traits<Seqs>::reference...>;
     using difference_type = std::ptrdiff_t;
@@ -74,204 +78,153 @@ public:
     using pointer = value_type*;
 
 public:
-    explicit zip_iterator(zip_pack pack) : pack_(std::move(pack)) {}
-    explicit zip_iterator(typename seq_traits<Seqs>::iterator... iters)
+    explicit zipped_iterator(typename seq_traits<Seqs>::iterator... iters)
         : pack_(std::make_tuple(std::move(iters)...))
     {
     }
 
-    zip_iterator& operator++()
+    reference operator*() const { return tuple::transform_ref_fn::call(pack_); }
+
+    zipped_iterator& operator++()
     {
         tuple::for_each_fn::call(pack_, [](auto& f) { ++f; });
         return *this;
     }
 
-    reference operator*() const
+    friend bool operator!=(const zipped_iterator& self,
+                           const zipped_sentinel<Seqs...>& sentinel)
     {
-        return tuple::transform_ref_fn::call(pack_);
-    }
-
-    bool operator!=(const zip_iterator& other) const
-    {
-        return tuple::not_equal_fn::call(pack_, other.pack_);
-    }
-
-    difference_type distance_to(const zip_iterator& other) const
-    {
-        return tuple::distance_fn::call(pack_, other.pack_);
+        return sentinel.not_equal(self.pack_);
     }
 
 private:
-    zip_pack pack_;
+    std::tuple<typename seq_traits<Seqs>::iterator...> pack_;
 };
 
-class integral_iterator
+class unbounded_sentinel {};
+
+template <typename T>
+class iota_iterator
 {
 public:
     using iterator_category = std::input_iterator_tag;
-    using value_type = std::size_t;
+    using value_type = T;
     using difference_type = std::ptrdiff_t;
     using reference = value_type;
     using pointer = value_type*;
 
 public:
-    explicit integral_iterator(std::size_t value) noexcept : value_{value} {}
+    explicit constexpr iota_iterator(T begin) noexcept : value_{begin} {}
 
-    reference operator*() const noexcept { return value_; }
+    constexpr reference operator*() const noexcept { return value_; }
 
-    integral_iterator& operator++() noexcept
+    constexpr iota_iterator& operator++() noexcept
     {
         ++value_;
         return *this;
     }
 
-    bool operator!=(const integral_iterator& other) const noexcept
+    constexpr bool operator!=(iota_iterator other) const noexcept
     {
         return value_ != other.value_;
     }
 
-    difference_type operator-(const integral_iterator& other) const noexcept
-    {
-        return value_ - other.value_;
-    }
-
-private:
-    std::size_t value_{0};
-};
-
-class inf_integral_iterator
-{
-public:
-    using iterator_category = std::input_iterator_tag;
-    using value_type = std::size_t;
-    using difference_type = std::ptrdiff_t;
-    using reference = value_type;
-    using pointer = value_type*;
-
-public:
-    explicit inf_integral_iterator(std::size_t value) noexcept : value_{value}
-    {
-    }
-
-    reference operator*() const noexcept { return value_; }
-
-    inf_integral_iterator& operator++() noexcept
-    {
-        ++value_;
-        return *this;
-    }
-
-    bool operator!=(const inf_integral_iterator&) const noexcept
+    constexpr bool operator!=(unbounded_sentinel) const noexcept
     {
         return true;
     }
 
 private:
-    std::size_t value_{0};
+    T value_;
 };
 } // namespace detail
 
 template <typename... Seqs>
-class zip_range
-    : public kl::range<detail::zip_iterator<std::remove_reference_t<Seqs>...>>
+class zipped_range
 {
 public:
-    using iterator = detail::zip_iterator<std::remove_reference_t<Seqs>...>;
-    using super_t = kl::range<iterator>;
-
-public:
-    explicit zip_range(const Seqs&... seqs)
-        : super_t{iterator{std::begin(seqs)...}, iterator{std::end(seqs)...}}
+    explicit zipped_range(const Seqs&... seqs)
+        : first_{std::begin(seqs)...}, last_{std::end(seqs)...}
     {
     }
 
-    std::size_t size() const
-    {
-        return super_t::begin().distance_to(super_t::end());
-    }
+    auto begin() const { return first_; }
+    auto end() const { return last_; }
+
+private:
+    detail::zipped_iterator<std::remove_reference_t<Seqs>...> first_;
+    detail::zipped_sentinel<std::remove_reference_t<Seqs>...> last_;
 };
 
-class integral_range : public kl::range<detail::integral_iterator>
+template <typename T>
+class iota_range
 {
 public:
-    using iterator = detail::integral_iterator;
-    using super_t = kl::range<iterator>;
+    constexpr iota_range(T begin, T end) noexcept : begin_{begin}, end_{end} {}
 
+    constexpr auto begin() const noexcept
+    {
+        return detail::iota_iterator<T>{begin_};
+    }
+    constexpr auto end() const noexcept
+    {
+        return detail::iota_iterator<T>{end_};
+    }
+
+private:
+    T begin_;
+    T end_;
+};
+
+template <typename T>
+class unbounded_iota_range
+{
 public:
-    integral_range(std::size_t first, std::size_t last) noexcept
-        : super_t{iterator{first}, iterator{last}}
+    explicit constexpr unbounded_iota_range(T begin = {}) noexcept
+        : begin_{begin}
     {
     }
 
-    size_t size() const noexcept { return end() - begin(); }
-};
+    constexpr auto begin() const noexcept
+    {
+        return detail::iota_iterator<T>{begin_};
+    }
+    constexpr auto end() const noexcept { return detail::unbounded_sentinel{}; }
 
-class inf_integral_range : public kl::range<detail::inf_integral_iterator>
-{
-public:
-    using iterator = detail::inf_integral_iterator;
-    using super_t = kl::range<iterator>;
-
-public:
-    inf_integral_range() : super_t{iterator{0}, iterator{0}} {}
-
-    size_t size() const { return 0; }
+private:
+    T begin_;
 };
 
 template <typename Seq>
-integral_range make_integral_range(const Seq& seq)
-{
-    return {0, seq.size()};
-}
+inline constexpr bool is_borrowed_range = false;
 
-template <typename Seq, std::size_t N>
-integral_range make_integral_range(const Seq (&seq)[N])
-{
-    return {0, N};
-}
+template <typename T>
+inline constexpr bool is_borrowed_range<unbounded_iota_range<T>> = true;
 
-template <typename Seq>
-struct is_rvalue_compatible : std::false_type {};
-template <>
-struct is_rvalue_compatible<inf_integral_range> : std::true_type {};
-template <>
-struct is_rvalue_compatible<integral_range> : std::true_type {};
+template <typename T>
+inline constexpr bool is_borrowed_range<iota_range<T>> = true;
 
 template <typename... Seqs>
-zip_range<Seqs...> make_zip(Seqs&&... seqs)
+zipped_range<Seqs...> zipped(Seqs&&... seqs)
 {
+    constexpr bool is_safely_zipped =
+        (... &&
+         (!std::is_rvalue_reference_v<Seqs&&> || kl::is_borrowed_range<Seqs>));
     static_assert(
-        std::conjunction<
-            std::disjunction<std::negation<std::is_rvalue_reference<Seqs&&>>,
-                             is_rvalue_compatible<Seqs>>...>::value,
-        "make_zip doesn't work on prvalue ranges unless given range "
-        "is defined otherwise using is_rvalue_compatible trait");
-    return zip_range<Seqs...>{std::forward<Seqs>(seqs)...};
+        is_safely_zipped,
+        "kl::zipped doesn't work on prvalue ranges unless given range is "
+        "defined otherwise using is_borrowed_range trait");
+    return zipped_range<Seqs...>{std::forward<Seqs>(seqs)...};
 }
 
 template <typename Seq>
-zip_range<inf_integral_range, Seq> make_enumeration(Seq&& seq)
+zipped_range<unbounded_iota_range<std::size_t>, Seq> enumerated(Seq&& seq)
 {
-    // Calling make_zip() with prvalue inf_integral_range is safe since its
-    // iterators are copied and can be held inside zip_range outliving their
+    // Calling zipped() with prvalue unbounded_iota_range is safe since its
+    // iterators are copied and can be held inside zipped_range outliving their
     // range parent because they never ever refer to it after construction
-    return make_zip(inf_integral_range{}, std::forward<Seq>(seq));
+    return kl::zipped(unbounded_iota_range<std::size_t>{0U},
+                      std::forward<Seq>(seq));
 }
 
-template <typename ZipSeq, typename Fun>
-void zip_for_each(ZipSeq&& zipSeq, Fun&& fun)
-{
-    for (auto&& it : std::forward<ZipSeq>(zipSeq))
-    {
-        tuple::apply_fn::call(std::forward<decltype(it)>(it),
-                              std::forward<Fun>(fun));
-    }
-}
-
-template <typename Seq, typename Fun>
-void enumerate(Seq&& seq, Fun&& fun)
-{
-    zip_for_each(make_enumeration(std::forward<Seq>(seq)),
-                 std::forward<Fun>(fun));
-}
 } // namespace kl

@@ -102,20 +102,23 @@ public:
 struct not_equal_fn
 {
 private:
-    template <typename Tup, std::size_t... Is>
-    static bool impl(Tup&& tup0, Tup&& tup1, index_sequence<Is...>)
+    template <typename Tup1, typename Tup2, std::size_t... Is>
+    static bool impl(Tup1&& tup1, Tup2&& tup2, index_sequence<Is...>)
     {
-        return (... && (std::get<Is>(std::forward<Tup>(tup0)) !=
-                        std::get<Is>(std::forward<Tup>(tup1))));
+        return (... && (std::get<Is>(std::forward<Tup1>(tup1)) !=
+                        std::get<Is>(std::forward<Tup2>(tup2))));
     }
 
 public:
-    template <typename Tup>
-    static bool call(Tup&& tup0, Tup&& tup1)
+    template <typename Tup1, typename Tup2>
+    static bool call(Tup1&& tup1, Tup2&& tup2)
     {
-        return not_equal_fn::impl(std::forward<Tup>(tup0),
-                                  std::forward<Tup>(tup1),
-                                  make_tuple_indices<Tup>{});
+        static_assert(std::tuple_size_v<std::remove_reference_t<Tup1>> ==
+                      std::tuple_size_v<std::remove_reference_t<Tup2>>);
+
+        return not_equal_fn::impl(std::forward<Tup1>(tup1),
+                                  std::forward<Tup2>(tup2),
+                                  make_tuple_indices<Tup1>{});
     }
 };
 
