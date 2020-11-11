@@ -448,7 +448,7 @@ YAML::Node to_yaml(Arithmetic value, Context&)
 }
 
 template <typename Context>
-YAML::Node to_yaml(view v, Context& ctx)
+YAML::Node to_yaml(view v, Context&)
 {
     return v.value();
 }
@@ -852,7 +852,7 @@ auto serialize(const T& obj, Context& ctx, priority_tag<2>)
 }
 
 template <typename T>
-void deserialize(T& out, const YAML::Node&, priority_tag<0>)
+void deserialize(T&, const YAML::Node&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
                   "Cannot deserialize an instance of type T - no viable "

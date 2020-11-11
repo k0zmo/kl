@@ -625,7 +625,7 @@ rapidjson::Value to_json(const char* str, Context& ctx)
 
 // For string literals
 template <std::size_t N, typename Context>
-rapidjson::Value to_json(char (&str)[N], Context& ctx)
+rapidjson::Value to_json(char (&str)[N], Context&)
 {
     // No need for allocator
     return rapidjson::Value{str, N - 1};
@@ -1076,7 +1076,7 @@ auto serialize(const T& obj, Context& ctx, priority_tag<2>)
 }
 
 template <typename T>
-void deserialize(T& out, const rapidjson::Value&, priority_tag<0>)
+void deserialize(T&, const rapidjson::Value&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
                   "Cannot deserialize an instance of type T - no viable "
