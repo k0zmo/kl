@@ -47,11 +47,11 @@ TEST_CASE("enum_reflector")
 {
     SECTION("is_enum_reflectable type trait")
     {
-        static_assert(!kl::is_enum_reflectable<int>::value, "???");
-        static_assert(!kl::is_enum_reflectable<non_reflectable>::value, "???");
-        static_assert(kl::is_enum_reflectable<access_mode>::value, "???");
-        static_assert(kl::is_enum_reflectable<ns::inner::colour_space>::value, "???");
-        static_assert(kl::is_enum_reflectable<unscoped_enum_type>::value, "???");
+        static_assert(!kl::is_enum_reflectable<int>::value);
+        static_assert(!kl::is_enum_reflectable<non_reflectable>::value);
+        static_assert(kl::is_enum_reflectable<access_mode>::value);
+        static_assert(kl::is_enum_reflectable<ns::inner::colour_space>::value);
+        static_assert(kl::is_enum_reflectable<unscoped_enum_type>::value);
     }
 
     SECTION("reflector for globally defined enum type")

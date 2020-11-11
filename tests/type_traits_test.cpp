@@ -12,14 +12,11 @@ TEST_CASE("type_traits")
     SECTION("at_type")
     {
         static_assert(
-            std::is_same<kl::at_type_t<0, int, bool, const int>, int>::value,
-            "???");
+            std::is_same<kl::at_type_t<0, int, bool, const int>, int>::value);
         static_assert(
-            std::is_same<kl::at_type_t<1, int, bool, const int>, bool>::value,
-            "???");
+            std::is_same<kl::at_type_t<1, int, bool, const int>, bool>::value);
         static_assert(std::is_same<kl::at_type_t<2, int, bool, const int>,
-                                   const int>::value,
-                      "???");
+                                   const int>::value);
     }
 
     SECTION("func_traits - lambda")
@@ -27,25 +24,19 @@ TEST_CASE("type_traits")
         auto lambda = [](int, const bool&) { return 1.0f; };
         static_assert(
             std::is_same<kl::func_traits<decltype(lambda)>::return_type,
-                         float>::value,
-            "???");
+                         float>::value);
         static_assert(
             std::is_same<kl::func_traits<decltype(lambda)>::class_type,
-                         decltype(lambda)>::value,
-            "???");
-        static_assert(kl::func_traits<decltype(lambda)>::arity == 2, "???");
-        static_assert(
-            std::is_same<
-                kl::func_traits<decltype(lambda)>::template arg<0>::type,
-                int>::value,
-            "???");
-        static_assert(
-            std::is_same<
-                kl::func_traits<decltype(lambda)>::template arg<1>::type,
-                const bool&>::value,
-            "???");
+                         decltype(lambda)>::value);
+        static_assert(kl::func_traits<decltype(lambda)>::arity == 2);
+        static_assert(std::is_same<
+                      kl::func_traits<decltype(lambda)>::template arg<0>::type,
+                      int>::value);
+        static_assert(std::is_same<
+                      kl::func_traits<decltype(lambda)>::template arg<1>::type,
+                      const bool&>::value);
 
-        static_assert(has_call_operator_v<decltype(lambda)>, "???");
+        static_assert(has_call_operator_v<decltype(lambda)>);
     }
 
     SECTION("func_traits - member function pointer")
@@ -54,18 +45,14 @@ TEST_CASE("type_traits")
 
         static_assert(
             std::is_same<kl::func_traits<decltype(&s::foo)>::return_type,
-                         void>::value,
-            "???");
+                         void>::value);
         static_assert(
             std::is_same<kl::func_traits<decltype(&s::foo)>::class_type,
-                         s>::value,
-            "???");
-        static_assert(kl::func_traits<decltype(&s::foo)>::arity == 1, "???");
-        static_assert(
-            std::is_same<
-                kl::func_traits<decltype(&s::foo)>::template arg<0>::type,
-                int>::value,
-            "???");
+                         s>::value);
+        static_assert(kl::func_traits<decltype(&s::foo)>::arity == 1);
+        static_assert(std::is_same<
+                      kl::func_traits<decltype(&s::foo)>::template arg<0>::type,
+                      int>::value);
     }
 
     SECTION("func_traits - functor")
@@ -73,20 +60,18 @@ TEST_CASE("type_traits")
         struct op { bool operator()(double d) { return d < 0.0; } };
 
         static_assert(
-            std::is_same<kl::func_traits<op>::return_type, bool>::value, "???");
-        static_assert(std::is_same<kl::func_traits<op>::class_type, op>::value,
-                      "???");
-        static_assert(kl::func_traits<op>::arity == 1, "???");
+            std::is_same<kl::func_traits<op>::return_type, bool>::value);
+        static_assert(std::is_same<kl::func_traits<op>::class_type, op>::value);
+        static_assert(kl::func_traits<op>::arity == 1);
         static_assert(std::is_same<kl::func_traits<op>::template arg<0>::type,
-                                   double>::value,
-                      "???");
+                                   double>::value);
 
-        static_assert(has_call_operator_v<op>, "???");
+        static_assert(has_call_operator_v<op>);
     }
 
     SECTION("is_same")
     {
-        static_assert(kl::is_same<void, void, void, void>::value, "???");
-        static_assert(!kl::is_same<void, bool, void>::value, "???");
+        static_assert(kl::is_same<void, void, void, void>::value);
+        static_assert(!kl::is_same<void, bool, void>::value);
     }
 }

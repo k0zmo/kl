@@ -32,15 +32,12 @@ TEST_CASE("tuple")
         REQUIRE(std::get<2>(tt) == 5);
 
         static_assert(
-            std::is_same<std::tuple_element_t<0, decltype(tt)>, int&>::value,
-            "???");
-        static_assert(
-            std::is_same<std::tuple_element_t<1, decltype(tt)>, double&>::value,
-            "???");
+            std::is_same<std::tuple_element_t<0, decltype(tt)>, int&>::value);
+        static_assert(std::is_same<std::tuple_element_t<1, decltype(tt)>,
+                                   double&>::value);
         static_assert(std::is_same<std::tuple_element_t<2, decltype(tt)>,
-                                   const short&>::value,
-                      "???");
-        static_assert(std::tuple_size<decltype(tt)>::value == 3, "???");
+                                   const short&>::value);
+        static_assert(std::tuple_size<decltype(tt)>::value == 3);
     }
 
     SECTION("transform_deref_fn")
@@ -58,15 +55,12 @@ TEST_CASE("tuple")
         REQUIRE(std::get<2>(tt) == 5);
 
         static_assert(
-            std::is_same<std::tuple_element_t<0, decltype(tt)>, int>::value,
-            "???");
+            std::is_same<std::tuple_element_t<0, decltype(tt)>, int>::value);
         static_assert(
-            std::is_same<std::tuple_element_t<1, decltype(tt)>, double>::value,
-            "???");
+            std::is_same<std::tuple_element_t<1, decltype(tt)>, double>::value);
         static_assert(
-            std::is_same<std::tuple_element_t<2, decltype(tt)>, short>::value,
-            "???");
-        static_assert(std::tuple_size<decltype(tt)>::value == 3, "???");
+            std::is_same<std::tuple_element_t<2, decltype(tt)>, short>::value);
+        static_assert(std::tuple_size<decltype(tt)>::value == 3);
     }
 
     SECTION("for_each_fn")

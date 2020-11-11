@@ -41,12 +41,11 @@ TEST_CASE("zip")
 
         for (const auto& z : kl::zipped(v1, v2, v3))
         {
-            static_assert(std::is_same<decltype(std::get<0>(z)),
-                int&>::value, "???");
-            static_assert(std::is_same<decltype(std::get<1>(z)),
-                const float&>::value, "???");
+            static_assert(std::is_same<decltype(std::get<0>(z)), int&>::value);
+            static_assert(
+                std::is_same<decltype(std::get<1>(z)), const float&>::value);
             static_assert(std::is_same<decltype(std::get<2>(z)),
-                const std::string&>::value, "???");
+                                       const std::string&>::value);
 
             z1.push_back(std::get<0>(z));
             z2.push_back(std::get<1>(z));
