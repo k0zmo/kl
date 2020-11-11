@@ -4,7 +4,6 @@
 #include "kl/ctti.hpp"
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_set.hpp"
-#include "kl/tuple.hpp"
 #include "kl/utility.hpp"
 #include "kl/yaml_fwd.hpp"
 
@@ -426,7 +425,7 @@ void encode_tuple(const Tuple& tuple, Context& ctx, std::index_sequence<Is...>)
 template <typename... Ts, typename Context>
 void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    encode_tuple(tuple, ctx, make_index_sequence<sizeof...(Ts)>{});
+    encode_tuple(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T, typename Context>
@@ -544,7 +543,7 @@ YAML::Node to_yaml(const enum_set<Enum>& set, Context& ctx)
 
 template <typename Tuple, typename Context, std::size_t... Is>
 YAML::Node tuple_to_yaml(const Tuple& tuple, Context& ctx,
-                         index_sequence<Is...>)
+                         std::index_sequence<Is...>)
 {
     YAML::Node arr{YAML::NodeType::Sequence};
     (arr.push_back(yaml::serialize(std::get<Is>(tuple), ctx)), ...);
@@ -554,7 +553,7 @@ YAML::Node tuple_to_yaml(const Tuple& tuple, Context& ctx,
 template <typename... Ts, typename Context>
 YAML::Node to_yaml(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    return tuple_to_yaml(tuple, ctx, make_index_sequence<sizeof...(Ts)>{});
+    return tuple_to_yaml(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T, typename Context>
@@ -778,7 +777,8 @@ void from_yaml(enum_set<Enum>& out, const YAML::Node& value)
 }
 
 template <typename Tuple, std::size_t... Is>
-void tuple_from_yaml(Tuple& out, const YAML::Node& value, index_sequence<Is...>)
+void tuple_from_yaml(Tuple& out, const YAML::Node& value,
+                     std::index_sequence<Is...>)
 {
     (yaml::deserialize(std::get<Is>(out), yaml::at(value, Is)), ...);
 }
@@ -787,7 +787,7 @@ template <typename... Ts>
 void from_yaml(std::tuple<Ts...>& out, const YAML::Node& value)
 {
     yaml::expect_sequence(value);
-    tuple_from_yaml(out, value, make_index_sequence<sizeof...(Ts)>{});
+    tuple_from_yaml(out, value, std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T>

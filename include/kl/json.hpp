@@ -5,7 +5,6 @@
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_set.hpp"
 #include "kl/json_fwd.hpp"
-#include "kl/tuple.hpp"
 #include "kl/utility.hpp"
 
 // Undefine Win32 macro
@@ -552,7 +551,7 @@ void encode(const enum_set<Enum>& set, Context& ctx)
 }
 
 template <typename Tuple, std::size_t... Is, typename Context>
-void encode_tuple(const Tuple& tuple, Context& ctx, index_sequence<Is...>)
+void encode_tuple(const Tuple& tuple, Context& ctx, std::index_sequence<Is...>)
 {
     ctx.writer().StartArray();
     (json::dump(std::get<Is>(tuple), ctx), ...);
@@ -562,7 +561,7 @@ void encode_tuple(const Tuple& tuple, Context& ctx, index_sequence<Is...>)
 template <typename... Ts, typename Context>
 void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    encode_tuple(tuple, ctx, make_index_sequence<sizeof...(Ts)>{});
+    encode_tuple(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T, typename Context>
@@ -710,7 +709,7 @@ rapidjson::Value to_json(const enum_set<Enum>& set, Context& ctx)
 
 template <typename Tuple, typename Context, std::size_t... Is>
 rapidjson::Value tuple_to_json(const Tuple& tuple, Context& ctx,
-                               index_sequence<Is...>)
+                               std::index_sequence<Is...>)
 {
     rapidjson::Value arr{rapidjson::kArrayType};
     (arr.PushBack(json::serialize(std::get<Is>(tuple), ctx), ctx.allocator()),
@@ -721,7 +720,7 @@ rapidjson::Value tuple_to_json(const Tuple& tuple, Context& ctx,
 template <typename... Ts, typename Context>
 rapidjson::Value to_json(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    return tuple_to_json(tuple, ctx, make_index_sequence<sizeof...(Ts)>{});
+    return tuple_to_json(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T, typename Context>
@@ -1009,7 +1008,7 @@ void from_json(enum_set<Enum>& out, const rapidjson::Value& value)
 
 template <typename Tuple, std::size_t... Is>
 void tuple_from_json(Tuple& out, rapidjson::Value::ConstArray arr,
-                     index_sequence<Is...>)
+                     std::index_sequence<Is...>)
 {
     (json::deserialize(std::get<Is>(out), json::at(arr, Is)), ...);
 }
@@ -1019,7 +1018,7 @@ void from_json(std::tuple<Ts...>& out, const rapidjson::Value& value)
 {
     json::expect_array(value);
     tuple_from_json(out, value.GetArray(),
-                    make_index_sequence<sizeof...(Ts)>{});
+                    std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T>
