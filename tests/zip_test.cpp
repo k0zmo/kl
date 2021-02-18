@@ -2,9 +2,10 @@
 
 #include <catch2/catch.hpp>
 
-#include <vector>
+#include <algorithm>
 #include <array>
 #include <string>
+#include <vector>
 
 TEST_CASE("zip")
 {
@@ -64,7 +65,7 @@ TEST_CASE("zip")
         }
     }
 
-    SECTION("for range loop with structured bindings for zipped sequence")
+    SECTION("for range loop with structured bindings for zipped sequences")
     {
         std::vector<int> z1;
         std::vector<float> z2;

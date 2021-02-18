@@ -1,11 +1,11 @@
 #pragma once
 
+#include <cassert>
+#include <functional>
 #include <memory>
 #include <tuple>
-#include <functional>
-#include <cassert>
 #include <type_traits>
-#include <algorithm>
+#include <utility>
 
 namespace kl {
 
