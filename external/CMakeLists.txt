@@ -7,8 +7,8 @@ FetchContent_Declare(GSL
     URL_HASH SHA256=ed2d506839fd917142d562fa720459ce58c38fc5711b715779093e895a87d8c7
 )
 FetchContent_Declare(rapidjson
-    URL https://github.com/Tencent/rapidjson/archive/v1.1.0.zip
-    URL_HASH SHA256=8e00c38829d6785a2dfb951bb87c6974fa07dfe488aa5b25deec4b8bc0f6a3ab
+    URL https://github.com/Tencent/rapidjson/archive/13dfc96c9c2b104be7b0b09a9f6e06871ed3e81d.zip
+    URL_HASH SHA256=477ff9f53c437dabcb01f3f47d7f26f126a94c3cc6b5e012d1e01e034e030041
 )
 FetchContent_Declare(yamlcpp
     URL https://github.com/jbeder/yaml-cpp/archive/0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip
