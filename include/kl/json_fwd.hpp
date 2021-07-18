@@ -30,8 +30,8 @@ class default_dump_context;
 template <typename T>
 std::string dump(const T& obj);
 
-template <typename T, dump_context C>
-void dump(const T& obj, C& ctx);
+template <typename T>
+void dump(const T& obj, dump_context auto& ctx);
 
 template <typename T>
 struct serializer;
@@ -42,8 +42,8 @@ class borrowing_serialize_context;
 template <typename T>
 rapidjson::Document serialize(const T& obj);
 
-template <typename T, serialize_context C>
-rapidjson::Value serialize(const T& obj, C& ctx);
+template <typename T>
+rapidjson::Value serialize(const T& obj, serialize_context auto& ctx);
 
 template <typename T>
 void deserialize(T& out, const rapidjson::Value& value);
