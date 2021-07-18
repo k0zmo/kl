@@ -11,8 +11,8 @@ FetchContent_Declare(rapidjson
     URL_HASH SHA256=477ff9f53c437dabcb01f3f47d7f26f126a94c3cc6b5e012d1e01e034e030041
 )
 FetchContent_Declare(yamlcpp
-    URL https://github.com/jbeder/yaml-cpp/archive/0f9a586ca1dc29c2ecb8dd715a315b93e3f40f79.zip
-    URL_HASH SHA256=ff55e0cc373295b8503faf52a5e9569b950d8ec3e704508a62fe9159c37185bc
+    URL https://github.com/jbeder/yaml-cpp/archive/yaml-cpp-0.7.0.zip
+    URL_HASH SHA256=4d5e664a7fb2d7445fc548cc8c0e1aa7b1a496540eb382d137e2cc263e6d3ef5
 )
 FetchContent_Declare(Catch2
     URL https://github.com/catchorg/Catch2/archive/v2.9.1.zip
@@ -45,10 +45,8 @@ if(KL_ENABLE_YAML)
     if(NOT yamlcpp_POPULATED)
         FetchContent_Populate(yamlcpp)
 
-        # YAML-CPP's CMake file is very old (2.6) and doesn't use INTERFACE_ properties
-        # add_subdirectory(${yamlcpp_SOURCE_DIR} ${yamlcpp_BINARY_DIR})
         add_library(yaml-cpp)
-        add_library(yaml::yaml-cpp ALIAS yaml-cpp)
+        add_library(yaml-cpp::yaml-cpp ALIAS yaml-cpp)
         file(GLOB_RECURSE sources
             "${yamlcpp_SOURCE_DIR}/src/*.cpp"
             "${yamlcpp_SOURCE_DIR}/src/*.h"
@@ -56,6 +54,9 @@ if(KL_ENABLE_YAML)
         target_sources(yaml-cpp PRIVATE ${sources})
         target_include_directories(yaml-cpp PUBLIC ${yamlcpp_SOURCE_DIR}/include)
         target_compile_features(yaml-cpp PUBLIC cxx_std_11)
+        if(BUILD_SHARED_LIBS)
+            target_compile_definitions(yaml-cpp INTERFACE YAML_CPP_DLL)
+        endif()
         if(MSVC)
             target_compile_options(yaml-cpp PRIVATE
                 /wd4100 /wd4127 /wd4244 /wd4456 /wd4702 /wd4996

@@ -89,7 +89,7 @@ if(KL_ENABLE_YAML)
     )
     target_link_libraries(kl-yaml PUBLIC
         kl
-        yaml::yaml-cpp
+        yaml-cpp::yaml-cpp
     )
     if(MSVC)
         target_compile_options(kl-yaml PRIVATE /wd4100 /wd4127 /wd4244 /wd4456 /wd4702)

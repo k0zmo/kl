@@ -109,12 +109,21 @@ KL_REFLECT_STRUCT(test_t, hello, t, f, n, i, pi, a, ad, space, tup, map, inner)
 
 struct unsigned_test
 {
-    unsigned char u8{128};
-    unsigned short u16{32768};
-    unsigned int u32{(std::numeric_limits<unsigned int>::max)()};
+    std::uint8_t u8{128};
+    std::uint16_t u16{32768};
+    std::uint32_t u32{(std::numeric_limits<std::uint32_t>::max)()};
     std::uint64_t u64{(std::numeric_limits<std::uint64_t>::max)()};
 };
 KL_REFLECT_STRUCT(unsigned_test, u8, u16, u32, u64)
+
+struct signed_test
+{
+    std::int8_t i8{-127};
+    std::int16_t i16{-13768};
+    std::int32_t i32{(std::numeric_limits<std::int32_t>::min)()};
+    std::int64_t i64{(std::numeric_limits<std::int64_t>::min)()};
+};
+KL_REFLECT_STRUCT(signed_test, i8, i16, i32, i64)
 
 struct chrono_test
 {

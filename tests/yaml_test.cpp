@@ -475,9 +475,9 @@ tup:
         unsigned_test t;
         auto y = yaml::serialize(t);
 
-        REQUIRE(y["u8"].as<unsigned char>() == t.u8);
-        REQUIRE(y["u16"].as<unsigned short>() == t.u16);
-        REQUIRE(y["u32"].as<unsigned int>() == t.u32);
+        REQUIRE(y["u8"].as<std::uint8_t>() == t.u8);
+        REQUIRE(y["u16"].as<std::uint16_t>() == t.u16);
+        REQUIRE(y["u32"].as<std::uint32_t>() == t.u32);
         REQUIRE(y["u64"].as<std::uint64_t>() == t.u64);
 
         auto obj = yaml::deserialize<unsigned_test>(y);
@@ -485,6 +485,23 @@ tup:
         REQUIRE(obj.u16 == t.u16);
         REQUIRE(obj.u32 == t.u32);
         REQUIRE(obj.u64 == t.u64);
+    }
+
+    SECTION("test signed types")
+    {
+        signed_test t;
+        auto y = yaml::serialize(t);
+
+        REQUIRE(y["i8"].as<std::int8_t>() == t.i8);
+        REQUIRE(y["i16"].as<std::int16_t>() == t.i16);
+        REQUIRE(y["i32"].as<std::int32_t>() == t.i32);
+        REQUIRE(y["i64"].as<std::int64_t>() == t.i64);
+
+        auto obj = yaml::deserialize<signed_test>(y);
+        REQUIRE(obj.i8 == t.i8);
+        REQUIRE(obj.i16 == t.i16);
+        REQUIRE(obj.i32 == t.i32);
+        REQUIRE(obj.i64 == t.i64);
     }
 
     SECTION("try to deserialize too big value to (u)intX_t")
@@ -847,18 +864,19 @@ TEST_CASE("yaml dump")
         CHECK(yaml::dump(nullptr) == "~");
         CHECK(yaml::dump("qwe") == "qwe");
         CHECK(yaml::dump(std::string{"qwe"}) == "qwe");
-        CHECK(yaml::dump(13.11) == "13.11");
+        CHECK(yaml::dump(13.22).substr(0, 5) == "13.22");
         CHECK(yaml::dump(ordinary_enum::oe_one) == "0");
     }
 
     SECTION("inner_t")
     {
-        CHECK(yaml::dump(inner_t{}) == "r: 1337\nd: 3.145926");
+        CHECK(yaml::dump(inner_t{}) == "r: 1337\nd: 3.1459259999999998");
     }
 
     SECTION("Manual")
     {
-        CHECK(yaml::dump(Manual{}) == "Ar: 1337\nAd: 3.145926\nB: 416\nC: 2.71828");
+        CHECK(yaml::dump(Manual{}) ==
+              "Ar: 1337\nAd: 3.1459259999999998\nB: 416\nC: 2.71828");
     }
 
     SECTION("different types and 'modes' for enums")
@@ -869,8 +887,15 @@ TEST_CASE("yaml dump")
     SECTION("test unsigned types")
     {
         auto res = yaml::dump(unsigned_test{});
-        CHECK(res == "u8: \"\\x80\"\nu16: 32768\nu32: 4294967295\nu64: "
+        CHECK(res == "u8: 128\nu16: 32768\nu32: 4294967295\nu64: "
                      "18446744073709551615");
+    }
+
+    SECTION("test signed types")
+    {
+        auto res = yaml::dump(signed_test{});
+        CHECK(res == "i8: -127\ni16: -13768\ni32: -2147483648\ni64: "
+                     "-9223372036854775808");
     }
 
     SECTION("enum_set")
@@ -889,7 +914,7 @@ TEST_CASE("yaml dump")
     {
         auto t = std::make_tuple(13, 3.14, colour_space::lab, true);
         auto res = yaml::dump(t);
-        CHECK(res == "- 13\n- 3.14\n- lab\n- true");
+        CHECK(res == "- 13\n- 3.1400000000000001\n- lab\n- true");
     }
 
     SECTION("skip serializing optional fields")
@@ -932,7 +957,7 @@ TEST_CASE("yaml dump")
 t: true
 f: false
 i: 123
-pi: 3.1416
+pi: 3.14159989
 a:
   - 1
   - 2
@@ -949,14 +974,14 @@ ad:
 space: lab
 tup:
   - 1
-  - 3.140000104904175
+  - 3.1400001049041748
   - QWE
 map:
   1: hls
   2: rgb
 inner:
   r: 1337
-  d: 3.145926)");
+  d: 3.1459259999999998)");
     }
 
     SECTION("unsigned: check value greater than 0x7FFFFFFU")
@@ -967,21 +992,21 @@ inner:
     SECTION("std containers")
     {
         auto y1 = yaml::dump(std::vector<inner_t>{inner_t{}});
-        CHECK(y1 == "- r: 1337\n  d: 3.145926");
+        CHECK(y1 == "- r: 1337\n  d: 3.1459259999999998");
 
         auto y2 = yaml::dump(std::list<inner_t>{inner_t{}});
-        CHECK(y2 == "- r: 1337\n  d: 3.145926");
+        CHECK(y2 == "- r: 1337\n  d: 3.1459259999999998");
 
         auto y3 = yaml::dump(std::deque<inner_t>{inner_t{}});
-        CHECK(y3 == "- r: 1337\n  d: 3.145926");
+        CHECK(y3 == "- r: 1337\n  d: 3.1459259999999998");
 
         auto y4 =
             yaml::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
-        CHECK(y4 == "inner1:\n  r: 1337\n  d: 3.145926");
+        CHECK(y4 == "inner1:\n  r: 1337\n  d: 3.1459259999999998");
 
         auto y5 = yaml::dump(
             std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
-        CHECK(y5 == "inner2:\n  r: 1337\n  d: 3.145926");
+        CHECK(y5 == "inner2:\n  r: 1337\n  d: 3.1459259999999998");
     }
 }
 

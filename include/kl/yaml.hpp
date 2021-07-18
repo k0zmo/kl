@@ -323,6 +323,20 @@ using ::kl::detail::is_range;
 
 // encode implementation
 
+// Two overloads below fixes encoding uint8_t as a double-quoted
+// hexadecimal value (128 => "\x80\")
+template <typename Context>
+void encode(unsigned char v, Context& ctx)
+{
+    ctx.emitter() << +v;
+}
+
+template <typename Context>
+void encode(signed char v, Context& ctx)
+{
+    ctx.emitter() << +v;
+}
+
 template <typename Context>
 void encode(const view& v, Context& ctx)
 {
@@ -445,6 +459,18 @@ template <typename Arithmetic, typename Context,
 YAML::Node to_yaml(Arithmetic value, Context&)
 {
     return YAML::Node{value};
+}
+
+template <typename Context>
+YAML::Node to_yaml(unsigned char value, Context&)
+{
+    return YAML::Node{+value};
+}
+
+template <typename Context>
+YAML::Node to_yaml(signed char value, Context&)
+{
+    return YAML::Node{+value};
 }
 
 template <typename Context>
@@ -573,18 +599,6 @@ T from_scalar_yaml(const YAML::Node& value)
 
     try
     {
-        // yaml-cpp conversion of string/scalar to unsigned integer gives wrong
-        // result when the scalar represents a negative number
-        if constexpr (std::is_unsigned_v<T> && !std::is_same_v<T, bool>)
-        {
-            // Can YAML scalar be empty?
-            if (const auto& scalar = value.Scalar(); !scalar.empty())
-            {
-                if (scalar[0] == '-')
-                    throw YAML::TypedBadConversion<T>(value.Mark());
-            }
-        }
-
         return value.as<T>();
     }
     catch (const YAML::BadConversion& ex)
