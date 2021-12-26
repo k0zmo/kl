@@ -33,7 +33,6 @@ if(KL_ENABLE_JSON)
         add_library(rapidjson INTERFACE)
         add_library(rapidjson::rapidjson ALIAS rapidjson)
         target_include_directories(rapidjson SYSTEM INTERFACE ${rapidjson_SOURCE_DIR}/include)
-        target_compile_definitions(rapidjson INTERFACE RAPIDJSON_HAS_STDSTRING=1)
     endif()
 endif()
 
@@ -43,7 +42,6 @@ if(KL_ENABLE_YAML)
         FetchContent_Populate(yamlcpp)
 
         add_library(yaml-cpp)
-        add_library(yaml-cpp::yaml-cpp ALIAS yaml-cpp)
         file(GLOB_RECURSE sources
             "${yamlcpp_SOURCE_DIR}/src/*.cpp"
             "${yamlcpp_SOURCE_DIR}/src/*.h"

@@ -74,7 +74,10 @@ if(KL_ENABLE_JSON)
     )
     target_link_libraries(kl-json PUBLIC
         kl
-        rapidjson::rapidjson
+        rapidjson
+    )
+    target_compile_definitions(kl-json PUBLIC
+        RAPIDJSON_HAS_STDSTRING=1
     )
     kl_source_group(kl-json TREE ${kl_SOURCE_DIR})
     set_target_properties(kl-json PROPERTIES FOLDER kl)
@@ -89,7 +92,7 @@ if(KL_ENABLE_YAML)
     )
     target_link_libraries(kl-yaml PUBLIC
         kl
-        yaml-cpp::yaml-cpp
+        yaml-cpp
     )
     if(MSVC)
         target_compile_options(kl-yaml PRIVATE /wd4100 /wd4127 /wd4244 /wd4456 /wd4702)
