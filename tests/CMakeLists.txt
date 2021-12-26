@@ -81,10 +81,26 @@ if(COMMAND target_precompile_headers)
     target_precompile_headers(kl-tests PRIVATE
         <boost/optional.hpp>
         <boost/variant.hpp>
+        <gsl/span>
+        <gsl/span_ext>
+        <gsl/string_span>
         <istream>
         <ostream>
         <ios>
         <catch2/catch.hpp>
     )
+    if(KL_ENABLE_JSON)
+        target_precompile_headers(kl-tests PRIVATE
+            <rapidjson/allocators.h>
+            <rapidjson/document.h>
+            <rapidjson/stringbuffer.h>
+            <rapidjson/writer.h>
+        )
+    endif()
+    if(KL_ENABLE_YAML)
+        target_precompile_headers(kl-tests PRIVATE
+            <yaml-cpp/yaml.h>
+        )
+    endif()
     set_source_files_properties(main_test.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 endif()
