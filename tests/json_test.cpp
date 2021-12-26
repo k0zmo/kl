@@ -887,13 +887,13 @@ TEST_CASE("json dump")
 
     SECTION("inner_t")
     {
-        CHECK(json::dump(inner_t{}) == R"({"r":1337,"d":3.1459259999999999})");
+        CHECK(json::dump(inner_t{}) == R"({"r":1337,"d":3.1459259999999998})");
     }
 
     SECTION("Manual")
     {
         CHECK(json::dump(Manual{}) ==
-              R"({"Ar":1337,"Ad":3.1459259999999999,"B":416,"C":2.71828})");
+              R"({"Ar":1337,"Ad":3.1459259999999998,"B":416,"C":2.71828})");
     }
 
     SECTION("different types and 'modes' for enums")
@@ -970,9 +970,9 @@ TEST_CASE("json dump")
         CHECK(
             res ==
             R"({"hello":"world","t":true,"f":false,"i":123,)"
-            R"("pi":3.1415998935699465,"a":[1,2,3,4],"ad":[[1,2],[3,4,5]],)"
+            R"("pi":3.1415998935699463,"a":[1,2,3,4],"ad":[[1,2],[3,4,5]],)"
             R"("space":"lab","tup":[1,3.140000104904175,"QWE"],"map":{"1":"hls","2":"rgb"},)"
-            R"("inner":{"r":1337,"d":3.1459259999999999}})");
+            R"("inner":{"r":1337,"d":3.1459259999999998}})");
     }
 
     SECTION("unsigned: check value greater than 0x7FFFFFFU")
@@ -983,21 +983,21 @@ TEST_CASE("json dump")
     SECTION("std containers")
     {
         auto j1 = json::dump(std::vector<inner_t>{inner_t{}});
-        CHECK(j1 == R"([{"r":1337,"d":3.1459259999999999}])");
+        CHECK(j1 == R"([{"r":1337,"d":3.1459259999999998}])");
 
         auto j2 = json::dump(std::list<inner_t>{inner_t{}});
-        CHECK(j2 == R"([{"r":1337,"d":3.1459259999999999}])");
+        CHECK(j2 == R"([{"r":1337,"d":3.1459259999999998}])");
 
         auto j3 = json::dump(std::deque<inner_t>{inner_t{}});
-        CHECK(j3 == R"([{"r":1337,"d":3.1459259999999999}])");
+        CHECK(j3 == R"([{"r":1337,"d":3.1459259999999998}])");
 
         auto j4 =
             json::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
-        CHECK(j4 == R"({"inner1":{"r":1337,"d":3.1459259999999999}})");
+        CHECK(j4 == R"({"inner1":{"r":1337,"d":3.1459259999999998}})");
 
         auto j5 = json::dump(
             std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
-        CHECK(j5 == R"({"inner2":{"r":1337,"d":3.1459259999999999}})");
+        CHECK(j5 == R"({"inner2":{"r":1337,"d":3.1459259999999998}})");
     }
 }
 

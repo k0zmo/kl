@@ -7,8 +7,8 @@ FetchContent_Declare(GSL
     URL_HASH SHA256=ed2d506839fd917142d562fa720459ce58c38fc5711b715779093e895a87d8c7
 )
 FetchContent_Declare(rapidjson
-    URL https://github.com/Tencent/rapidjson/archive/13dfc96c9c2b104be7b0b09a9f6e06871ed3e81d.zip
-    URL_HASH SHA256=477ff9f53c437dabcb01f3f47d7f26f126a94c3cc6b5e012d1e01e034e030041
+    URL https://github.com/Tencent/rapidjson/archive/0d4517f15a8d7167ba9ae67f3f22a559ca841e3b.zip
+    URL_HASH SHA256=4f44adc689e7c08e9eb197276600e58c501624b54102cba06267814e2a4f66eb
 )
 FetchContent_Declare(yamlcpp
     URL https://github.com/jbeder/yaml-cpp/archive/yaml-cpp-0.7.0.zip
@@ -34,9 +34,6 @@ if(KL_ENABLE_JSON)
         add_library(rapidjson::rapidjson ALIAS rapidjson)
         target_include_directories(rapidjson SYSTEM INTERFACE ${rapidjson_SOURCE_DIR}/include)
         target_compile_definitions(rapidjson INTERFACE RAPIDJSON_HAS_STDSTRING=1)
-        if(MSVC)
-            target_compile_definitions(rapidjson INTERFACE _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING)
-        endif()
     endif()
 endif()
 
