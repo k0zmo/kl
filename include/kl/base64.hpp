@@ -12,4 +12,7 @@ namespace kl {
 
 std::string base64_encode(gsl::span<const std::byte> s);
 std::optional<std::vector<std::byte>> base64_decode(std::string_view str);
+
+std::string base64url_encode(gsl::span<const std::byte> s);
+std::optional<std::vector<std::byte>> base64url_decode(std::string_view str);
 } // namespace kl
