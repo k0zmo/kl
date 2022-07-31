@@ -100,30 +100,6 @@ jobs:
           cd build && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: windows_vc2017
-    pool:
-      vmImage: 'vs2017-win2016'
-    variables:
-      CL: /MP
-    strategy:
-      matrix:
-        Win32:
-          Architecture: Win32
-        Win64:
-          Architecture: x64
-    steps:
-      - script: |
-          cmake --version
-        displayName: 'Check environment'
-      - template: templates/install-boost.yml
-      - script: |
-          cmake.exe -S . -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 15 2017" -A $(Architecture)
-          cmake.exe --build build --config Release
-        displayName: 'Build kl'
-      - script: |
-          cd build && ctest --build-config Release -VV --output-on-failure
-        displayName: 'Run CTest'
-
   - job: windows_vc2019
     pool:
       vmImage: 'windows-2019'
