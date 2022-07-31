@@ -1,0 +1,16 @@
+cmake_minimum_required(VERSION 3.15)
+project(PackageTest CXX)
+
+find_package(kl CONFIG REQUIRED)
+
+add_executable(test_package src/test_package.cpp)
+target_compile_features(test_package PRIVATE cxx_std_17)
+target_link_libraries(test_package kl::kl)
+if(TARGET kl::yaml)
+    target_link_libraries(test_package kl::yaml)
+    target_compile_definitions(test_package PRIVATE HAS_YAML)
+endif()
+if(TARGET kl::json)
+    target_link_libraries(test_package kl::json)
+    target_compile_definitions(test_package PRIVATE HAS_JSON)
+endif()
