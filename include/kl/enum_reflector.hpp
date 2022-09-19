@@ -62,26 +62,27 @@ struct enum_reflector
         return std::nullopt;
     }
 
-    static constexpr const char* to_string(enum_type value) noexcept
+    static constexpr const char*
+        to_string(enum_type value, const char* def = "(unknown)") noexcept
     {
-        const auto rng = reflect_enum(enum_<enum_type>);
+        constexpr auto rng = reflect_enum(enum_<enum_type>);
 
-        // Help GCC and MSVC do a lookup (Clang is smart enough) in common
-        // case when enum values starts from 0 and does not have any wholes
-        const auto num_value = static_cast<std::size_t>(value);
-        if (num_value < rng.size())
+        // For a usual case when enum type starts from 0 and does not have any holes
+        if constexpr (is_ordinary_enum())
         {
-            const auto it = rng.begin() + num_value;
-            if (it->value == value)
-                return it->name;
+            const auto num_value = static_cast<std::size_t>(value);
+            return num_value < rng.size() ? (rng.begin() + num_value)->name
+                                          : def;
         }
-
-        for (const auto& vn : rng)
+        else
         {
-            if (vn.value == value)
-                return vn.name;
+            for (const auto& vn : rng)
+            {
+                if (vn.value == value)
+                    return vn.name;
+            }
+            return def;
         }
-        return "(unknown)";
     }
 
     static auto values() noexcept
@@ -93,6 +94,30 @@ struct enum_reflector
     }
 
     static constexpr auto constexpr_values() noexcept { return values_impl(); }
+
+    static constexpr bool is_ordinary_enum() noexcept
+    {
+        constexpr auto rng = reflect_enum(enum_<enum_type>);
+
+        // Check if first enum value is 0 and the last enum value is equal to number of enum values minus 0
+        constexpr auto first_value = rng.begin()->value;
+        constexpr auto last_value = (rng.begin() + rng.size() - 1)->value;
+        if (first_value != static_cast<Enum>(0) ||
+            last_value != static_cast<Enum>(rng.size() - 1))
+        {
+            return false;
+        }
+        // Lastly, check if all the values are sorted - otherwise enum with values
+        // (0, 3, 2) would be considered 'ordinary' which is far from the true
+        auto cur = rng.begin(), next = cur;
+        while (++next != rng.end())
+        {
+            if (cur->value >= next->value)
+                return false;
+            cur = next;
+        }
+        return true;
+    }
 
 private:
     static constexpr auto values_impl() noexcept
