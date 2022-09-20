@@ -36,7 +36,7 @@ TEST_CASE("base64")
         REQUIRE(base64_encode(as_span("Hello Worl")) == "SGVsbG8gV29ybA==");
         REQUIRE(base64_encode(as_span("Hello World")) == "SGVsbG8gV29ybGQ=");
         REQUIRE(base64_encode(as_span("Hello World!")) == "SGVsbG8gV29ybGQh");
-        REQUIRE(base64_encode(as_span("<<???>>")) == "PDw/Pz8+Pg==");
+        REQUIRE(base64_encode(as_span("<<!_??_!>>")) == "PDwhXz8/XyE+Pg==");
     }
 
     SECTION("decode")
@@ -96,7 +96,7 @@ TEST_CASE("base64 URL variant")
         REQUIRE(base64url_encode(as_span("Hello Worl")) == "SGVsbG8gV29ybA");
         REQUIRE(base64url_encode(as_span("Hello World")) == "SGVsbG8gV29ybGQ");
         REQUIRE(base64url_encode(as_span("Hello World!")) == "SGVsbG8gV29ybGQh");
-        REQUIRE(base64url_encode(as_span("<<???>>")) == "PDw_Pz8-Pg");
+        REQUIRE(base64url_encode(as_span("<<!_??_!>>")) == "PDwhXz8_XyE-Pg");
     }
 
     SECTION("decode")
