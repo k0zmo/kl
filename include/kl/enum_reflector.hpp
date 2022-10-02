@@ -62,8 +62,9 @@ struct enum_reflector
         return std::nullopt;
     }
 
-    static constexpr const char*
-        to_string(enum_type value, const char* def = "(unknown)") noexcept
+    static constexpr const char* to_string(
+        enum_type value,
+        const char* def = reflect_enum_unknown_name(enum_<enum_type>)) noexcept
     {
         constexpr auto rng = reflect_enum(enum_<enum_type>);
 

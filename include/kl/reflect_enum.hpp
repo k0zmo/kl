@@ -98,16 +98,18 @@ private:
     KL_REFLECT_ENUM_SEQ(name_, KL_VARIADIC_TO_SEQ(__VA_ARGS__))
 
 #define KL_REFLECT_ENUM_SEQ(name_, values_)                                    \
-    namespace KL_REFLECT_ENUM_NSNAME(name_)                                    \
-    {                                                                          \
-        inline constexpr ::kl::enum_reflection_pair<name_> reflection_data[] = \
-            {KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_){name_{},         \
-                                                              nullptr}};       \
+    namespace KL_REFLECT_ENUM_NSNAME(name_) {                                  \
+    inline constexpr ::kl::enum_reflection_pair<name_> reflection_data[] = {   \
+        KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_){name_{}, nullptr}};   \
     }                                                                          \
     constexpr auto reflect_enum(::kl::enum_class<name_>) noexcept              \
     {                                                                          \
         return ::kl::enum_reflection_view{                                     \
             KL_REFLECT_ENUM_NSNAME(name_)::reflection_data};                   \
+    }                                                                          \
+    constexpr auto reflect_enum_unknown_name(::kl::enum_class<name_>) noexcept \
+    {                                                                          \
+        return "unknown <" KL_STRINGIZE(name_) ">";                            \
     }
 
 #define KL_REFLECT_ENUM_NSNAME(name_) KL_CONCAT(kl_reflect_, name_)
