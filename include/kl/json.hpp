@@ -733,11 +733,6 @@ rapidjson::Value to_json(const std::optional<T>& opt, Context& ctx)
 
 // from_json implementation
 
-// clang-format off
-template <typename T>
-struct is_64bit : std::bool_constant<sizeof(T) == 8> {};
-// clang-format n
-
 [[noreturn]] inline void throw_lossy_conversion()
 {
     throw deserialize_error{
@@ -752,63 +747,47 @@ Target narrow(Source src)
     return static_cast<Target>(src);
 }
 
-class integral_value_extractor
-{
-public:
-    explicit integral_value_extractor(const rapidjson::Value& value)
-        : value_{value}
-    {
-    }
-
-    // int8, int16 and int32
-    template <typename T,
-              enable_if<std::is_signed<T>, std::negation<is_64bit<T>>> = true>
-    explicit operator T() const
-    {
-        if (value_.IsInt())
-            return narrow<T>(value_.GetInt());
-        throw_lossy_conversion();
-    }
-
-    // int64
-    // It's a template operator instead of a just int64_t operator because long
-    // and long long are distinct types on Linux (LP64)
-    template <typename T, enable_if<std::is_signed<T>, is_64bit<T>> = true>
-    explicit operator T() const
-    {
-        if (value_.IsInt64())
-            return value_.GetInt64();
-        throw_lossy_conversion();
-    }
-
-    // uint8, uint16 and uint32
-    template <typename T,
-              enable_if<std::is_unsigned<T>, std::negation<is_64bit<T>>> = true>
-    explicit operator T() const
-    {
-        if (value_.IsUint())
-            return narrow<T>(value_.GetUint());
-        throw_lossy_conversion();
-    }
-
-    // uint64
-    template <typename T, enable_if<std::is_unsigned<T>, is_64bit<T>> = true>
-    explicit operator T() const
-    {
-        if (value_.IsUint64())
-            return value_.GetUint64();
-        throw_lossy_conversion();
-    }
-
-private:
-    const rapidjson::Value& value_;
-};
-
 template <typename Integral, enable_if<std::is_integral<Integral>> = true>
 void from_json(Integral& out, const rapidjson::Value& value)
 {
     json::expect_integral(value);
-    out = static_cast<Integral>(integral_value_extractor{value});
+    // int8, int16 and int32
+    if constexpr (std::is_signed_v<Integral> && sizeof(Integral) < 8)
+    {
+        if (value.IsInt())
+        {
+            out = narrow<Integral>(value.GetInt());
+            return;
+        }
+    }
+    // int64
+    else if constexpr (std::is_signed_v<Integral> && sizeof(Integral) == 8)
+    {
+        if (value.IsInt64())
+        {
+            out = value.GetInt64();
+            return;
+        }
+    }
+    // uint8, uint16 and uint32
+    else if constexpr (std::is_unsigned_v<Integral> && sizeof(Integral) < 8)
+    {
+        if (value.IsUint())
+        {
+            out = narrow<Integral>(value.GetUint());
+            return;
+        }
+    }
+    // uint64
+    else if constexpr (std::is_unsigned_v<Integral> && sizeof(Integral) == 8)
+    {
+        if (value.IsUint64())
+        {
+            out = value.GetUint64();
+            return;
+        }
+    }
+    throw_lossy_conversion();
 }
 
 template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
