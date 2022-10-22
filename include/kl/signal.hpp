@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
 #include <tuple>
@@ -14,33 +15,21 @@ class connection;
 
 namespace detail {
 
-class signal_base
+struct signal_base
 {
-protected:
-    friend class kl::connection;
-
-    signal_base() noexcept = default;
-    ~signal_base() = default;
-
-    signal_base(signal_base&&) noexcept {}
-    signal_base& operator=(signal_base&&) noexcept { return *this; }
-
-private:
-    signal_base(const signal_base&) = delete;
-    signal_base& operator=(const signal_base&) = delete;
-
-    virtual void disconnect(int id) noexcept = 0;
+    virtual ~signal_base() = default;
+    virtual void disconnect(std::uintptr_t id) = 0;
 };
 
 struct connection_info final
 {
-    connection_info(signal_base* sender, int id) noexcept
-        : sender{sender}, id{id}
+    connection_info(signal_base* sender) noexcept
+        : sender{sender}
     {
     }
 
     signal_base* sender;
-    const int id;
+    std::uintptr_t id{0};
     unsigned blocking{0};
 };
 
@@ -333,7 +322,7 @@ public:
 
     signal(signal&& other) noexcept
         : slots_{std::exchange(other.slots_, nullptr)},
-          next_id_{other.next_id_},
+          tail_{std::exchange(other.tail_, nullptr)},
           emits_{other.emits_}
     {
         rebind();
@@ -350,12 +339,6 @@ public:
     {
         if (!extended_slot)
             return {};
-
-        auto connection_info =
-            std::make_shared<detail::connection_info>(this, ++next_id_);
-
-        // Create proxy slot that would add connection as a first argument
-        auto connection = make_connection(connection_info);
 
         class proxy_slot
         {
@@ -376,10 +359,15 @@ public:
             extended_slot_type slot_;
         };
 
-        insert_new_slot(
-            new signal::slot(connection_info,
-                             proxy_slot{connection, std::move(extended_slot)}),
-            at);
+        auto connection_info =
+            std::make_shared<detail::connection_info>(this);
+        // Create proxy slot that would add connection as a first argument
+        auto connection = make_connection(connection_info);
+
+        auto slot_info = new signal::slot(
+            connection_info, proxy_slot{connection, std::move(extended_slot)});
+        connection_info->id = reinterpret_cast<std::uintptr_t>(slot_info);
+        insert_new_slot(slot_info, at);
         return connection;
     }
 
@@ -389,8 +377,10 @@ public:
         if (!slot)
             return {};
         auto connection_info =
-            std::make_shared<detail::connection_info>(this, ++next_id_);
-        insert_new_slot(new signal::slot(connection_info, std::move(slot)), at);
+            std::make_shared<detail::connection_info>(this);
+        auto slot_info = new signal::slot(connection_info, std::move(slot));
+        connection_info->id = reinterpret_cast<std::uintptr_t>(slot_info);
+        insert_new_slot(slot_info, at);
         return make_connection(std::move(connection_info));
     }
 
@@ -449,8 +439,8 @@ public:
     friend void swap(signal& left, signal& right) noexcept
     {
         using std::swap;
-        swap(left.next_id_, right.next_id_);
         swap(left.slots_, right.slots_);
+        swap(left.tail_, right.tail_);
         swap(left.emits_, right.emits_);
 
         left.rebind();
@@ -458,7 +448,7 @@ public:
     }
 
 private:
-    void disconnect(int id) noexcept override
+    void disconnect(std::uintptr_t id) override
     {
         for (auto iter = slots_; iter; iter = iter->next)
         {
@@ -497,17 +487,17 @@ private:
             ~decrement_op() { --value; }
         } op{++emits_};
 
-        const auto highest_id = highest_connection_id();
+        const auto last = tail_;
 
-        for (auto iter = slots_;
-             iter && iter->connection_info().id <= highest_id;
-             iter = iter->next)
+        for (auto iter = slots_; iter; iter = iter->next)
         {
             if (!iter->is_blocked() && iter->valid())
             {
                 if (func(*iter))
                     break;
             }
+            if (iter == last)
+                break;
         }
     }
 
@@ -524,6 +514,8 @@ private:
                     prev->next = next;
                 if (slots_ == iter)
                     slots_ = next;
+                if (tail_ == iter)
+                    tail_ = prev ? prev : slots_;
                 delete iter;
                 iter = next;
             }
@@ -544,17 +536,6 @@ private:
             cleanup_invalidated_slots_impl();
             emits_ = 0;
         }
-    }
-
-    int highest_connection_id() const
-    {
-        int ret = -1;
-        for (auto iter = slots_; iter; iter = iter->next)
-        {
-            if (iter->valid() && iter->connection_info().id > ret)
-                ret = iter->connection_info().id;
-        }
-        return ret;
     }
 
 private:
@@ -606,8 +587,9 @@ private:
         slot_type impl_;
     };
 
-    slot* slots_{nullptr};
-    int next_id_{0};
+    slot* slots_{nullptr}; // owning pointer
+    slot* tail_{nullptr};  // observer ptr
+
     // On most significant bit we store if there are any invalidated slots that
     // need to be cleanup
     unsigned emits_{0};
@@ -621,6 +603,7 @@ private:
         if (!slots_)
         {
             slots_ = new_slot;
+            tail_ = new_slot;
             return;
         }
 
@@ -635,6 +618,7 @@ private:
 
             iter = prev;
             iter->next = new_slot;
+            tail_ = new_slot;
         }
         else
         {
