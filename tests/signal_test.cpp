@@ -810,4 +810,22 @@ TEST_CASE("disconnect all slots during emission")
         s();
         CHECK(i == 2);
     }
+
+    SECTION("disconnect last")
+    {
+        kl::connection c;
+        s += [&] { ++i; };
+        s += [&] {
+            ++i;
+            c.disconnect();
+        };
+        c = s += [&] { i += 10; };
+
+        s();
+        CHECK(i == 2);
+        CHECK(s.num_slots() == 2);
+
+        s();
+        CHECK(i == 4);
+    }
 }
