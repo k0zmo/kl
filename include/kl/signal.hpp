@@ -452,7 +452,7 @@ private:
     {
         for (auto iter = slots_; iter; iter = iter->next)
         {
-            if (iter->connection_info().id != id)
+            if (iter->id() != id)
                 continue;
 
             // We can't delete the node here since we could be in the middle
@@ -473,8 +473,7 @@ private:
         // Rebind back-pointer to new signal
         for (auto iter = slots_; iter; iter = iter->next)
         {
-            assert(iter->connection_info().sender);
-            iter->connection_info().sender = this;
+            iter->rebind(this);
         }
     }
 
@@ -487,6 +486,8 @@ private:
             ~decrement_op() { --value; }
         } op{++emits_};
 
+        // Save the last slot on the list to call. Any slots added after this
+        // line during this emission (by reentrant call) will not be called.
         const auto last = tail_;
 
         for (auto iter = slots_; iter; iter = iter->next)
@@ -548,7 +549,7 @@ private:
         slot(std::shared_ptr<detail::connection_info> connection_info,
              slot_type impl) noexcept
             : connection_info_{std::move(connection_info)},
-              impl_{std::move(impl)}
+              target_{std::move(impl)}
 
         {
         }
@@ -558,43 +559,39 @@ private:
 
         return_type operator()(const Args&... args) const
         {
-            return impl_(args...);
+            return target_(args...);
         }
 
-        void invalidate() noexcept { connection_info().sender = nullptr; }
+        std::uintptr_t id() const noexcept { return connection_info_->id; }
+        void invalidate() noexcept { rebind(nullptr); }
 
-        const detail::connection_info& connection_info() const noexcept
+        void rebind(signal_base* self) noexcept
         {
-            return *connection_info_;
-        }
-
-        detail::connection_info& connection_info() noexcept
-        {
-            return *connection_info_;
+            connection_info_->sender = self;
         }
 
         bool valid() const noexcept
         {
-            return connection_info().sender != nullptr;
+            return connection_info_->sender != nullptr;
         }
         bool is_blocked() const noexcept
         {
-            return connection_info().blocking > 0;
+            return connection_info_->blocking > 0;
         }
 
     private:
         std::shared_ptr<detail::connection_info> connection_info_;
-        slot_type impl_;
+        slot_type target_;
     };
 
     slot* slots_{nullptr}; // owning pointer
     slot* tail_{nullptr};  // observer ptr
 
-    // On most significant bit we store if there are any invalidated slots that
-    // need to be cleanup
+    // On the most significant bit we store if there are any invalidated slots
+    // that need to be cleanup.
     unsigned emits_{0};
     // If emits_ equals to should_cleanup we know there's no emission in place
-    // and there are invalidated slots
+    // and there are invalidated slots.
     static constexpr unsigned should_cleanup = 0x80000000;
 
 private:
