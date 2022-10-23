@@ -523,7 +523,69 @@ TEST_CASE("stopping signal emission")
     }
 }
 
-TEST_CASE("connect/disconnect during signal emission")
+TEST_CASE("disconnect during signal emission")
+{
+    kl::signal<void()> s;
+    int i = 0;
+
+    SECTION("disconnect current and middle")
+    {
+        kl::connection c;
+        s += [&] { ++i; };
+        c = s += [&] {
+            i += 5;
+            c.disconnect();
+        };
+        s += [&] { ++i; };
+
+        s();
+        CHECK(i == 7);
+        CHECK(s.num_slots() == 2);
+
+        s();
+        CHECK(i == 9);
+    }
+
+    SECTION("disconnect current and first")
+    {
+        kl::connection c;
+        c = s += [&] {
+            i += 5;
+            c.disconnect();
+        };
+        s += [&] {
+            ++i;
+        };
+        s += [&] { ++i; };
+
+        s();
+        CHECK(i == 7);
+        CHECK(s.num_slots() == 2);
+
+        s();
+        CHECK(i == 9);
+    }
+
+    SECTION("disconnect last")
+    {
+        kl::connection c;
+        s += [&] { ++i; };
+        s += [&] {
+            ++i;
+            c.disconnect();
+        };
+        c = s += [&] { i += 10; };
+
+        s();
+        CHECK(i == 2);
+        CHECK(s.num_slots() == 2);
+
+        s();
+        CHECK(i == 4);
+    }
+}
+
+TEST_CASE("connect and disconnect during signal emission")
 {
     class Test
     {
@@ -579,6 +641,26 @@ TEST_CASE("connect/disconnect during signal emission")
     test.run();
     REQUIRE(test.trace ==
             (std::vector<int>{0, 99, 2, 99, 0, 99, 2, 99, 4, 99, 4, 99}));
+}
+
+TEST_CASE("disconnect and recursively emit")
+{
+    kl::signal<void()> s;
+    kl::connection c1, c2;
+    int i = 0;
+    c1 = s += [&]() {
+        i += 3;
+        c1.disconnect();
+        s();
+    };
+    c2 = s += [&]() {
+        i += 5;
+        c2.disconnect();
+    };
+    s();
+    CHECK(i == 8);
+    s();
+    CHECK(i == 8);
 }
 
 TEST_CASE("one-time slot connection with a next emission in a handler")
@@ -809,23 +891,5 @@ TEST_CASE("disconnect all slots during emission")
 
         s();
         CHECK(i == 2);
-    }
-
-    SECTION("disconnect last")
-    {
-        kl::connection c;
-        s += [&] { ++i; };
-        s += [&] {
-            ++i;
-            c.disconnect();
-        };
-        c = s += [&] { i += 10; };
-
-        s();
-        CHECK(i == 2);
-        CHECK(s.num_slots() == 2);
-
-        s();
-        CHECK(i == 4);
     }
 }
