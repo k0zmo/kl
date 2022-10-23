@@ -21,9 +21,9 @@ struct signal_base
     virtual void disconnect(std::uintptr_t id) = 0;
 };
 
-struct connection_info final
+struct slot_state final
 {
-    connection_info(signal_base* sender) noexcept
+    slot_state(signal_base* sender) noexcept
         : sender{sender}
     {
     }
@@ -65,7 +65,7 @@ public:
 
     // Move constructor/operator
     connection(connection&& other) noexcept
-        : impl_{std::exchange(other.impl_, nullptr)}
+        : state_{std::exchange(other.state_, nullptr)}
     {
     }
     connection& operator=(connection&& other) noexcept
@@ -79,55 +79,55 @@ public:
     {
         if (!connected())
             return;
-        impl_->sender->disconnect(impl_->id);
-        impl_ = nullptr;
+        state_->sender->disconnect(state_->id);
+        state_ = nullptr;
     }
 
     // Returns true if connection is valid
-    bool connected() const { return impl_ && impl_->sender; }
+    bool connected() const { return state_ && state_->sender; }
 
     size_t hash() const noexcept
     {
         // Get hash out of underlying pointer
-        return std::hash<std::shared_ptr<detail::connection_info>>{}(impl_);
+        return std::hash<std::shared_ptr<detail::slot_state>>{}(state_);
     }
 
     class blocker
     {
     public:
         blocker() noexcept = default;
-        blocker(connection& con) : impl_{con.impl_}
+        blocker(connection& con) : state_{con.state_}
         {
-            if (impl_)
-                ++impl_->blocking;
+            if (state_)
+                ++state_->blocking;
         }
 
         ~blocker()
         {
-            if (impl_)
-                --impl_->blocking;
+            if (state_)
+                --state_->blocking;
         }
 
-        blocker(const blocker& other) : impl_{other.impl_}
+        blocker(const blocker& other) : state_{other.state_}
         {
-            if (impl_)
-                ++impl_->blocking;
+            if (state_)
+                ++state_->blocking;
         }
 
         blocker& operator=(const blocker& other)
         {
             if (this != &other)
             {
-                if (impl_)
-                    --impl_->blocking;
-                impl_ = other.impl_;
-                if (impl_)
-                    ++impl_->blocking;
+                if (state_)
+                    --state_->blocking;
+                state_ = other.state_;
+                if (state_)
+                    ++state_->blocking;
             }
             return *this;
         }
 
-        blocker(blocker&& other) noexcept : impl_{std::move(other.impl_)} {}
+        blocker(blocker&& other) noexcept : state_{std::move(other.state_)} {}
 
         blocker& operator=(blocker&& other) noexcept
         {
@@ -135,16 +135,16 @@ public:
             return *this;
         }
 
-        bool blocking() const noexcept { return impl_ != nullptr; }
+        bool blocking() const noexcept { return state_ != nullptr; }
 
         friend void swap(blocker& left, blocker& right) noexcept
         {
             using std::swap;
-            swap(left.impl_, right.impl_);
+            swap(left.state_, right.state_);
         }
 
     private:
-        std::shared_ptr<detail::connection_info> impl_;
+        std::shared_ptr<detail::slot_state> state_;
     };
 
     blocker get_blocker() { return {*this}; }
@@ -153,39 +153,39 @@ public:
     friend void swap(connection& left, connection& right) noexcept
     {
         using std::swap;
-        swap(left.impl_, right.impl_);
+        swap(left.state_, right.state_);
     }
 
     friend bool operator==(const connection& left,
                            const connection& right) noexcept
     {
-        return left.impl_ == right.impl_;
+        return left.state_ == right.state_;
     }
 
     friend bool operator<(const connection& left,
                           const connection& right) noexcept
     {
-        return left.impl_ < right.impl_;
+        return left.state_ < right.state_;
     }
 
 private:
     friend connection
-        make_connection(std::shared_ptr<detail::connection_info> ci) noexcept;
+        make_connection(std::shared_ptr<detail::slot_state> state) noexcept;
     // Private constructor - use by concrete instances of signal class
-    connection(std::shared_ptr<detail::connection_info> c) noexcept
-        : impl_{std::move(c)}
+    connection(std::shared_ptr<detail::slot_state> state) noexcept
+        : state_{std::move(state)}
     {
-        assert(impl_);
+        assert(state_);
     }
 
 private:
-    std::shared_ptr<detail::connection_info> impl_;
+    std::shared_ptr<detail::slot_state> state_;
 };
 
 inline connection
-    make_connection(std::shared_ptr<detail::connection_info> ci) noexcept
+    make_connection(std::shared_ptr<detail::slot_state> state) noexcept
 {
-    return connection(std::move(ci));
+    return connection(std::move(state));
 }
 
 /*
@@ -325,15 +325,15 @@ public:
             extended_slot_type slot_;
         };
 
-        auto connection_info =
-            std::make_shared<detail::connection_info>(this);
+        auto slot_state =
+            std::make_shared<detail::slot_state>(this);
         // Create proxy slot that would add connection as a first argument
-        auto connection = make_connection(connection_info);
+        auto connection = make_connection(slot_state);
 
-        auto slot_info = new signal::slot(
-            connection_info, proxy_slot{connection, std::move(extended_slot)});
-        connection_info->id = reinterpret_cast<std::uintptr_t>(slot_info);
-        insert_new_slot(slot_info, at);
+        auto slot_impl = new signal::slot(
+            slot_state, proxy_slot{connection, std::move(extended_slot)});
+        slot_state->id = reinterpret_cast<std::uintptr_t>(slot_impl);
+        insert_new_slot(slot_impl, at);
         return connection;
     }
 
@@ -342,12 +342,12 @@ public:
     {
         if (!slot)
             return {};
-        auto connection_info =
-            std::make_shared<detail::connection_info>(this);
-        auto slot_info = new signal::slot(connection_info, std::move(slot));
-        connection_info->id = reinterpret_cast<std::uintptr_t>(slot_info);
-        insert_new_slot(slot_info, at);
-        return make_connection(std::move(connection_info));
+        auto slot_state =
+            std::make_shared<detail::slot_state>(this);
+        auto slot_impl = new signal::slot(slot_state, std::move(slot));
+        slot_state->id = reinterpret_cast<std::uintptr_t>(slot_impl);
+        insert_new_slot(slot_impl, at);
+        return make_connection(std::move(slot_state));
     }
 
     connection operator+=(slot_type slot) { return connect(std::move(slot)); }
@@ -537,10 +537,10 @@ private:
         slot* next{nullptr};
 
     public:
-        slot(std::shared_ptr<detail::connection_info> connection_info,
-             slot_type impl) noexcept
-            : connection_info_{std::move(connection_info)},
-              target_{std::move(impl)}
+        slot(std::shared_ptr<detail::slot_state> slot_state,
+             slot_type target) noexcept
+            : state_{std::move(slot_state)},
+              target_{std::move(target)}
 
         {
         }
@@ -553,25 +553,25 @@ private:
             return target_(args...);
         }
 
-        std::uintptr_t id() const noexcept { return connection_info_->id; }
+        std::uintptr_t id() const noexcept { return state_->id; }
         void invalidate() noexcept { rebind(nullptr); }
 
         void rebind(signal_base* self) noexcept
         {
-            connection_info_->sender = self;
+            state_->sender = self;
         }
 
         bool valid() const noexcept
         {
-            return connection_info_->sender != nullptr;
+            return state_->sender != nullptr;
         }
         bool is_blocked() const noexcept
         {
-            return connection_info_->blocking > 0;
+            return state_->blocking > 0;
         }
 
     private:
-        std::shared_ptr<detail::connection_info> connection_info_;
+        std::shared_ptr<detail::slot_state> state_;
         slot_type target_;
     };
 
