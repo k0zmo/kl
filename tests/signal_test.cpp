@@ -426,19 +426,16 @@ TEST_CASE("scoped_connection")
 
 namespace test {
 
-bool foo() { return false; }
-bool bar() { return true; }
-
 float product(float x, float y) { return x * y; }
 float quotient(float x, float y) { return x / y; }
 float sum(float x, float y) { return x + y; }
 float difference(float x, float y) { return x - y; }
 } // namespace test
 
-TEST_CASE("signal combiners")
+TEST_CASE("signal sink")
 {
     // http://www.boost.org/doc/libs/1_60_0/doc/html/signals2/rationale.html
-    // We use push model - with lambdas and all it's not that bad
+    // We use push model - with lambdas and all and it's not that bad
 
     kl::signal<float(float, float)> sig;
     sig += &test::product;
@@ -478,35 +475,16 @@ TEST_CASE("signal combiners")
         REQUIRE(srv[2] == Catch::Approx(8.0f));
         REQUIRE(srv[3] == Catch::Approx(2.0f));
     }
-}
 
-TEST_CASE("stopping signal emission")
-{
-    kl::signal<int()> signal;
-    signal += [] { return 10; };
-    signal += [] { return 100; };
-    signal += [] { return 1000; };
-
-    SECTION("run all")
+    SECTION("distribute request - stop at some point")
     {
-        int cnt = 0;
-        signal([&](int) {
-            ++cnt;
-            return false;
+        int i = 0;
+        sig(5, 3, [&](float ret) {
+            ++i;
+            if (ret < 15.f)
+                kl::this_signal::stop_emission();
         });
-        REQUIRE(cnt == 3);
-    }
-
-    SECTION("distribute request")
-    {
-        int rv = 0;
-        signal([&](int ret) {
-            rv = ret;
-            if (ret > 50)
-                return true; // Dont bother calling next slot
-            return false;
-        });
-        REQUIRE(rv == 100); // 3rd slot not called
+        REQUIRE(i == 2);
     }
 
     SECTION("sink with void returning signal")
@@ -517,9 +495,60 @@ TEST_CASE("stopping signal emission")
         s += [&] { cnt++; };
         s += [&] { cnt++; };
 
-        s([&] { return cnt >= 1; });
+        s([&] {
+            if (cnt >= 1)
+                kl::this_signal::stop_emission();
+        });
 
         REQUIRE(cnt == 1);
+    }
+}
+
+TEST_CASE("stopping signal emission")
+{
+    kl::signal<void()> s;
+    int i = 0;
+
+    SECTION("a")
+    {
+        s += [&] {
+            i += 10;
+            kl::this_signal::stop_emission();
+        };
+        s += [&] { i += 100; };
+        s += [&] { i += 1000; };
+        s();
+        CHECK(i == 10);
+        s();
+        CHECK(i == 20);
+    }
+
+    SECTION("b")
+    {
+        s += [&] { i += 10; };
+        s += [&] {
+            i += 100;
+            kl::this_signal::stop_emission();
+        };
+        s += [&] { i += 1000; };
+        s();
+        CHECK(i == 110);
+        s();
+        CHECK(i == 220);
+    }
+
+    SECTION("b")
+    {
+        s += [&] { i += 10; };
+        s += [&] { i += 100; };
+        s += [&] {
+            i += 1000;
+            kl::this_signal::stop_emission();
+        };
+        s();
+        CHECK(i == 1110);
+        s();
+        CHECK(i == 2220);
     }
 }
 
