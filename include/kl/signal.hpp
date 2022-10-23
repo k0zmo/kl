@@ -33,12 +33,17 @@ struct connection_info final
     unsigned blocking{0};
 };
 
-template <typename T>
-size_t hash_std(T&& v)
+struct tls_signal_info
 {
-    using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
-    return std::hash<remove_cvref_t>{}(std::forward<T>(v));
+    bool emission_stopped{false};
+};
+
+inline auto& get_tls_signal_info()
+{
+    thread_local static tls_signal_info info;
+    return info;
 }
+
 } // namespace detail
 
 /*
@@ -84,7 +89,7 @@ public:
     size_t hash() const noexcept
     {
         // Get hash out of underlying pointer
-        return detail::hash_std(impl_);
+        return std::hash<std::shared_ptr<detail::connection_info>>{}(impl_);
     }
 
     class blocker
@@ -249,45 +254,6 @@ enum connect_position
     at_front
 };
 
-namespace detail {
-
-template <typename Ret>
-struct sink_invoker
-{
-    template <typename Sink, typename Slot, typename... Args>
-    static bool call(Sink&& sink, const Slot& slot, const Args&... args)
-    {
-        constexpr bool does_sink_return_void = std::is_same_v<
-            void, std::invoke_result_t<Sink, Ret>>;
-
-        auto&& return_value = slot(args...);
-
-        if constexpr (does_sink_return_void)
-            return std::forward<Sink>(sink)(return_value), false;
-        else
-            return !!std::forward<Sink>(sink)(return_value);
-    }
-};
-
-template <>
-struct sink_invoker<void>
-{
-    template <typename Sink, typename Slot, typename... Args>
-    static bool call(Sink&& sink, const Slot& slot, const Args&... args)
-    {
-        constexpr bool does_sink_return_void =
-            std::is_same_v<void, std::invoke_result_t<Sink>>;
-
-        slot(args...);
-
-        if constexpr (does_sink_return_void)
-            return std::forward<Sink>(sink)(), false;
-        else
-            return !!std::forward<Sink>(sink)();
-    }
-};
-} // namespace detail
-
 template <typename Signature>
 class signal;
 
@@ -397,13 +363,20 @@ public:
         cleanup_invalidated_slots();
     }
 
-    // Emits signal and sinks signal return values
+    // Emits signal and sinks slots' return value
     template <typename Sink>
     void operator()(Args... args, Sink&& sink)
     {
         call_each_slot([&](const slot& s) {
-            using invoker = detail::sink_invoker<return_type>;
-            return invoker::call(std::forward<Sink>(sink), s, args...);
+            if constexpr (std::is_same_v<return_type, void>)
+            {
+                s(args...);
+                sink();
+            }
+            else
+            {
+                sink(s(args...));
+            }
         });
 
         cleanup_invalidated_slots();
@@ -480,11 +453,25 @@ private:
     template <typename Func>
     void call_each_slot(Func&& func)
     {
-        struct decrement_op
+        auto& tls = detail::get_tls_signal_info();
+        struct scoped_emission
         {
-            unsigned& value;
-            ~decrement_op() { --value; }
-        } op{++emits_};
+            scoped_emission(detail::tls_signal_info& info, unsigned& num_emits)
+                : info(info), num_emits{num_emits}, prev{info.emission_stopped}
+            {
+                ++num_emits;
+                info.emission_stopped = false;
+            }
+            ~scoped_emission()
+            {
+                --num_emits;
+                info.emission_stopped = prev;
+            }
+
+            detail::tls_signal_info& info;
+            unsigned& num_emits;
+            bool prev;
+        } emission{tls, emits_};
 
         // Save the last slot on the list to call. Any slots added after this
         // line during this emission (by reentrant call) will not be called.
@@ -494,9 +481,13 @@ private:
         {
             if (!iter->is_blocked() && iter->valid())
             {
-                if (func(*iter))
+                func(*iter);
+
+                if (tls.emission_stopped)
                     break;
             }
+            // Last represents last item on the list, inclusively so we need to
+            // stop iterating after handling it, not just before.
             if (iter == last)
                 break;
         }
@@ -624,6 +615,15 @@ private:
         }
     }
 };
+
+namespace this_signal {
+
+void stop_emission()
+{
+    detail::get_tls_signal_info().emission_stopped = true;
+}
+
+} // namespace this_signal
 
 template <typename T, typename Ret, typename... Args>
 std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T* instance)
