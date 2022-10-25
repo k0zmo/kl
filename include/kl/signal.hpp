@@ -36,6 +36,7 @@ struct slot_state final
 struct tls_signal_info
 {
     bool emission_stopped{false};
+    std::shared_ptr<detail::slot_state>* slot_state{nullptr};
 };
 
 inline auto& get_tls_signal_info()
@@ -263,7 +264,6 @@ class signal<Ret(Args...)> : public detail::signal_base
 public:
     using signature_type = Ret(Args...);
     using slot_type = std::function<Ret(Args...)>;
-    using extended_slot_type = std::function<Ret(connection&, Args...)>;
     using signal_type = signal<Ret(Args...)>;
     using return_type = Ret;
     static const size_t arity = sizeof...(Args);
@@ -298,43 +298,6 @@ public:
     {
         swap(*this, other);
         return *this;
-    }
-
-    connection connect_extended(extended_slot_type extended_slot,
-                                connect_position at = at_back)
-    {
-        if (!extended_slot)
-            return {};
-
-        class proxy_slot
-        {
-        public:
-            explicit proxy_slot(const kl::connection& connection,
-                                extended_slot_type slot)
-                : connection_{connection}, slot_{std::move(slot)}
-            {
-            }
-
-            return_type operator()(Args&&... args)
-            {
-                return slot_(connection_, std::forward<Args>(args)...);
-            }
-
-        private:
-            kl::connection connection_;
-            extended_slot_type slot_;
-        };
-
-        auto slot_state =
-            std::make_shared<detail::slot_state>(this);
-        // Create proxy slot that would add connection as a first argument
-        auto connection = make_connection(slot_state);
-
-        auto slot_impl = new signal::slot(
-            slot_state, proxy_slot{connection, std::move(extended_slot)});
-        slot_state->id = reinterpret_cast<std::uintptr_t>(slot_impl);
-        insert_new_slot(slot_impl, at);
-        return connection;
     }
 
     // Connects signal object to given slot object.
@@ -429,9 +392,8 @@ private:
                 continue;
 
             // We can't delete the node here since we could be in the middle
-            // of signal emission or we are called from extended slot. In
-            // that case it would lead to removal of connection (proxy slot
-            // keeps the copy) that is invoking this very function.
+            // of signal emission. In that case it would lead to removal of
+            // connection that is invoking this very function.
             iter->invalidate();
             emits_ |= should_cleanup;
             cleanup_invalidated_slots();
@@ -457,20 +419,21 @@ private:
         struct scoped_emission
         {
             scoped_emission(detail::tls_signal_info& info, unsigned& num_emits)
-                : info(info), num_emits{num_emits}, prev{info.emission_stopped}
+                : info(info),
+                  prev_value{info},
+                  num_emits{++num_emits}
             {
-                ++num_emits;
                 info.emission_stopped = false;
             }
             ~scoped_emission()
             {
                 --num_emits;
-                info.emission_stopped = prev;
+                info = prev_value;
             }
 
             detail::tls_signal_info& info;
+            detail::tls_signal_info prev_value;
             unsigned& num_emits;
-            bool prev;
         } emission{tls, emits_};
 
         // Save the last slot on the list to call. Any slots added after this
@@ -481,6 +444,8 @@ private:
         {
             if (!iter->is_blocked() && iter->valid())
             {
+                emission.info.slot_state = &iter->state_ref();
+
                 func(*iter);
 
                 if (tls.emission_stopped)
@@ -553,22 +518,14 @@ private:
             return target_(args...);
         }
 
+        std::shared_ptr<detail::slot_state>& state_ref() { return state_; }
         std::uintptr_t id() const noexcept { return state_->id; }
+
         void invalidate() noexcept { rebind(nullptr); }
+        void rebind(signal_base* self) noexcept { state_->sender = self; }
+        bool valid() const noexcept { return state_->sender != nullptr; }
 
-        void rebind(signal_base* self) noexcept
-        {
-            state_->sender = self;
-        }
-
-        bool valid() const noexcept
-        {
-            return state_->sender != nullptr;
-        }
-        bool is_blocked() const noexcept
-        {
-            return state_->blocking > 0;
-        }
+        bool is_blocked() const noexcept { return state_->blocking > 0; }
 
     private:
         std::shared_ptr<detail::slot_state> state_;
@@ -621,6 +578,12 @@ namespace this_signal {
 void stop_emission()
 {
     detail::get_tls_signal_info().emission_stopped = true;
+}
+
+connection current_connection() {
+
+    auto state = detail::get_tls_signal_info().slot_state;
+    return state ? make_connection(*state) : connection{};
 }
 
 } // namespace this_signal
