@@ -43,8 +43,6 @@ TEST_CASE("signal")
         kl::signal<float(int)> s;
         s.connect(nullptr);
         REQUIRE(s.empty());
-        s.connect_extended(nullptr);
-        REQUIRE(s.empty());
     }
 
     SECTION("connect lambda")
@@ -226,17 +224,18 @@ TEST_CASE("signal")
         REQUIRE(cnt == 1);
     }
 
-    SECTION("extended connect")
+    SECTION("current connection")
     {
         int counter = 0;
-        auto single_shot_slot = [&counter](kl::connection& conn,
-                                           const std::string&) {
+        auto single_shot_slot = [&counter](const std::string&) {
+            auto conn = kl::this_signal::current_connection();
+            REQUIRE(conn.connected());
             conn.disconnect();
             ++counter;
         };
 
         kl::signal<void(const std::string&)> s;
-        s.connect_extended(single_shot_slot);
+        s.connect(single_shot_slot);
 
         s("hello");
         s(" world\n"); // Wont be called
@@ -244,14 +243,44 @@ TEST_CASE("signal")
         REQUIRE(counter == 1);
     }
 
+    SECTION("current connection, recursive")
+    {
+        int counter = 0;
+        kl::signal<void()> s1;
+        kl::signal<void()> s2;
+        s1 += [&]() {
+            auto conn = kl::this_signal::current_connection();
+            REQUIRE(conn.connected());
+            ++counter;
+            s2();
+            CHECK(kl::this_signal::current_connection() == conn);
+        };
+        s2 += [&]() {
+            auto conn = kl::this_signal::current_connection();
+            REQUIRE(conn.connected());
+            conn.disconnect();
+            ++counter;
+        };
+
+        s1();
+        CHECK(counter == 2);
+        s1();
+        CHECK(counter == 3);
+    }
+
     SECTION("connect signal to signal")
     {
         kl::signal<void(int)> s;
         kl::signal<void(int)> t;
 
-        t += [](int i) { REQUIRE(i == 2); };
+        bool done = false;
+        t += [&](int i) {
+            REQUIRE(i == 2);
+            done = true;
+        };
         s += kl::make_slot(t);
         s(2);
+        REQUIRE(done);
     }
 }
 
@@ -803,31 +832,17 @@ TEST_CASE("by value vs by const ref")
         signal<void(const std::vector<int>&)> s1;
 
         // We should get exaclty one copy constructor and one move constructor
-        // for each slot invocation (+1 move for extended connection)
+        // for each slot invocation
         s0 += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
         s0 += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
-        s0.connect_extended([](kl::connection, std::vector<int> vec) {
-            REQUIRE(vec.size() == 5);
-        });
-        s0.connect_extended([](kl::connection, std::vector<int> vec) {
-            REQUIRE(vec.size() == 5);
-        });
 
         // No copy/move ctor in this case
         s1 += [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); };
         s1 += [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); };
-        s1.connect_extended([](kl::connection, const std::vector<int>& vec) {
-            REQUIRE(vec.size() == 7);
-        });
-        s1.connect_extended([](kl::connection, const std::vector<int>& vec) {
-            REQUIRE(vec.size() == 7);
-        });
 
-        s0(std::vector<int>{0, 1, 2, 3, 4}, [] {});
         s0(std::vector<int>{0, 1, 2, 3, 4});
 
         std::vector<int> vec{0, 1, 2, 3, 4, 5, 6};
-        s1(vec, [] {});
         s1(vec);
     }
 
