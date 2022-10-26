@@ -312,6 +312,107 @@ public:
         return make_connection(std::move(slot_state));
     }
 
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...), T* instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                (instance->*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...) const, const T* instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                (instance->*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...), T& instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, &instance](Args&&... args) {
+                (instance.*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...) const, const T& instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, &instance](Args&&... args) {
+                (instance.*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...), std::shared_ptr<T> instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                ((*instance).*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...) const,
+                       std::shared_ptr<const T> instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                ((*instance).*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...), std::weak_ptr<T> instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                if (auto ptr = instance.lock())
+                    ((*ptr).*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...) const,
+                       std::weak_ptr<const T> instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                if (auto ptr = instance.lock())
+                    ((*ptr).*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    // Converts signal to slot type allowing to create signal-to-signal
+    // connections
+    template <typename Ret, typename... Args2>
+    connection connect(signal<Ret(Args2...)>& sig, connect_position at = at_back)
+    {
+        return connect(
+            [&sig](Args&&... args) { sig(std::forward<Args>(args)...); }, at);
+    }
+
     connection operator+=(slot_type slot)
     {
         return connect(std::move(slot));
@@ -561,66 +662,6 @@ connection current_connection() {
 }
 
 } // namespace this_signal
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T* instance)
-{
-    return {[mem_func, instance](Args&&... args) {
-        return (instance->*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
-                                      const T* instance)
-{
-    return {[mem_func, instance](Args&&... args) {
-        return (instance->*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T& instance)
-{
-    return {[mem_func, &instance](Args&&... args) {
-        return (instance.*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
-                                      const T& instance)
-{
-    return {[mem_func, &instance](Args&&... args) {
-        return (instance.*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
-                                      std::shared_ptr<T> instance)
-{
-    return {[mem_func, instance](Args&&... args) {
-        return ((*instance).*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
-                                      std::weak_ptr<T> instance)
-{
-    return {[mem_func, instance](Args&&... args) {
-        if (auto ptr = instance.lock())
-            return ((*ptr).*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-// Converts signal to slot type allowing to create signal-to-signal connections
-template <typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(signal<Ret(Args...)>& sig)
-{
-    return {[&](Args&&... args) { return sig(std::forward<Args>(args)...); }};
-}
 } // namespace kl
 
 namespace std {
@@ -644,9 +685,3 @@ struct hash<kl::scoped_connection>
     }
 };
 } // namespace std
-
-// Handy macro for slot connecting inside a class
-#define KL_SLOT(mem_fn)                                                        \
-    [this](auto&&... args) {                                                   \
-        return this->mem_fn(std::forward<decltype(args)>(args)...);            \
-    }
