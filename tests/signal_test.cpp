@@ -101,14 +101,17 @@ TEST_CASE("signal")
     {
         test::Baz obj;
         kl::signal<void(int&)> s;
-        s += kl::make_slot(&test::Baz::bar, &obj);
-        s += kl::make_slot(&test::Baz::bar, const_cast<const test::Baz*>(&obj));
+        s.connect(&test::Baz::bar, &obj);
+        s.connect(&test::Baz::bar, const_cast<const test::Baz*>(&obj));
 
         test::Baz& ref = obj;
-        s += kl::make_slot(&test::Baz::bar, ref);
+        s.connect(&test::Baz::bar, ref);
 
         const test::Baz& cref = obj;
-        s += kl::make_slot(&test::Baz::bar, cref);
+        s.connect(&test::Baz::bar, cref);
+
+        auto shared_ob = std::make_shared<const test::Baz>();
+        s.connect(&test::Baz::bar, shared_ob);
 
         // use bind directly
         s += std::bind(static_cast<void (test::Baz::*)(int&)>(&test::Baz::bar),
@@ -118,19 +121,26 @@ TEST_CASE("signal")
             std::cref(obj), std::placeholders::_1);
         int z = 0;
         s(z);
-        REQUIRE(z == 6);
+        REQUIRE(z == 7);
     }
 
-    SECTION("make slot shared_ptr to signal")
+    SECTION("connect shared_ptr instance to a signal")
     {
         auto obj = std::make_shared<test::Baz>();
         kl::signal<void(int&)> s;
-        s += kl::make_slot(&test::Baz::bar, obj);
-        s += kl::make_slot(&test::Baz::bar, std::weak_ptr<test::Baz>(obj));
+        auto c = s.connect(&test::Baz::bar, obj);
+        s.connect(&test::Baz::bar, std::weak_ptr<test::Baz>(obj));
+        s.connect(&test::Baz::bar, std::weak_ptr{obj});
+        s.connect(&test::Baz::bar, std::weak_ptr<const test::Baz>{obj});
         CHECK(obj.use_count() == 2);
         int z = 0;
         s(z);
-        CHECK(z == 2);
+        CHECK(z == 4);
+
+        obj.reset();
+        c.disconnect();
+        s(z);
+        CHECK(z == 4);
     }
 
     SECTION("connect static member function")
@@ -250,7 +260,7 @@ TEST_CASE("signal")
             REQUIRE(i == 2);
             done = true;
         };
-        s += kl::make_slot(t);
+        s.connect(t);
         s(2);
         REQUIRE(done);
     }
@@ -747,46 +757,6 @@ TEST_CASE("by value vs by const ref")
 
         s(std::vector<int>{0, 1, 2, 3, 4});
     }
-}
-
-TEST_CASE("make_slot and KL_SLOT macro inside class contructor")
-{
-    using kl::signal;
-
-    signal<void(int)> s;
-
-    class C
-    {
-    public:
-        C(signal<void(int)>& s)
-        {
-            s += kl::make_slot(&C::handler, this);
-            C& inst = *this;
-            s += kl::make_slot(&C::handler, inst);
-#if defined(KL_SLOT)
-            s += KL_SLOT(handler);
-#endif
-        }
-
-    private:
-        void handler(int i)
-        {
-            REQUIRE(i == 3);
-            ++cnt;
-        }
-
-    public:
-        int cnt = 0;
-    };
-
-    C c{s};
-    s(3);
-
-#if defined(KL_SLOT)
-    REQUIRE(c.cnt == 3);
-#else
-    REQUIRE(c.cnt == 2);
-#endif
 }
 
 TEST_CASE("disconnect all slots during emission")
