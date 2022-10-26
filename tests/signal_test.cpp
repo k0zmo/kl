@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <functional>
 #include <memory>
-#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -30,7 +29,7 @@ TEST_CASE("signal")
 {
     SECTION("empty signal")
     {
-        kl::signal<float(int)> s;
+        kl::signal<void(int)> s;
         REQUIRE(s.empty());
         REQUIRE(s.num_slots() == 0);
         s.disconnect_all_slots();
@@ -40,7 +39,7 @@ TEST_CASE("signal")
 
     SECTION("connect null function")
     {
-        kl::signal<float(int)> s;
+        kl::signal<void(int)> s;
         s.connect(nullptr);
         REQUIRE(s.empty());
     }
@@ -48,16 +47,14 @@ TEST_CASE("signal")
     SECTION("connect lambda")
     {
         static const int arg = 2;
-        kl::signal<float(int)> s;
+        kl::signal<void(int)> s;
         s += [&](int a) {
-            REQUIRE(arg == a);
-            return a * 3.14f;
+            REQUIRE(arg == a);;
         };
         REQUIRE(!s.empty());
         REQUIRE(s.num_slots() == 1);
 
         s(arg);
-        s(arg, [&](float srv) { REQUIRE(arg * 3.14f == Catch::Approx(srv)); });
 
         s.disconnect_all_slots();
         REQUIRE(s.empty());
@@ -67,7 +64,7 @@ TEST_CASE("signal")
     SECTION("connect lambda twice")
     {
         static const int arg = 3;
-        kl::signal<float(int)> s;
+        kl::signal<void(int)> s;
 
         int counter = 0;
 
@@ -81,15 +78,7 @@ TEST_CASE("signal")
         REQUIRE(s.num_slots() == 2);
 
         s(arg);
-
-        int srvCounter = 0;
-        s(arg, [&](float srv) {
-            ++srvCounter;
-            REQUIRE(3.14f * arg == Catch::Approx(srv));
-        });
-
-        REQUIRE(counter == 2 * 2);
-        REQUIRE(srvCounter == 2);
+        REQUIRE(counter == 2);
 
         s.disconnect_all_slots();
         REQUIRE(s.empty());
@@ -205,23 +194,6 @@ TEST_CASE("signal")
         };
         s();
         REQUIRE(shot);
-    }
-
-    SECTION("sink for void and nonvoid return types")
-    {
-        kl::signal<void()> s0;
-        kl::signal<int()> s1;
-
-        s0 += [] {};
-        s1 += [] { return 99; };
-
-        s0();
-        s1();
-
-        int cnt{};
-        s0([&] { ++cnt; });
-        s1([](int v) { REQUIRE(v == 99); });
-        REQUIRE(cnt == 1);
     }
 
     SECTION("current connection")
@@ -453,86 +425,6 @@ TEST_CASE("scoped_connection")
     }
 }
 
-namespace test {
-
-float product(float x, float y) { return x * y; }
-float quotient(float x, float y) { return x / y; }
-float sum(float x, float y) { return x + y; }
-float difference(float x, float y) { return x - y; }
-} // namespace test
-
-TEST_CASE("signal sink")
-{
-    // http://www.boost.org/doc/libs/1_60_0/doc/html/signals2/rationale.html
-    // We use push model - with lambdas and all and it's not that bad
-
-    kl::signal<float(float, float)> sig;
-    sig += &test::product;
-    sig += &test::quotient;
-    sig += &test::sum;
-    sig += &test::difference;
-
-    SECTION("optional last value")
-    {
-        // The default combiner returns a std::optional containing the return
-        // value of the last slot in the slot list, in this case the
-        // difference function.
-        std::optional<float> srv;
-        sig(5, 3, [&](float v) { srv = v; });
-        REQUIRE(srv);
-        REQUIRE(*srv == 2);
-    }
-
-    SECTION("maximum")
-    {
-        float srv{};
-        sig(5, 3, [&](float v) { srv = std::max(srv, v); });
-
-        // Outputs the maximum value returned by the connected slots, in this
-        // case 15 from the product function.
-        REQUIRE(srv == Catch::Approx(15.0f));
-    }
-
-    SECTION("aggregate values")
-    {
-        std::vector<float> srv;
-        sig(5, 3, [&](float v) { srv.push_back(v); });
-
-        REQUIRE(srv.size() == 4);
-        REQUIRE(srv[0] == Catch::Approx(15.0f));
-        REQUIRE(srv[1] == Catch::Approx(1.666666667f));
-        REQUIRE(srv[2] == Catch::Approx(8.0f));
-        REQUIRE(srv[3] == Catch::Approx(2.0f));
-    }
-
-    SECTION("distribute request - stop at some point")
-    {
-        int i = 0;
-        sig(5, 3, [&](float ret) {
-            ++i;
-            if (ret < 15.f)
-                kl::this_signal::stop_emission();
-        });
-        REQUIRE(i == 2);
-    }
-
-    SECTION("sink with void returning signal")
-    {
-        int cnt = 0;
-        kl::signal<void()> s;
-        s += [&] { cnt++; };
-        s += [&] { cnt++; };
-        s += [&] { cnt++; };
-
-        s([&] {
-            if (cnt >= 1)
-                kl::this_signal::stop_emission();
-        });
-
-        REQUIRE(cnt == 1);
-    }
-}
-
 TEST_CASE("stopping signal emission")
 {
     kl::signal<void()> s;
@@ -653,7 +545,6 @@ TEST_CASE("connect and disconnect during signal emission")
             c0 = sig += [&] {
                 trace.push_back(0);
                 do_run();
-                return 0;
             };
 
             c1 = sig += [&] {
@@ -684,7 +575,7 @@ TEST_CASE("connect and disconnect during signal emission")
             c1.disconnect();
         }
 
-        kl::signal<int()> sig;
+        kl::signal<void()> sig;
         kl::connection c0;
         kl::connection c1;
         kl::connection c2;
@@ -854,7 +745,6 @@ TEST_CASE("by value vs by const ref")
         s += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
         s += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
 
-        s(std::vector<int>{0, 1, 2, 3, 4}, [] {});
         s(std::vector<int>{0, 1, 2, 3, 4});
     }
 }
