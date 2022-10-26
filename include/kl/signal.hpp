@@ -258,14 +258,13 @@ enum connect_position
 template <typename Signature>
 class signal;
 
-template <typename Ret, typename... Args>
-class signal<Ret(Args...)> : public detail::signal_base
+template <typename... Args>
+class signal<void(Args...)> : public detail::signal_base
 {
 public:
-    using signature_type = Ret(Args...);
-    using slot_type = std::function<Ret(Args...)>;
-    using signal_type = signal<Ret(Args...)>;
-    using return_type = Ret;
+    using signature_type = void(Args...);
+    using slot_type = std::function<void(Args...)>;
+    using signal_type = signal<void(Args...)>;
     static const size_t arity = sizeof...(Args);
 
     template <std::size_t N>
@@ -313,34 +312,55 @@ public:
         return make_connection(std::move(slot_state));
     }
 
-    connection operator+=(slot_type slot) { return connect(std::move(slot)); }
+    connection operator+=(slot_type slot)
+    {
+        return connect(std::move(slot));
+    }
 
     // Emits signal
     void operator()(Args... args)
     {
-        call_each_slot([&](const slot& s) {
-            s(args...);
-            return false;
-        });
-
-        cleanup_invalidated_slots();
-    }
-
-    // Emits signal and sinks slots' return value
-    template <typename Sink>
-    void operator()(Args... args, Sink&& sink)
-    {
-        call_each_slot([&](const slot& s) {
-            if constexpr (std::is_same_v<return_type, void>)
+        auto& tls = detail::get_tls_signal_info();
+        struct scoped_emission
+        {
+            scoped_emission(detail::tls_signal_info& info, unsigned& num_emits)
+                : info(info),
+                  prev_value{info},
+                  num_emits{++num_emits}
             {
-                s(args...);
-                sink();
+                info.emission_stopped = false;
             }
-            else
+            ~scoped_emission()
             {
-                sink(s(args...));
+                --num_emits;
+                info = prev_value;
             }
-        });
+
+            detail::tls_signal_info& info;
+            detail::tls_signal_info prev_value;
+            unsigned& num_emits;
+        } emission{tls, emits_};
+
+        // Save the last slot on the list to call. Any slots added after this
+        // line during this emission (by reentrant call) will not be called.
+        const auto last = tail_;
+
+        for (auto iter = slots_; iter; iter = iter->next)
+        {
+            if (!iter->is_blocked() && iter->valid())
+            {
+                emission.info.slot_state = &iter->state_ref();
+
+                (*iter)(args...);
+
+                if (tls.emission_stopped)
+                    break;
+            }
+            // Last represents last item on the list, inclusively so we need to
+            // stop iterating after handling it, not just before.
+            if (iter == last)
+                break;
+        }
 
         cleanup_invalidated_slots();
     }
@@ -412,52 +432,6 @@ private:
         }
     }
 
-    template <typename Func>
-    void call_each_slot(Func&& func)
-    {
-        auto& tls = detail::get_tls_signal_info();
-        struct scoped_emission
-        {
-            scoped_emission(detail::tls_signal_info& info, unsigned& num_emits)
-                : info(info),
-                  prev_value{info},
-                  num_emits{++num_emits}
-            {
-                info.emission_stopped = false;
-            }
-            ~scoped_emission()
-            {
-                --num_emits;
-                info = prev_value;
-            }
-
-            detail::tls_signal_info& info;
-            detail::tls_signal_info prev_value;
-            unsigned& num_emits;
-        } emission{tls, emits_};
-
-        // Save the last slot on the list to call. Any slots added after this
-        // line during this emission (by reentrant call) will not be called.
-        const auto last = tail_;
-
-        for (auto iter = slots_; iter; iter = iter->next)
-        {
-            if (!iter->is_blocked() && iter->valid())
-            {
-                emission.info.slot_state = &iter->state_ref();
-
-                func(*iter);
-
-                if (tls.emission_stopped)
-                    break;
-            }
-            // Last represents last item on the list, inclusively so we need to
-            // stop iterating after handling it, not just before.
-            if (iter == last)
-                break;
-        }
-    }
-
     void cleanup_invalidated_slots_impl()
     {
         assert(emits_ == 0 || emits_ == should_cleanup);
@@ -513,9 +487,9 @@ private:
         slot(const slot&) = delete;
         slot& operator=(const slot&) = delete;
 
-        return_type operator()(const Args&... args) const
+        void operator()(const Args&... args) const
         {
-            return target_(args...);
+            target_(args...);
         }
 
         std::shared_ptr<detail::slot_state>& state_ref() { return state_; }
