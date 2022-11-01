@@ -7,7 +7,7 @@
 #include "kl/binary_rw/variant.hpp"
 #include "kl/binary_rw/vector.hpp"
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 #include <gsl/span>
 #include <gsl/string_span>
 #include <gsl/span_ext> // operator==

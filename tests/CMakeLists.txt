@@ -1,4 +1,4 @@
-add_executable(kl-tests main_test.cpp)
+add_executable(kl-tests)
 set(test_files
     base64_test.cpp
     binary_rw_test.cpp
@@ -27,7 +27,7 @@ set(test_files
 target_sources(kl-tests PRIVATE ${test_files} input/typedefs.hpp)
 target_link_libraries(kl-tests PRIVATE
     kl::kl
-    Catch2::Catch2
+    Catch2::Catch2WithMain
 )
 
 if(KL_ENABLE_JSON)
@@ -86,7 +86,9 @@ if(COMMAND target_precompile_headers)
         <istream>
         <ostream>
         <ios>
-        <catch2/catch.hpp>
+        <catch2/catch_test_macros.hpp>
+        <catch2/catch_approx.hpp>
+        <catch2/matchers/catch_matchers_vector.hpp>
     )
     if(KL_ENABLE_JSON)
         target_precompile_headers(kl-tests PRIVATE

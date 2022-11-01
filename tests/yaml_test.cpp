@@ -3,7 +3,9 @@
 #include "kl/enum_set.hpp"
 #include "input/typedefs.hpp"
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
+#include <catch2/matchers/catch_matchers_vector.hpp>
 
 #include <string>
 #include <vector>
@@ -30,7 +32,7 @@ TEST_CASE("yaml")
         CHECK(yaml::serialize(true).as<bool>() == true);
         CHECK(yaml::serialize("qwe").as<std::string>() == "qwe");
         CHECK(yaml::serialize(std::string{"qwe"}).as<std::string>() == "qwe");
-        CHECK(yaml::serialize(13.11).as<double>() == Approx(13.11));
+        CHECK(yaml::serialize(13.11).as<double>() == Catch::Approx(13.11));
         CHECK(yaml::serialize(ordinary_enum::oe_one).as<int>() == 0);
         CHECK(yaml::serialize(nullptr).IsNull());
 
@@ -44,7 +46,7 @@ TEST_CASE("yaml")
         CHECK(yaml::deserialize<std::string>("\"string\""_yaml) == "string");
         CHECK(yaml::deserialize<unsigned>("33"_yaml) == 33U);
         CHECK(yaml::deserialize<bool>("true"_yaml));
-        CHECK(yaml::deserialize<double>("13.11"_yaml) == Approx{13.11});
+        CHECK(yaml::deserialize<double>("13.11"_yaml) == Catch::Approx{13.11});
         CHECK(yaml::deserialize<ordinary_enum>("0"_yaml) ==
               ordinary_enum::oe_one);
     }
@@ -63,7 +65,7 @@ TEST_CASE("yaml")
         REQUIRE(y["r"]);
         CHECK(y["r"].as<int>() == 1337);
         REQUIRE(y["d"]);
-        CHECK(y["d"].as<double>() == Approx(3.145926));
+        CHECK(y["d"].as<double>() == Catch::Approx(3.145926));
     }
 
     SECTION("serialize Manual")
@@ -74,11 +76,11 @@ TEST_CASE("yaml")
         REQUIRE(y["Ar"]);
         CHECK(y["Ar"].as<int>() == 1337);
         REQUIRE(y["Ad"]);
-        CHECK(y["Ad"].as<double>() == Approx(3.145926));
+        CHECK(y["Ad"].as<double>() == Catch::Approx(3.145926));
         REQUIRE(y["B"]);
         CHECK(y["B"].as<int>() == 416);
         REQUIRE(y["C"]);
-        CHECK(y["C"].as<double>() == Approx(2.71828));
+        CHECK(y["C"].as<double>() == Catch::Approx(2.71828));
     }
 
     SECTION("deserialize inner_t - empty yaml")
@@ -146,7 +148,7 @@ TEST_CASE("yaml")
         REQUIRE(obj.a.r == 2);
         REQUIRE(obj.a.d == 1.0);
         REQUIRE(obj.b == 22);
-        REQUIRE(obj.c == Approx(6.777));
+        REQUIRE(obj.c == Catch::Approx(6.777));
     }
 
     SECTION("deserialize to string_view - invalid type")
@@ -173,7 +175,7 @@ TEST_CASE("yaml")
 
         REQUIRE(y.size() == 4);
         CHECK(y[0].as<int>() == 13);
-        CHECK(y[1].as<double>() == Approx(3.14));
+        CHECK(y[1].as<double>() == Catch::Approx(3.14));
         CHECK(y[2].as<std::string>() == "lab");
         CHECK(y[3].as<bool>() == true);
     }
@@ -375,7 +377,7 @@ TEST_CASE("yaml")
         REQUIRE(y["f"].as<bool>() == false);
         REQUIRE(!y["n"]);
         REQUIRE(y["i"].as<int>() == 123);
-        REQUIRE(y["pi"].as<double>() == Approx(3.1416f));
+        REQUIRE(y["pi"].as<double>() == Catch::Approx(3.1416f));
         REQUIRE(y["space"].as<std::string>() == "lab");
 
         REQUIRE(y["a"].IsSequence());
@@ -400,7 +402,8 @@ TEST_CASE("yaml")
         REQUIRE(y["tup"].IsSequence());
         REQUIRE(y["tup"].size() == 3);
         REQUIRE(y["tup"].as<YAML::Node>()[0].as<int>() == 1);
-        REQUIRE(y["tup"].as<YAML::Node>()[1].as<double>() == Approx{3.14f});
+        REQUIRE(y["tup"].as<YAML::Node>()[1].as<double>() ==
+                Catch::Approx{3.14f});
         REQUIRE(y["tup"].as<YAML::Node>()[2].as<std::string>() == "QWE");
 
         REQUIRE(y["map"].IsMap());
@@ -695,30 +698,30 @@ tup:
 
         auto vec = yaml::deserialize<std::vector<inner_t>>(y1);
         REQUIRE(vec.size() == 1);
-        REQUIRE(vec[0].d == Approx(2));
+        REQUIRE(vec[0].d == Catch::Approx(2));
         REQUIRE(vec[0].r == 648);
 
         auto list = yaml::deserialize<std::list<inner_t>>(y1);
         REQUIRE(list.size() == 1);
-        REQUIRE(list.back().d == Approx(2));
+        REQUIRE(list.back().d == Catch::Approx(2));
         REQUIRE(list.back().r == 648);
 
         auto deq = yaml::deserialize<std::deque<inner_t>>(y1);
         REQUIRE(deq.size() == 1);
-        REQUIRE(deq.back().d == Approx(2));
+        REQUIRE(deq.back().d == Catch::Approx(2));
         REQUIRE(deq.back().r == 648);
 
         auto y2 = R"({inner: {d: 3,r: 3648}})"_yaml;
 
         auto map = yaml::deserialize<std::map<std::string, inner_t>>(y2);
         REQUIRE(map.count("inner") == 1);
-        REQUIRE(map["inner"].d == Approx(3));
+        REQUIRE(map["inner"].d == Catch::Approx(3));
         REQUIRE(map["inner"].r == 3648);
 
         auto umap =
             yaml::deserialize<std::unordered_map<std::string, inner_t>>(y2);
         REQUIRE(umap.count("inner") == 1);
-        REQUIRE(umap["inner"].d == Approx(3));
+        REQUIRE(umap["inner"].d == Catch::Approx(3));
         REQUIRE(umap["inner"].r == 3648);
     }
 }
@@ -1143,7 +1146,7 @@ TEST_CASE("yaml::view - two-phase deserialization")
     auto [a, b, c] = kl::yaml::deserialize<event_c>(objs[1].data);
     CHECK(a == "d1");
     CHECK_FALSE(b);
-    CHECK_THAT(c, Catch::Equals<int>({1, 2, 3}));
+    CHECK_THAT(c, Catch::Matchers::Equals<int>({1, 2, 3}));
 
     CHECK(kl::yaml::dump(objs) == R"(- type: a
   data:
@@ -1287,7 +1290,7 @@ array:
         .extract(view, 1)
         .extract(i);
     REQUIRE(inn.r == 331);
-    REQUIRE(inn.d == Approx(5.6));
+    REQUIRE(inn.d == Catch::Approx(5.6));
     REQUIRE(i == 3);
 
     bool smth;

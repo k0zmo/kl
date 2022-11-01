@@ -3,7 +3,9 @@
 #include "kl/enum_set.hpp"
 #include "input/typedefs.hpp"
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
+#include <catch2/matchers/catch_matchers_vector.hpp>
 
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
@@ -56,7 +58,7 @@ TEST_CASE("json")
         CHECK(json::deserialize<std::string>("\"string\""_json) == "string");
         CHECK(json::deserialize<unsigned>("33"_json) == 33U);
         CHECK(json::deserialize<bool>("true"_json));
-        CHECK(json::deserialize<double>("13.11"_json) == Approx{13.11});
+        CHECK(json::deserialize<double>("13.11"_json) == Catch::Approx{13.11});
         CHECK(json::deserialize<ordinary_enum>("0"_json) ==
               ordinary_enum::oe_one);
     }
@@ -78,7 +80,7 @@ TEST_CASE("json")
         REQUIRE(it->value.GetInt() == 1337);
         it = obj.FindMember("d");
         REQUIRE(it != obj.end());
-        REQUIRE(it->value.GetDouble() == Approx(3.145926));
+        REQUIRE(it->value.GetDouble() == Catch::Approx(3.145926));
     }
 
     SECTION("serialize Manual")
@@ -92,13 +94,13 @@ TEST_CASE("json")
         REQUIRE(it->value.GetInt() == 1337);
         it = obj.FindMember("Ad");
         REQUIRE(it != obj.end());
-        REQUIRE(it->value.GetDouble() == Approx(3.145926));
+        REQUIRE(it->value.GetDouble() == Catch::Approx(3.145926));
         it = obj.FindMember("B");
         REQUIRE(it != obj.end());
         REQUIRE(it->value.GetInt() == 416);
         it = obj.FindMember("C");
         REQUIRE(it != obj.end());
-        REQUIRE(it->value.GetDouble() == Approx(2.71828));
+        REQUIRE(it->value.GetDouble() == Catch::Approx(2.71828));
     }
 
     SECTION("deserialize inner_t - missing one field")
@@ -157,7 +159,7 @@ TEST_CASE("json")
         REQUIRE(obj.a.d == 3.0);
         REQUIRE(obj.a.r == 21);
         REQUIRE(obj.b == 331);
-        REQUIRE(obj.c == Approx(7.66));
+        REQUIRE(obj.c == Catch::Approx(7.66));
     }
 
     SECTION("deserialize to string_view - invalid type")
@@ -185,7 +187,7 @@ TEST_CASE("json")
 
         REQUIRE(arr.Size() == 4);
         REQUIRE(arr[0] == 13);
-        REQUIRE(arr[1].GetDouble() == Approx(3.14));
+        REQUIRE(arr[1].GetDouble() == Catch::Approx(3.14));
         REQUIRE(arr[2] == "lab");
         REQUIRE(arr[3] == true);
     }
@@ -710,30 +712,30 @@ TEST_CASE("json")
 
         auto vec = json::deserialize<std::vector<inner_t>>(j1);
         REQUIRE(vec.size() == 1);
-        REQUIRE(vec[0].d == Approx(2));
+        REQUIRE(vec[0].d == Catch::Approx(2));
         REQUIRE(vec[0].r == 648);
 
         auto list = json::deserialize<std::list<inner_t>>(j1);
         REQUIRE(list.size() == 1);
-        REQUIRE(list.back().d == Approx(2));
+        REQUIRE(list.back().d == Catch::Approx(2));
         REQUIRE(list.back().r == 648);
 
         auto deq = json::deserialize<std::deque<inner_t>>(j1);
         REQUIRE(deq.size() == 1);
-        REQUIRE(deq.back().d == Approx(2));
+        REQUIRE(deq.back().d == Catch::Approx(2));
         REQUIRE(deq.back().r == 648);
 
         auto j2 = R"({"inner": {"d":3,"r":3648}})"_json;
 
         auto map = json::deserialize<std::map<std::string, inner_t>>(j2);
         REQUIRE(map.count("inner") == 1);
-        REQUIRE(map["inner"].d == Approx(3));
+        REQUIRE(map["inner"].d == Catch::Approx(3));
         REQUIRE(map["inner"].r == 3648);
 
         auto umap =
             json::deserialize<std::unordered_map<std::string, inner_t>>(j2);
         REQUIRE(umap.count("inner") == 1);
-        REQUIRE(umap["inner"].d == Approx(3));
+        REQUIRE(umap["inner"].d == Catch::Approx(3));
         REQUIRE(umap["inner"].r == 3648);
     }
 }
@@ -1124,7 +1126,7 @@ TEST_CASE("json::view - two-phase deserialization")
     auto [a, b, c] = kl::json::deserialize<event_c>(objs[1].data);
     CHECK(a == "d1");
     CHECK_FALSE(b);
-    CHECK_THAT(c, Catch::Equals<int>({1, 2, 3}));
+    CHECK_THAT(c, Catch::Matchers::Equals<int>({1, 2, 3}));
 
     CHECK(kl::json::dump(objs) ==
           R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}})"
@@ -1262,7 +1264,7 @@ TEST_CASE("json: from_array and from_object")
     int i;
     kl::json::from_array(jarr).extract(inn).extract(view, 1).extract(i);
     REQUIRE(inn.r == 331);
-    REQUIRE(inn.d == Approx(5.6));
+    REQUIRE(inn.d == Catch::Approx(5.6));
     REQUIRE(i == 3);
 
     bool smth;

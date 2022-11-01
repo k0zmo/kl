@@ -15,8 +15,8 @@ FetchContent_Declare(yamlcpp
     URL_HASH SHA256=4d5e664a7fb2d7445fc548cc8c0e1aa7b1a496540eb382d137e2cc263e6d3ef5
 )
 FetchContent_Declare(Catch2
-    URL https://github.com/catchorg/Catch2/archive/v2.9.1.zip
-    URL_HASH SHA256=9a79099873c8b3156a8f7937d7976ef85bf35f46e3f0a963117be44bc9bbc5f8
+    URL https://github.com/catchorg/Catch2/archive/v3.1.0.zip
+    URL_HASH SHA256=7219c2ca75a6b2a157b1b162e4ad819fb32585995cac32542a4f72d950dd96f7
 )
 
 FetchContent_GetProperties(GSL)
@@ -76,5 +76,9 @@ if(KL_TEST)
     if(NOT catch2_POPULATED) # Variable names are lowercased
         FetchContent_Populate(Catch2)
         add_subdirectory(${catch2_SOURCE_DIR} ${catch2_BINARY_DIR})
+        set_target_properties(Catch2 Catch2WithMain PROPERTIES FOLDER external)
+        # Needed so Catch2 is built with support for std::string_view and
+        # std::byte to std::string converters
+        target_compile_features(Catch2 PRIVATE cxx_std_17)
     endif()
 endif()

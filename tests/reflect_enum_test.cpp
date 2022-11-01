@@ -1,6 +1,6 @@
 #include "kl/reflect_enum.hpp"
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include <iterator>
 #include <string>

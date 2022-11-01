@@ -1,6 +1,7 @@
 #include "kl/signal.hpp"
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/catch_approx.hpp>
 
 #include <vector>
 #include <memory>
@@ -54,7 +55,7 @@ TEST_CASE("signal")
         REQUIRE(s.num_slots() == 1);
 
         s(arg);
-        s(arg, [&](float srv) { REQUIRE(arg * 3.14f == Approx(srv)); });
+        s(arg, [&](float srv) { REQUIRE(arg * 3.14f == Catch::Approx(srv)); });
 
         s.disconnect_all_slots();
         REQUIRE(s.empty());
@@ -82,7 +83,7 @@ TEST_CASE("signal")
         int srvCounter = 0;
         s(arg, [&](float srv) {
             ++srvCounter;
-            REQUIRE(3.14f * arg == Approx(srv));
+            REQUIRE(3.14f * arg == Catch::Approx(srv));
         });
 
         REQUIRE(counter == 2 * 2);
@@ -459,7 +460,7 @@ TEST_CASE("signal combiners")
 
         // Outputs the maximum value returned by the connected slots, in this
         // case 15 from the product function.
-        REQUIRE(srv == Approx(15.0f));
+        REQUIRE(srv == Catch::Approx(15.0f));
     }
 
     SECTION("aggregate values")
@@ -468,10 +469,10 @@ TEST_CASE("signal combiners")
         sig(5, 3, [&](float v) { srv.push_back(v); });
 
         REQUIRE(srv.size() == 4);
-        REQUIRE(srv[0] == Approx(15.0f));
-        REQUIRE(srv[1] == Approx(1.666666667f));
-        REQUIRE(srv[2] == Approx(8.0f));
-        REQUIRE(srv[3] == Approx(2.0f));
+        REQUIRE(srv[0] == Catch::Approx(15.0f));
+        REQUIRE(srv[1] == Catch::Approx(1.666666667f));
+        REQUIRE(srv[2] == Catch::Approx(8.0f));
+        REQUIRE(srv[3] == Catch::Approx(2.0f));
     }
 }
 

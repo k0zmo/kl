@@ -1,7 +1,7 @@
 #include "kl/ctti.hpp"
 #include "kl/stream_join.hpp"
 
-#include <catch2/catch.hpp>
+#include <catch2/catch_test_macros.hpp>
 
 #include <string>
 #include <vector>
