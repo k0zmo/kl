@@ -79,7 +79,6 @@ endif()
 
 if(COMMAND target_precompile_headers)
     target_precompile_headers(kl-tests PRIVATE
-        <boost/optional.hpp>
         <boost/variant.hpp>
         <gsl/span>
         <gsl/span_ext>
