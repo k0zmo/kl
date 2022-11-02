@@ -1,4 +1,6 @@
-add_executable(kl-bench)
+add_executable(kl-bench
+    enum_reflector_bench.cpp
+)
 target_link_libraries(kl-bench PRIVATE kl::kl Catch2::Catch2WithMain)
 
 if(KL_ENABLE_JSON)

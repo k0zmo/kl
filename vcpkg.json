@@ -5,6 +5,7 @@
     "boost-core",
     "boost-endian",
     "boost-preprocessor",
+    "boost-describe",
     "ms-gsl",
     "rapidjson",
     "yaml-cpp",
