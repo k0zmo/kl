@@ -1,0 +1,16 @@
+{
+  "name": "kl",
+  "version-string": "0.1",
+  "dependencies": [
+    "boost-core",
+    "boost-iterator",
+    "boost-type-index",
+    "boost-endian",
+    "boost-preprocessor",
+    "boost-variant",
+    "ms-gsl",
+    "rapidjson",
+    "yaml-cpp",
+    "catch2"
+  ]
+}

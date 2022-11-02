@@ -14,6 +14,11 @@ else()
     set(kl_master_project OFF)
 endif()
 
+set(default_fetch_dependencies ON)
+if(DEFINED VCPKG_TOOLCHAIN)
+    set(default_fetch_dependencies OFF)
+endif()
+
 cmake_dependent_option(KL_TEST "Generate the test target." ON
     "${kl_master_project}" OFF)
 cmake_dependent_option(KL_DEV_BUILD "Enable compiler flags useful while developing kl." ON
@@ -22,7 +27,8 @@ cmake_dependent_option(KL_USE_OPENCPPCOVERAGE "Use OpenCppCoverage to calculate 
     "${kl_master_project}" OFF)
 option(KL_ENABLE_JSON "Enable kl-json target and fetch its dependencies (RapidJSON)." ON)
 option(KL_ENABLE_YAML "Enable kl-yaml target and fetch its dependencies (yaml-cpp)." ON)
-option(KL_FETCH_DEPENDENCIES "Fetch required dependencies (barring Boost) using CMake's FetchContent." ON)
+option(KL_FETCH_DEPENDENCIES "Fetch required dependencies (barring Boost) using CMake's FetchContent."
+       ${default_fetch_dependencies})
 
 if(kl_master_project)
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -36,7 +42,7 @@ include(SourceGroup)
 find_package(Boost 1.61.0 REQUIRED)
 
 if(NOT KL_FETCH_DEPENDENCIES)
-    find_package(Microsoft.GSL 3.0 REQUIRED)
+    find_package(Microsoft.GSL REQUIRED)
     if(KL_ENABLE_JSON)
         find_package(RapidJSON REQUIRED)
         if(NOT TARGET rapidjson)
