@@ -21,7 +21,7 @@
 #include <optional>
 #include <string_view>
 
-std::string to_string(const rapidjson::Value& v)
+static std::string to_string(const rapidjson::Value& v)
 {
     rapidjson::StringBuffer buffer;
     rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);

@@ -25,18 +25,18 @@ set(test_files
     utility_test.cpp
     zip_test.cpp
 )
-target_sources(kl-tests PRIVATE ${test_files} input/typedefs.hpp)
+target_sources(kl-tests PRIVATE ${test_files})
 target_link_libraries(kl-tests PRIVATE
     kl::kl
     Catch2::Catch2WithMain
 )
 
 if(KL_ENABLE_JSON)
-    target_sources(kl-tests PRIVATE json_test.cpp)
+    target_sources(kl-tests PRIVATE json_test.cpp input/typedefs.hpp)
     target_link_libraries(kl-tests PRIVATE kl::json)
 endif()
 if(KL_ENABLE_YAML)
-    target_sources(kl-tests PRIVATE yaml_test.cpp)
+    target_sources(kl-tests PRIVATE yaml_test.cpp input/typedefs.hpp)
     target_link_libraries(kl-tests PRIVATE kl::yaml)
 endif()
 
