@@ -4,7 +4,9 @@ add_library(kl::dev_flags ALIAS kl_dev_flags)
 if(MSVC)
     target_compile_options(kl_dev_flags INTERFACE
         /W4
-        /wd4127  # conditional expression in constant
+        /wd4127 # conditional expression in constant
+        /wd4251 # needs to have dll-interface to be used by clients
+        /wd4275 # non dll-interface class X used as base for dll-interface class
     )
     target_compile_definitions(kl_dev_flags INTERFACE
         _SCL_SECURE_NO_WARNINGS
