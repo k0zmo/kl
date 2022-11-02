@@ -47,7 +47,7 @@ TEST_CASE("reflect enum")
 namespace {
 
 // clang-format off
-enum class ABC
+enum class abcd
 {
     a000, a001, a002, a003, a004, a005, a006, a007, a008, a009,
     a010, a011, a012, a013, a014, a015, a016, a017, a018, a019,
@@ -59,7 +59,7 @@ enum class ABC
     a070, a071, a072, a073, a074, a075, a076, a077, a078, a079
 };
 KL_REFLECT_ENUM_SEQ(
-    ABC,
+    abcd,
     (a000)(a001)(a002)(a003)(a004)(a005)(a006)(a007)(a008)(a009)
     (a010)(a011)(a012)(a013)(a014)(a015)(a016)(a017)(a018)(a019)
     (a020)(a021)(a022)(a023)(a024)(a025)(a026)(a027)(a028)(a029)
@@ -75,25 +75,25 @@ KL_REFLECT_ENUM_SEQ(
 TEST_CASE("reflect big enum")
 {
     using namespace std::string_literals;
-    const auto rng = reflect_enum(kl::enum_<ABC>);
+    const auto rng = reflect_enum(kl::enum_<abcd>);
 
     REQUIRE(rng.size() == 80);
 
     auto it = rng.begin();
     REQUIRE(it != rng.end());
     CHECK(it->name == "a000"s);
-    CHECK(it->value == ABC::a000);
+    CHECK(it->value == abcd::a000);
 
     std::advance(it, 41);
 
     REQUIRE(it != rng.end());
     CHECK(it->name == "a041"s);
-    CHECK(it->value == ABC::a041);
+    CHECK(it->value == abcd::a041);
 
     std::advance(it, 38);
     REQUIRE(it != rng.end());
     CHECK(it->name == "a079"s);
-    CHECK(it->value == ABC::a079);
+    CHECK(it->value == abcd::a079);
 
     ++it;
     REQUIRE_FALSE(it != rng.end());
