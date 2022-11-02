@@ -80,6 +80,35 @@ TEST_CASE("yaml bench")
         return to_string(doc);
     };
 
+    BENCHMARK_ADVANCED("yamp::to_map")(Chronometer meter)
+    {
+        test_t input;
+
+        meter.measure([&] {
+            yaml::serialize_context ctx;
+
+            auto doc_builder = yaml::to_sequence(ctx);
+            for (int i = 0; i < num_objects; ++i)
+            {
+                auto map = yaml::to_map(ctx);
+                map.add("hello", input.hello)
+                    .add("t", input.t)
+                    .add("f", input.f)
+                    .add("i", input.i)
+                    .add("pi", input.pi)
+                    .add("a", input.a)
+                    .add("ad", input.ad)
+                    .add("space", input.space)
+                    .add("tup", input.tup)
+                    .add("map", input.map)
+                    .add("inner", input.inner);
+                doc_builder.add(map.done());
+            }
+
+            return to_string(doc_builder.done());
+        });
+    };
+
     BENCHMARK_ADVANCED("yaml::serialize")(Chronometer meter)
     {
         std::vector<test_t> input;

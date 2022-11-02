@@ -85,6 +85,35 @@ TEST_CASE("json bench")
         return to_string(doc);
     };
 
+    BENCHMARK_ADVANCED("json::to_object")(Chronometer meter)
+    {
+        test_t input;
+
+        meter.measure([&] {
+            json::owning_serialize_context ctx;
+
+            auto doc_builder = json::to_array(ctx);
+            for (int i = 0; i < num_objects; ++i)
+            {
+                auto obj = json::to_object(ctx);
+                obj.add("hello", input.hello)
+                    .add("t", input.t)
+                    .add("f", input.f)
+                    .add("i", input.i)
+                    .add("pi", input.pi)
+                    .add("a", input.a)
+                    .add("ad", input.ad)
+                    .add("space", input.space)
+                    .add("tup", input.tup)
+                    .add("map", input.map)
+                    .add("inner", input.inner);
+                doc_builder.add(obj.done());
+            }
+
+            return to_string(doc_builder.done());
+        });
+    };
+
     BENCHMARK_ADVANCED("json::serialize")(Chronometer meter)
     {
         std::vector<test_t> input;
