@@ -103,6 +103,10 @@ private:
 };
 } // namespace detail
 
+#if defined(exception_info)
+#error "exception_info already defined (excpt.h file dragged by Windows.h?)"
+#endif
+
 class exception_info
 {
 public:
