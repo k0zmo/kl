@@ -2,9 +2,7 @@
 
 #include "kl/enum_traits.hpp"
 #include "kl/utility.hpp"
-
-#include <boost/iterator/iterator_categories.hpp>
-#include <boost/iterator/iterator_facade.hpp>
+#include "kl/iterator_facade.hpp"
 
 #include <cstddef>
 #include <type_traits>
@@ -13,8 +11,8 @@ namespace kl {
 
 template <typename Enum>
 class enum_iterator
-    : public boost::iterator_facade<enum_iterator<Enum>, Enum,
-                                    boost::random_access_traversal_tag, Enum>
+    : public iterator_facade<enum_iterator<Enum>, Enum,
+                             std::random_access_iterator_tag>
 {
     using traits = enum_traits<Enum>;
     static_assert(traits::support_range, "Enum must support range enum trait");
@@ -29,7 +27,7 @@ public:
 private:
     std::underlying_type_t<Enum> index_;
 
-private:
+public:
     void advance(std::ptrdiff_t n) { index_ += n; }
     void decrement() { --index_; }
     void increment() { ++index_; }
@@ -39,14 +37,12 @@ private:
         return other.index_ - index_;
     }
 
-    bool equal(const enum_iterator& other) const
+    bool equal_to(const enum_iterator& other) const
     {
         return other.index_ == index_;
     }
 
     Enum dereference() const { return static_cast<Enum>(index_); }
-
-    friend class boost::iterator_core_access;
 };
 
 template <typename Enum>

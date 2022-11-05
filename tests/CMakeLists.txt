@@ -11,6 +11,7 @@ set(test_files
     exception_info_test.cpp
     file_view_test.cpp
     hash_test.cpp
+    iterator_facade_test.cpp
     match_test.cpp
     meta_test.cpp
     range_test.cpp

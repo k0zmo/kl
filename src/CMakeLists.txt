@@ -22,6 +22,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/exception_info.hpp
     ${kl_SOURCE_DIR}/include/kl/file_view.hpp
     ${kl_SOURCE_DIR}/include/kl/hash.hpp
+    ${kl_SOURCE_DIR}/include/kl/iterator_facade.hpp
     ${kl_SOURCE_DIR}/include/kl/match.hpp
     ${kl_SOURCE_DIR}/include/kl/meta.hpp
     ${kl_SOURCE_DIR}/include/kl/range.hpp
