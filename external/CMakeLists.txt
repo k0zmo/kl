@@ -80,5 +80,8 @@ if(KL_TEST)
         # Needed so Catch2 is built with support for std::string_view and
         # std::byte to std::string converters
         target_compile_features(Catch2 PRIVATE cxx_std_17)
+        if(COMMAND target_precompile_headers)
+            target_precompile_headers(Catch2 PRIVATE <catch2/catch_all.hpp>)
+        endif()
     endif()
 endif()
