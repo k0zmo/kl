@@ -271,7 +271,14 @@ TEST_CASE("binary_reader - string")
 TEST_CASE("binary_reader - variant")
 {
     using namespace kl;
-    using variant = boost::variant<boost::endian::little_int32_t, std::string>;
+    using variant = std::variant<boost::endian::little_int32_t, std::string>;
+
+    auto foo = []() {
+        auto ret = variant{};
+        return ret;
+    };
+
+    auto q = foo();
 
     SECTION("empty buffer")
     {
@@ -295,8 +302,8 @@ TEST_CASE("binary_reader - variant")
 
         variant var;
         r.read(var);
-        REQUIRE(var.which() == 0);
-        REQUIRE(boost::get<boost::endian::little_int32_t>(var) == 19);
+        REQUIRE(var.index() == 0);
+        REQUIRE(std::get<boost::endian::little_int32_t>(var) == 19);
         REQUIRE(r.empty());
     }
 
@@ -318,8 +325,8 @@ TEST_CASE("binary_reader - variant")
         binary_reader r{buf};
 
         auto ret = r.read<variant>();
-        REQUIRE(ret.which() == 1);
-        REQUIRE(boost::get<std::string>(ret) == "Hello, world!      ");
+        REQUIRE(ret.index() == 1);
+        REQUIRE(std::get<std::string>(ret) == "Hello, world!      ");
         REQUIRE(r.empty());
     }
 }
@@ -663,7 +670,7 @@ TEST_CASE("binary_writer - optional")
 TEST_CASE("binary_writer - variant")
 {
     using namespace kl;
-    using variant = boost::variant<boost::endian::little_int32_t, std::string>;
+    using variant = std::variant<boost::endian::little_int32_t, std::string>;
 
     SECTION("empty buffer")
     {
@@ -696,11 +703,11 @@ TEST_CASE("binary_writer - variant")
 
         binary_reader r{buf};
         r.read(var);
-        REQUIRE(var.which() == 0);
-        REQUIRE(boost::get<boost::endian::little_int32_t>(var) == 9001);
+        REQUIRE(var.index() == 0);
+        REQUIRE(std::get<boost::endian::little_int32_t>(var) == 9001);
         r.read(var);
-        REQUIRE(var.which() == 0);
-        REQUIRE(boost::get<boost::endian::little_int32_t>(var) == 9002);
+        REQUIRE(var.index() == 0);
+        REQUIRE(std::get<boost::endian::little_int32_t>(var) == 9002);
         REQUIRE(r.empty());
         REQUIRE(!r.err());
     }
@@ -716,8 +723,8 @@ TEST_CASE("binary_writer - variant")
 
         binary_reader r{buf};
         auto ret = r.read<variant>();
-        REQUIRE(ret.which() == 1);
-        REQUIRE(boost::get<std::string>(ret) == "Hello, world!      ");
+        REQUIRE(ret.index() == 1);
+        REQUIRE(std::get<std::string>(ret) == "Hello, world!      ");
         REQUIRE(r.empty());
     }
 }

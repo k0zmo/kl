@@ -3,7 +3,7 @@
 #include "kl/binary_rw.hpp"
 #include "kl/meta.hpp"
 
-#include <boost/variant.hpp>
+#include <variant>
 
 namespace kl {
 namespace detail {
@@ -17,9 +17,9 @@ void visit_by_index(kl::binary_reader& r, kl::type_pack<>, Variant&,
 
 template <typename Head, typename... Tail, typename Variant>
 void visit_by_index(kl::binary_reader& r, kl::type_pack<Head, Tail...>,
-                    Variant& variant, std::uint8_t which)
+                    Variant& variant, std::uint8_t index)
 {
-    if (which == 0)
+    if (index == 0)
     {
         Head value = r.read<Head>();
         if (!r.err())
@@ -27,40 +27,25 @@ void visit_by_index(kl::binary_reader& r, kl::type_pack<Head, Tail...>,
     }
     else
     {
-        visit_by_index(r, kl::type_pack<Tail...>{}, variant, which - 1);
+        visit_by_index(r, kl::type_pack<Tail...>{}, variant, index - 1);
     }
-}
-
-template <typename T>
-struct not_boost_variant_void
-    : std::bool_constant<!std::is_same<T, boost::detail::variant::void_>::value>
-{
-};
-
-template <typename... Args>
-void decode_variant(kl::binary_reader& r, boost::variant<Args...>& var,
-                    std::uint8_t which)
-{
-    // boost::variant<int, bool> is really
-    // boost::variant<int, bool, boost::detail::variant::void_, ...>
-    // and we'd like to get type list without this noise
-    using args_list = filter_t<not_boost_variant_void, Args...>;
-    visit_by_index(r, args_list{}, var, which);
 }
 } // namespace detail
 
 template <typename... Args>
-void write_binary(kl::binary_writer& w, const boost::variant<Args...>& var)
+void write_binary(kl::binary_writer& w, const std::variant<Args...>& var)
 {
-    w << static_cast<std::uint8_t>(var.which());
-    boost::apply_visitor([&w](const auto& value) { w << value; }, var);
+    w << static_cast<std::uint8_t>(var.index());
+    std::visit([&w](const auto& value) { w << value; }, var);
 }
 
 template <typename... Args>
-void read_binary(kl::binary_reader& r, boost::variant<Args...>& var)
+void read_binary(kl::binary_reader& r, std::variant<Args...>& var)
 {
-    const auto which = r.read<std::uint8_t>();
+    const auto index = r.read<std::uint8_t>();
     if (!r.err())
-        detail::decode_variant(r, var, which);
+    {
+        visit_by_index(r, kl::type_pack<Args...>{}, var, index);
+    }
 }
 } // namespace kl

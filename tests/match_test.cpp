@@ -2,7 +2,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <boost/variant.hpp>
+#include <variant>
 
 namespace test {
 
@@ -14,17 +14,21 @@ struct dummy {};
 
 TEST_CASE("match")
 {
+#if !defined(_MSC_VER) || _MSC_VER > 1929 || !defined(_DEBUG)
+    // msvc-14.2 in debug mode emits a bad code leading to stack corruption:
+    // Run-Time Check Failure #2 - Stack around the variable 'f' was corrupted.
     SECTION("overloader")
     {
-        auto f = kl::make_overloader<float>([](int i) { return i * 2.0f; },
-                                            [](float f) { return f * 2.5f; });
+        auto f = kl::overloader{[](int i) { return i * 2.0f; },
+                                [](float f) { return f * 2.5f; }};
         REQUIRE(f(2) == 4.0f);
         REQUIRE(f(2.0f) == 5.0f);
     }
+#endif
 
     SECTION("match")
     {
-        boost::variant<int, float, bool> v = true;
+        std::variant<int, float, bool> v = true;
 
         auto res = kl::match(v, [](int i) { return i * 2.0f; },
                                 [](float f) { return f * 2.5f; },
@@ -34,16 +38,16 @@ TEST_CASE("match")
 
     SECTION("match func")
     {
-        boost::variant<int, double, test::dummy> v = test::dummy{};
+        std::variant<int, double, test::dummy> v = test::dummy{};
 
-        auto res = kl::match(v, kl::make_func_overload(&test::foo),
-                                kl::make_func_overload(&test::bar),
+        auto res = kl::match(v, kl::func_overload{&test::foo},
+                                kl::func_overload{&test::bar},
                                 [](const test::dummy&) { return false; });
         REQUIRE(!res);
 
         v = 3;
-        res = kl::match(v, kl::make_func_overload(&test::foo),
-                           kl::make_func_overload(&test::bar),
+        res = kl::match(v, kl::func_overload{&test::foo},
+                           kl::func_overload{&test::bar},
                            [](const test::dummy&) { return false; });
         REQUIRE(res);
     }

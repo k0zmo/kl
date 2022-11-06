@@ -6,7 +6,6 @@
     "boost-type-index",
     "boost-endian",
     "boost-preprocessor",
-    "boost-variant",
     "ms-gsl",
     "rapidjson",
     "yaml-cpp",

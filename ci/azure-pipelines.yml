@@ -52,13 +52,13 @@ jobs:
           ~/.local/bin/codecov -X gcov
         displayName: 'Send code coverage data'
 
-  - job: ubuntu18_clang6
+  - job: ubuntu18_clang8
     pool:
       vmImage: 'ubuntu-18.04'
     steps:
       - template: templates/install-clang.yml
         parameters:
-          version: '6.0'
+          version: '8'
       - script: |
           which clang++ && clang++ --version
           cmake --version
