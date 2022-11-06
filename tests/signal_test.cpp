@@ -723,39 +723,85 @@ TEST_CASE("add slot to signal during emission")
     }
 }
 
+namespace {
+
+struct counter
+{
+    counter() = default;
+    counter(const counter&)
+    {
+        num_copies++;
+    }
+    counter& operator=(const counter&)
+    {
+        num_copies++;
+        return *this;
+    }
+    counter(counter&&)
+    {
+        num_moves++;
+    }
+    counter& operator=(counter&&)
+    {
+        num_moves++;
+        return *this;
+    }
+
+    static int num_copies;
+    static int num_moves;
+
+    static void reset()
+    {
+        num_copies = 0;
+        num_moves = 0;
+    }
+};
+int counter::num_copies{0};
+int counter::num_moves{0};
+
+} // namespace
+
 TEST_CASE("by value vs by const ref")
 {
     using kl::signal;
 
     SECTION("exact match slot and signal signature")
     {
-        signal<void(std::vector<int>)> s0;
-        signal<void(const std::vector<int>&)> s1;
-
         // We should get exaclty one copy constructor and one move constructor
         // for each slot invocation
-        s0 += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
-        s0 += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
+        signal<void(counter)> s0;
+        s0 += [](counter) {};
+        s0 += [](counter) {};
+
+        s0(counter{});
+
+        CHECK(counter::num_copies == 2);
+        CHECK(counter::num_moves == 2);
 
         // No copy/move ctor in this case
-        s1 += [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); };
-        s1 += [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); };
+        signal<void(const counter&)> s1;
+        s1 += [](const counter&) {};
+        s1 += [](const counter&) {};
 
-        s0(std::vector<int>{0, 1, 2, 3, 4});
+        counter::reset();
+        counter c;
+        s1(c);
 
-        std::vector<int> vec{0, 1, 2, 3, 4, 5, 6};
-        s1(vec);
+        CHECK(counter::num_copies == 0);
+        CHECK(counter::num_moves == 0);
     }
 
     SECTION("slot by value, signal by const-ref")
     {
         // We should get exaclty one copy constructor for each slot invocation
-        signal<void(const std::vector<int>&)> s;
+        signal<void(const counter&)> s;
 
-        s += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
-        s += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
+        s += [](counter) {};
+        s += [](counter) {};
+        s(counter{});
 
-        s(std::vector<int>{0, 1, 2, 3, 4});
+        CHECK(counter::num_copies == 2);
+        CHECK(counter::num_moves == 0);
     }
 }
 
