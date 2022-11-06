@@ -14,9 +14,6 @@ struct dummy {};
 
 TEST_CASE("match")
 {
-#if !defined(_MSC_VER) || _MSC_VER > 1929 || !defined(_DEBUG)
-    // msvc-14.2 in debug mode emits a bad code leading to stack corruption:
-    // Run-Time Check Failure #2 - Stack around the variable 'f' was corrupted.
     SECTION("overloader")
     {
         auto f = kl::overloader{[](int i) { return i * 2.0f; },
@@ -24,7 +21,6 @@ TEST_CASE("match")
         REQUIRE(f(2) == 4.0f);
         REQUIRE(f(2.0f) == 5.0f);
     }
-#endif
 
     SECTION("match")
     {

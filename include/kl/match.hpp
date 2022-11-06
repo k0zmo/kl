@@ -6,8 +6,18 @@
 
 namespace kl {
 
+// Workaround for:
+// https://developercommunity.visualstudio.com/t/Run-Time-Check-Failure-possibly-related/10005513?q=rtc1
+// Should be fixed in next release according to
+// https://developercommunity.visualstudio.com/t/Runtime-stack-corruption-using-std::visi/346200#T-N10160953
+#if defined(_MSC_VER)
+#define KL_OVERLOADER_EMPTY_BASE_CLASS __declspec(empty_bases)
+#else
+#define KL_OVERLOADER_EMPTY_BASE_CLASS
+#endif
+
 template <typename... Fs>
-struct overloader : Fs...
+struct KL_OVERLOADER_EMPTY_BASE_CLASS overloader : Fs...
 {
     using Fs::operator()...;
 };
