@@ -102,12 +102,14 @@ private:
     inline constexpr ::kl::enum_reflection_pair<name_> reflection_data[] = {   \
         KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_){name_{}, nullptr}};   \
     }                                                                          \
-    constexpr auto reflect_enum(::kl::enum_class<name_>) noexcept              \
+    [[maybe_unused]] constexpr auto reflect_enum(                              \
+        ::kl::enum_class<name_>) noexcept                                      \
     {                                                                          \
         return ::kl::enum_reflection_view{                                     \
             KL_REFLECT_ENUM_NSNAME(name_)::reflection_data};                   \
     }                                                                          \
-    constexpr auto reflect_enum_unknown_name(::kl::enum_class<name_>) noexcept \
+    [[maybe_unused]] constexpr auto reflect_enum_unknown_name(                 \
+        ::kl::enum_class<name_>) noexcept                                      \
     {                                                                          \
         return "unknown <" KL_STRINGIZE(name_) ">";                            \
     }
