@@ -3,8 +3,9 @@
 #include "kl/type_traits.hpp"
 #include "kl/reflect_struct.hpp"
 
-#include <boost/type_index.hpp>
+#include <boost/core/demangle.hpp>
 
+#include <typeinfo>
 #include <type_traits>
 #include <string>
 
@@ -30,7 +31,10 @@ struct ctti
     template <typename Reflected>
     static std::string name()
     {
-        return boost::typeindex::type_id<Reflected>().pretty_name();
+        using drop_cv_ref = remove_cvref_t<Reflected>;
+        const std::type_info& ti = typeid(drop_cv_ref);
+        boost::core::scoped_demangled_name demangled{ti.name()};
+        return std::string{demangled.get()};
     }
 
     template <typename Reflected, typename Visitor>
