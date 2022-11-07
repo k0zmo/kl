@@ -1,5 +1,7 @@
 #pragma once
 
+#include <kl/defer.hpp>
+
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
@@ -36,7 +38,7 @@ struct slot_state final
 struct tls_signal_info
 {
     bool emission_stopped{false};
-    std::shared_ptr<detail::slot_state>* slot_state{nullptr};
+    const std::shared_ptr<detail::slot_state>* current_slot{nullptr};
 };
 
 inline auto& get_tls_signal_info()
@@ -288,18 +290,18 @@ public:
     signal(signal&& other) noexcept
         : slots_{std::exchange(other.slots_, nullptr)},
           tail_{std::exchange(other.tail_, nullptr)},
-          emits_{other.emits_}
+          deferred_cleanup_{other.deferred_cleanup_}
     {
         rebind();
     }
 
     signal& operator=(signal&& other) noexcept
     {
-        swap(*this, other);
+        if (this != &other)
+            swap(*this, other);
         return *this;
     }
 
-    // Connects signal object to given slot object.
     connection connect(slot_type slot, connect_position at = at_back)
     {
         if (!slot)
@@ -404,8 +406,6 @@ public:
             at);
     }
 
-    // Converts signal to slot type allowing to create signal-to-signal
-    // connections
     template <typename Ret, typename... Args2>
     connection connect(signal<Ret(Args2...)>& sig, connect_position at = at_back)
     {
@@ -421,26 +421,12 @@ public:
     // Emits signal
     void operator()(Args... args)
     {
-        auto& tls = detail::get_tls_signal_info();
-        struct scoped_emission
-        {
-            scoped_emission(detail::tls_signal_info& info, unsigned& num_emits)
-                : info(info),
-                  prev_value{info},
-                  num_emits{++num_emits}
-            {
-                info.emission_stopped = false;
-            }
-            ~scoped_emission()
-            {
-                --num_emits;
-                info = prev_value;
-            }
+        auto& emission_state = detail::get_tls_signal_info();
+        // Rollback tls_signal_info back to its pre-emission value
+        auto prev_emission_state = emission_state;
+        KL_DEFER(emission_state = prev_emission_state);
 
-            detail::tls_signal_info& info;
-            detail::tls_signal_info prev_value;
-            unsigned& num_emits;
-        } emission{tls, emits_};
+        emission_state.emission_stopped = false;
 
         // Save the last slot on the list to call. Any slots added after this
         // line during this emission (by reentrant call) will not be called.
@@ -450,11 +436,13 @@ public:
         {
             if (!iter->is_blocked() && iter->valid())
             {
-                emission.info.slot_state = &iter->state_ref();
+                ++iter->used;
+                KL_DEFER(--iter->used);
+                emission_state.current_slot = &iter->state();
 
                 (*iter)(args...);
 
-                if (tls.emission_stopped)
+                if (emission_state.emission_stopped)
                     break;
             }
             // Last represents last item on the list, inclusively so we need to
@@ -469,13 +457,19 @@ public:
     // Disconnects all slots bound to this signal
     void disconnect_all_slots() noexcept
     {
-        for (auto iter = slots_; iter; iter = iter->next)
+        for (slot *iter = slots_, *prev = nullptr; iter;)
         {
-            iter->invalidate();
-            emits_ |= should_cleanup;
+            if (iter->invalidate())
+            {
+                iter = remove_slot(*iter, prev);
+            }
+            else
+            {
+                deferred_cleanup_ = true;
+                prev = iter;
+                iter = iter->next;
+            }
         }
-
-        cleanup_invalidated_slots();
     }
 
     // Retrieves number of slots connected to this signal
@@ -498,7 +492,7 @@ public:
         using std::swap;
         swap(left.slots_, right.slots_);
         swap(left.tail_, right.tail_);
-        swap(left.emits_, right.emits_);
+        swap(left.deferred_cleanup_, right.deferred_cleanup_);
 
         left.rebind();
         right.rebind();
@@ -507,24 +501,29 @@ public:
 private:
     void disconnect(std::uintptr_t id) override
     {
-        for (auto iter = slots_; iter; iter = iter->next)
+        for (slot *iter = slots_, *prev = nullptr; iter;
+             prev = iter, iter = iter->next)
         {
             if (iter->id() != id)
                 continue;
 
-            // We can't delete the node here since we could be in the middle
-            // of signal emission. In that case it would lead to removal of
-            // connection that is invoking this very function.
-            iter->invalidate();
-            emits_ |= should_cleanup;
-            cleanup_invalidated_slots();
+            if (iter->invalidate())
+            {
+                // No one uses the slot right now so we can safely remove it.
+                remove_slot(*iter, prev);
+            }
+            else
+            {
+                // We'll try again after all emissions are finished
+                deferred_cleanup_ = true;
+            }
             return;
         }
     }
 
     void rebind() noexcept
     {
-        cleanup_invalidated_slots_impl();
+        cleanup_invalidated_slots();
 
         // Rebind back-pointer to new signal
         for (auto iter = slots_; iter; iter = iter->next)
@@ -533,55 +532,38 @@ private:
         }
     }
 
-    void cleanup_invalidated_slots_impl()
+    void cleanup_invalidated_slots()
     {
-        assert(emits_ == 0 || emits_ == should_cleanup);
+        if (!deferred_cleanup_)
+            return;
 
+        bool new_deferred_cleanup_ = false;
         for (slot *iter = slots_, *prev = nullptr; iter;)
         {
-            if (!iter->valid())
+            const bool is_valid = iter->valid();
+
+            if (is_valid || iter->used > 0)
             {
-                auto next = iter->next;
-                if (prev)
-                    prev->next = next;
-                if (slots_ == iter)
-                    slots_ = next;
-                if (tail_ == iter)
-                    tail_ = prev ? prev : slots_;
-                delete iter;
-                iter = next;
-            }
-            else
-            {
+                if (!is_valid) // iter->used > 0
+                    new_deferred_cleanup_ = true;
                 prev = iter;
                 iter = iter->next;
             }
+            else
+            {
+                iter = remove_slot(*iter, prev);
+            }
         }
-    }
-
-    void cleanup_invalidated_slots()
-    {
-        // We can free dead slots only when we're not in the middle of an
-        // emission and also there's anything to cleanup
-        if (emits_ == should_cleanup)
-        {
-            cleanup_invalidated_slots_impl();
-            emits_ = 0;
-        }
+        deferred_cleanup_ = new_deferred_cleanup_;
     }
 
 private:
-    class slot final
+    struct slot final
     {
-    public:
-        slot* next{nullptr};
-
-    public:
         slot(std::shared_ptr<detail::slot_state> slot_state,
              slot_type target) noexcept
             : state_{std::move(slot_state)},
               target_{std::move(target)}
-
         {
         }
 
@@ -593,29 +575,30 @@ private:
             target_(args...);
         }
 
-        std::shared_ptr<detail::slot_state>& state_ref() { return state_; }
+        const std::shared_ptr<detail::slot_state>& state() { return state_; }
         std::uintptr_t id() const noexcept { return state_->id; }
 
-        void invalidate() noexcept { rebind(nullptr); }
+        bool invalidate() noexcept
+        {
+            rebind(nullptr);
+            return used == 0;
+        }
         void rebind(signal_base* self) noexcept { state_->sender = self; }
         bool valid() const noexcept { return state_->sender != nullptr; }
 
         bool is_blocked() const noexcept { return state_->blocking > 0; }
 
+    public:
+        slot* next{nullptr};
+        std::uint32_t used{0};
     private:
-        std::shared_ptr<detail::slot_state> state_;
-        slot_type target_;
+        const std::shared_ptr<detail::slot_state> state_;
+        const slot_type target_;
     };
 
     slot* slots_{nullptr}; // owning pointer
     slot* tail_{nullptr};  // observer ptr
-
-    // On the most significant bit we store if there are any invalidated slots
-    // that need to be cleanup.
-    unsigned emits_{0};
-    // If emits_ equals to should_cleanup we know there's no emission in place
-    // and there are invalidated slots.
-    static constexpr unsigned should_cleanup = 0x80000000;
+    bool deferred_cleanup_{false};
 
 private:
     void insert_new_slot(slot* new_slot, connect_position at) noexcept
@@ -646,6 +629,20 @@ private:
             slots_ = new_slot;
         }
     }
+
+    slot* remove_slot(slot& to_remove, slot* prev) noexcept
+    {
+        assert(to_remove.used == 0);
+        slot* next = to_remove.next;
+        if (prev)
+            prev->next = next;
+        else if (slots_ == &to_remove)
+            slots_ = next;
+        if (tail_ == &to_remove)
+            tail_ = prev ? prev : slots_;
+        delete &to_remove;
+        return next;
+    }
 };
 
 namespace this_signal {
@@ -655,9 +652,9 @@ void stop_emission()
     detail::get_tls_signal_info().emission_stopped = true;
 }
 
-connection current_connection() {
-
-    auto state = detail::get_tls_signal_info().slot_state;
+connection current_connection()
+{
+    auto state = detail::get_tls_signal_info().current_slot;
     return state ? make_connection(*state) : connection{};
 }
 

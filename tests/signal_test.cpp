@@ -843,3 +843,27 @@ TEST_CASE("disconnect all slots during emission")
         CHECK(i == 2);
     }
 }
+
+TEST_CASE("move signal during emission")
+{
+    kl::signal<void()> s, s2;
+    int i = 0;
+
+    s += [&] {
+        ++i;
+        using std::swap;
+        swap(s, s2);
+        s.disconnect_all_slots();
+    };
+    s += [&] { ++i; };
+
+    s();
+    CHECK(i == 2);
+    CHECK(s.num_slots() == 0);
+    CHECK(s2.num_slots() == 2);
+
+    s2();
+    CHECK(i == 3);
+    CHECK(s.num_slots() == 0);
+    CHECK(s2.num_slots() == 0);
+}
