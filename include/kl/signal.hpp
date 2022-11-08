@@ -7,8 +7,6 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
-#include <tuple>
-#include <type_traits>
 #include <utility>
 
 namespace kl {
@@ -266,18 +264,6 @@ class signal<void(Args...)> : public detail::signal_base
 public:
     using signature_type = void(Args...);
     using slot_type = std::function<void(Args...)>;
-    using signal_type = signal<void(Args...)>;
-    static const size_t arity = sizeof...(Args);
-
-    template <std::size_t N>
-    struct arg
-    {
-        static_assert(N < arity, "invalid arg index");
-        using type = std::tuple_element_t<N, std::tuple<Args...>>;
-    };
-
-    template <std::size_t N>
-    using arg_t = typename arg<N>::type;
 
 public:
     // Constructs empty, disconnected signal
