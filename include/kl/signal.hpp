@@ -9,16 +9,14 @@
 #include <memory>
 #include <utility>
 
-namespace kl {
-
-class connection;
-
-namespace detail {
+namespace kl::detail {
 
 struct signal_base
 {
-    virtual ~signal_base() = default;
     virtual void disconnect(std::uintptr_t id) noexcept = 0;
+
+protected:
+    ~signal_base() = default;
 };
 
 struct slot_state final
@@ -41,11 +39,12 @@ struct tls_signal_info
 
 inline auto& get_tls_signal_info() noexcept
 {
-    thread_local static tls_signal_info info;
+    thread_local tls_signal_info info;
     return info;
 }
+} // namespace kl::detail
 
-} // namespace detail
+namespace kl {
 
 /*
  * Represent a connection from given signal to a slot. Can be used to disconnect
@@ -631,7 +630,10 @@ private:
     }
 };
 
-namespace this_signal {
+
+} // namespace kl
+
+namespace kl::this_signal {
 
 void stop_emission() noexcept
 {
@@ -643,9 +645,7 @@ connection current_connection() noexcept
     auto state = detail::get_tls_signal_info().current_slot;
     return state ? make_connection(*state) : connection{};
 }
-
-} // namespace this_signal
-} // namespace kl
+} // namespace kl::this_signal
 
 namespace std {
 
