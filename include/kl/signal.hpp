@@ -20,7 +20,7 @@ namespace detail {
 struct signal_base
 {
     virtual ~signal_base() = default;
-    virtual void disconnect(std::uintptr_t id) = 0;
+    virtual void disconnect(std::uintptr_t id) noexcept = 0;
 };
 
 struct slot_state final
@@ -41,7 +41,7 @@ struct tls_signal_info
     const std::shared_ptr<detail::slot_state>* current_slot{nullptr};
 };
 
-inline auto& get_tls_signal_info()
+inline auto& get_tls_signal_info() noexcept
 {
     thread_local static tls_signal_info info;
     return info;
@@ -78,7 +78,7 @@ public:
     }
 
     // Disconnects the connection. No-op if connection is already disconnected.
-    void disconnect()
+    void disconnect() noexcept
     {
         if (!connected())
             return;
@@ -87,7 +87,7 @@ public:
     }
 
     // Returns true if connection is valid
-    bool connected() const { return state_ && state_->sender; }
+    bool connected() const noexcept { return state_ && state_->sender; }
 
     size_t hash() const noexcept
     {
@@ -99,7 +99,7 @@ public:
     {
     public:
         blocker() noexcept = default;
-        blocker(connection& con) : state_{con.state_}
+        blocker(connection& con) noexcept: state_{con.state_}
         {
             if (state_)
                 ++state_->blocking;
@@ -111,13 +111,13 @@ public:
                 --state_->blocking;
         }
 
-        blocker(const blocker& other) : state_{other.state_}
+        blocker(const blocker& other) noexcept : state_{other.state_}
         {
             if (state_)
                 ++state_->blocking;
         }
 
-        blocker& operator=(const blocker& other)
+        blocker& operator=(const blocker& other) noexcept
         {
             if (this != &other)
             {
@@ -150,7 +150,7 @@ public:
         std::shared_ptr<detail::slot_state> state_;
     };
 
-    blocker get_blocker() { return {*this}; }
+    blocker get_blocker() noexcept { return {*this}; }
 
 public:
     friend void swap(connection& left, connection& right) noexcept
@@ -499,7 +499,7 @@ public:
     }
 
 private:
-    void disconnect(std::uintptr_t id) override
+    void disconnect(std::uintptr_t id) noexcept override
     {
         for (slot *iter = slots_, *prev = nullptr; iter;
              prev = iter, iter = iter->next)
@@ -532,7 +532,7 @@ private:
         }
     }
 
-    void cleanup_invalidated_slots()
+    void cleanup_invalidated_slots() noexcept
     {
         if (!deferred_cleanup_)
             return;
@@ -647,12 +647,12 @@ private:
 
 namespace this_signal {
 
-void stop_emission()
+void stop_emission() noexcept
 {
     detail::get_tls_signal_info().emission_stopped = true;
 }
 
-connection current_connection()
+connection current_connection() noexcept
 {
     auto state = detail::get_tls_signal_info().current_slot;
     return state ? make_connection(*state) : connection{};
