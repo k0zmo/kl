@@ -19,22 +19,89 @@ protected:
     ~signal_base() = default;
 };
 
-struct slot_state final
+template <typename Derived>
+struct ref_counted
 {
-    slot_state(signal_base* sender) noexcept
-        : sender{sender}
+public:
+    ref_counted() noexcept : count_{0} {}
+    ref_counted(const ref_counted&) noexcept : count_{0} {}
+    ref_counted& operator=(const ref_counted&) noexcept { return *this; }
+
+    void add_ref() noexcept { ++count_; }
+    void release() noexcept
     {
+        if (--count_ == 0)
+            delete static_cast<Derived*>(this);
     }
 
-    signal_base* sender;
-    std::uintptr_t id{0};
-    unsigned blocking{0};
+private:
+    std::ptrdiff_t count_;
+};
+
+class slot_state : public ref_counted<slot_state>
+{
+public:
+    explicit slot_state(signal_base* sender) noexcept
+        : sender_{sender}
+    {
+        add_ref();
+    }
+    virtual ~slot_state() = default;
+
+    slot_state(const slot_state&) = delete;
+    slot_state& operator=(const slot_state&) = delete;
+
+    void block() noexcept
+    {
+        ++blocking_;
+    }
+
+    void unblock() noexcept
+    {
+        assert(blocking_ > 0);
+        --blocking_;
+    }
+
+    bool blocked() const noexcept
+    {
+        return blocking_ > 0;
+    }
+
+    bool connected() const noexcept
+    {
+        return sender_ != nullptr;
+    }
+
+    void disconnect() noexcept
+    {
+        if (sender_)
+        {
+            sender_->disconnect(id());
+            sender_ = nullptr;
+        }
+    }
+
+    bool valid() const noexcept
+    {
+        return sender_ != nullptr;
+    }
+
+    std::uintptr_t id() const noexcept
+    {
+        return reinterpret_cast<std::uintptr_t>(this);
+    }
+
+protected:
+    signal_base* sender_;
+
+private:
+    unsigned blocking_{0};
 };
 
 struct tls_signal_info
 {
     bool emission_stopped{false};
-    const std::shared_ptr<detail::slot_state>* current_slot{nullptr};
+    detail::slot_state* current_slot{nullptr};
 };
 
 inline auto& get_tls_signal_info() noexcept
@@ -47,7 +114,7 @@ inline auto& get_tls_signal_info() noexcept
 namespace kl {
 
 /*
- * Represent a connection from given signal to a slot. Can be used to disconnect
+ * Represents a connection from given signal to a slot. Can be used to disconnect
  * the connection at any time later.
  * connection object can be kept inside standard containers (e.g unordered_set)
  * compared between each others and finally move/copy around.
@@ -55,19 +122,38 @@ namespace kl {
 class connection final
 {
 public:
-    // Creates empty connection
-    connection() noexcept = default;
-    ~connection() = default;
+    connection() noexcept : slot_{} {}
 
-    // Copy constructor/operator
-    connection(const connection&) = default;
-    connection& operator=(const connection&) = default;
+    ~connection()
+    {
+        if (slot_)
+            slot_->release();
+    }
 
-    // Move constructor/operator
+    connection(const connection& other) : slot_{other.slot_}
+    {
+        if (slot_)
+            slot_->add_ref();
+    }
+
+    connection& operator=(const connection& other)
+    {
+        if (this != &other)
+        {
+            if (slot_)
+                slot_->release();
+            slot_ = other.slot_;
+            if (slot_)
+                slot_->add_ref();
+        }
+        return *this;
+    }
+
     connection(connection&& other) noexcept
-        : state_{std::exchange(other.state_, nullptr)}
+        : slot_{std::exchange(other.slot_, nullptr)}
     {
     }
+
     connection& operator=(connection&& other) noexcept
     {
         swap(*this, other);
@@ -77,57 +163,77 @@ public:
     // Disconnects the connection. No-op if connection is already disconnected.
     void disconnect() noexcept
     {
-        if (!connected())
+        if (!slot_)
             return;
-        state_->sender->disconnect(state_->id);
-        state_ = nullptr;
+        slot_->disconnect();
+        slot_->release();
+        slot_ = nullptr;
     }
 
     // Returns true if connection is valid
-    bool connected() const noexcept { return state_ && state_->sender; }
+    bool connected() const noexcept { return slot_ && slot_->connected(); }
 
     size_t hash() const noexcept
     {
         // Get hash out of underlying pointer
-        return std::hash<std::shared_ptr<detail::slot_state>>{}(state_);
+        return std::hash<detail::slot_state*>{}(slot_);
     }
 
+public:
     class blocker
     {
     public:
         blocker() noexcept = default;
-        blocker(connection& con) noexcept: state_{con.state_}
+        blocker(connection& con) noexcept: slot_{con.slot_}
         {
-            if (state_)
-                ++state_->blocking;
+            if (slot_)
+            {
+                slot_->add_ref();
+                slot_->block();
+            }
         }
 
         ~blocker()
         {
-            if (state_)
-                --state_->blocking;
+            if (slot_)
+            {
+                slot_->unblock();
+                slot_->release();
+            }
         }
 
-        blocker(const blocker& other) noexcept : state_{other.state_}
+        blocker(const blocker& other) noexcept : slot_{other.slot_}
         {
-            if (state_)
-                ++state_->blocking;
+            if (slot_)
+            {
+                slot_->add_ref();
+                slot_->block();
+            }
         }
 
         blocker& operator=(const blocker& other) noexcept
         {
             if (this != &other)
             {
-                if (state_)
-                    --state_->blocking;
-                state_ = other.state_;
-                if (state_)
-                    ++state_->blocking;
+                if (slot_)
+                {
+                    slot_->unblock();
+                    slot_->release();
+                }
+                slot_ = other.slot_;
+                if (slot_)
+                {
+                    slot_->add_ref();
+                    slot_->block();
+                }
             }
             return *this;
         }
 
-        blocker(blocker&& other) noexcept : state_{std::move(other.state_)} {}
+        blocker(blocker&& other) noexcept
+            : slot_{std::exchange(other.slot_, nullptr)}
+        {
+        }
 
         blocker& operator=(blocker&& other) noexcept
         {
@@ -135,57 +241,52 @@ public:
             return *this;
         }
 
-        bool blocking() const noexcept { return state_ != nullptr; }
+        bool blocking() const noexcept { return slot_ != nullptr; }
 
         friend void swap(blocker& left, blocker& right) noexcept
         {
             using std::swap;
-            swap(left.state_, right.state_);
+            swap(left.slot_, right.slot_);
         }
 
     private:
-        std::shared_ptr<detail::slot_state> state_;
+        detail::slot_state* slot_{};
     };
-
     blocker get_blocker() noexcept { return {*this}; }
 
 public:
     friend void swap(connection& left, connection& right) noexcept
     {
         using std::swap;
-        swap(left.state_, right.state_);
+        swap(left.slot_, right.slot_);
     }
 
     friend bool operator==(const connection& left,
                            const connection& right) noexcept
     {
-        return left.state_ == right.state_;
+        return left.slot_ == right.slot_;
     }
 
     friend bool operator<(const connection& left,
                           const connection& right) noexcept
     {
-        return left.state_ < right.state_;
+        return left.slot_ < right.slot_;
     }
 
 private:
-    friend connection
-        make_connection(std::shared_ptr<detail::slot_state> state) noexcept;
-    // Private constructor - use by concrete instances of signal class
-    connection(std::shared_ptr<detail::slot_state> state) noexcept
-        : state_{std::move(state)}
+    friend connection make_connection(detail::slot_state& state) noexcept;
+    explicit connection(detail::slot_state& slot) noexcept : slot_{&slot}
     {
-        assert(state_);
+        slot_->add_ref();
     }
 
 private:
-    std::shared_ptr<detail::slot_state> state_;
+    detail::slot_state* slot_;
 };
 
-inline connection
-    make_connection(std::shared_ptr<detail::slot_state> state) noexcept
+inline connection make_connection(detail::slot_state& state) noexcept
 {
-    return connection(std::move(state));
+    return connection(state);
 }
 
 /*
@@ -291,12 +392,9 @@ public:
     {
         if (!slot)
             return {};
-        auto slot_state =
-            std::make_shared<detail::slot_state>(this);
-        auto slot_impl = new signal::slot(slot_state, std::move(slot));
-        slot_state->id = reinterpret_cast<std::uintptr_t>(slot_impl);
+        auto slot_impl = new signal::slot(this, std::move(slot));
         insert_new_slot(slot_impl, at);
-        return make_connection(std::move(slot_state));
+        return make_connection(*slot_impl);
     }
 
     template <typename T, typename Ret, typename... Args2>
@@ -419,11 +517,11 @@ public:
 
         for (auto iter = slots_; iter; iter = iter->next)
         {
-            if (!iter->is_blocked() && iter->valid())
+            if (!iter->blocked() && iter->valid())
             {
-                ++iter->used;
-                KL_DEFER(--iter->used);
-                emission_state.current_slot = &iter->state();
+                ++iter->num_emissions;
+                KL_DEFER(--iter->num_emissions);
+                emission_state.current_slot = iter;
 
                 (*iter)(args...);
 
@@ -527,9 +625,9 @@ private:
         {
             const bool is_valid = iter->valid();
 
-            if (is_valid || iter->used > 0)
+            if (is_valid || iter->num_emissions > 0)
             {
-                if (!is_valid) // iter->used > 0
+                if (!is_valid) // iter->num_emissions > 0
                     new_deferred_cleanup_ = true;
                 prev = iter;
                 iter = iter->next;
@@ -543,11 +641,10 @@ private:
     }
 
 private:
-    struct slot final
+    struct slot final : detail::slot_state
     {
-        slot(std::shared_ptr<detail::slot_state> slot_state,
-             slot_type target) noexcept
-            : state_{std::move(slot_state)},
+        slot(signal_base* parent, slot_type target) noexcept
+            : detail::slot_state{parent},
               target_{std::move(target)}
         {
         }
@@ -560,24 +657,21 @@ private:
             target_(args...);
         }
 
-        const std::shared_ptr<detail::slot_state>& state() { return state_; }
-        std::uintptr_t id() const noexcept { return state_->id; }
-
         bool invalidate() noexcept
         {
             rebind(nullptr);
-            return used == 0;
+            return num_emissions == 0;
         }
-        void rebind(signal_base* self) noexcept { state_->sender = self; }
-        bool valid() const noexcept { return state_->sender != nullptr; }
 
-        bool is_blocked() const noexcept { return state_->blocking > 0; }
+        void rebind(signal_base* parent) noexcept
+        {
+            sender_ = parent;
+        }
 
     public:
         slot* next{nullptr};
-        std::uint32_t used{0};
+        std::uint32_t num_emissions{0};
     private:
-        const std::shared_ptr<detail::slot_state> state_;
         const slot_type target_;
     };
 
@@ -617,7 +711,7 @@ private:
 
     slot* remove_slot(slot& to_remove, slot* prev) noexcept
     {
-        assert(to_remove.used == 0);
+        assert(to_remove.num_emissions == 0);
         slot* next = to_remove.next;
         if (prev)
             prev->next = next;
@@ -625,11 +719,10 @@ private:
             slots_ = next;
         if (tail_ == &to_remove)
             tail_ = prev ? prev : slots_;
-        delete &to_remove;
+        to_remove.release();
         return next;
     }
 };
-
 
 } // namespace kl
 
@@ -642,8 +735,8 @@ void stop_emission() noexcept
 
 connection current_connection() noexcept
 {
-    auto state = detail::get_tls_signal_info().current_slot;
-    return state ? make_connection(*state) : connection{};
+    auto slot = detail::get_tls_signal_info().current_slot;
+    return slot ? make_connection(*slot) : connection{};
 }
 } // namespace kl::this_signal
 
