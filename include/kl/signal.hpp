@@ -123,6 +123,10 @@ class connection final
 {
 public:
     connection() noexcept : slot_{} {}
+    explicit connection(detail::slot_state& slot) noexcept : slot_{&slot}
+    {
+        slot_->add_ref();
+    }
 
     ~connection()
     {
@@ -274,20 +278,9 @@ public:
     }
 
 private:
-    friend connection make_connection(detail::slot_state& state) noexcept;
-    explicit connection(detail::slot_state& slot) noexcept : slot_{&slot}
-    {
-        slot_->add_ref();
-    }
-
-private:
     detail::slot_state* slot_;
 };
 
-inline connection make_connection(detail::slot_state& state) noexcept
-{
-    return connection(state);
-}
 
 /*
  * RAII connection. Disconnects underlying connection upon destruction.
@@ -394,7 +387,7 @@ public:
             return {};
         auto slot_impl = new signal::slot(this, std::move(slot));
         insert_new_slot(slot_impl, at);
-        return make_connection(*slot_impl);
+        return connection{*slot_impl};
     }
 
     template <typename T, typename Ret, typename... Args2>
@@ -523,7 +516,7 @@ public:
                 KL_DEFER(--iter->num_emissions);
                 emission_state.current_slot = iter;
 
-                (*iter)(args...);
+                iter->target(args...);
 
                 if (emission_state.emission_stopped)
                     break;
@@ -645,17 +638,12 @@ private:
     {
         slot(signal_base* parent, slot_type target) noexcept
             : detail::slot_state{parent},
-              target_{std::move(target)}
+              target{std::move(target)}
         {
         }
 
         slot(const slot&) = delete;
         slot& operator=(const slot&) = delete;
-
-        void operator()(const Args&... args) const
-        {
-            target_(args...);
-        }
 
         bool invalidate() noexcept
         {
@@ -668,11 +656,9 @@ private:
             sender_ = parent;
         }
 
-    public:
         slot* next{nullptr};
         std::uint32_t num_emissions{0};
-    private:
-        const slot_type target_;
+        const slot_type target;
     };
 
     slot* slots_{nullptr}; // owning pointer
@@ -736,7 +722,7 @@ void stop_emission() noexcept
 connection current_connection() noexcept
 {
     auto slot = detail::get_tls_signal_info().current_slot;
-    return slot ? make_connection(*slot) : connection{};
+    return slot ? connection{*slot} : connection{};
 }
 } // namespace kl::this_signal
 
