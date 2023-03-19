@@ -1,0 +1,73 @@
+{
+    "version": 3,
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+            }
+        },
+        {
+            "name": "Linux-GCC-Debug",
+            "inherits": "base",
+            "generator": "Ninja",
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Linux"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            },
+            "vendor": {
+                "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
+                    "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
+                    "copySourcesOptions": {
+                        "copySourcesOptions.exclusionList": [".vs", ".git", "out", "build"]
+                    }
+                }
+            }
+        },
+        {
+            "name": "Linux-Clang-Debug",
+            "inherits": "Linux-GCC-Debug",
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "x64-Debug",
+            "inherits": "base",
+            "generator": "Ninja",
+            "condition": {
+                "type": "equals",
+                "rhs": "Windows",
+                "lhs": "${hostSystemName}"
+            },
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_COMPILER": "cl"
+            }
+        },
+        {
+            "name": "x64-VS2022",
+            "inherits": "base",
+            "generator": "Visual Studio 17 2022",
+            "condition": {
+                "type": "equals",
+                "rhs": "Windows",
+                "lhs": "${hostSystemName}"
+            },
+            "architecture": {
+                "value": "x64",
+                "strategy": "set"
+            }
+        }
+    ]
+}
