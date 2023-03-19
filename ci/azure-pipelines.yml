@@ -1,7 +1,7 @@
 jobs:
-  - job: ubuntu18_gcc7
+  - job: ubuntu20_gcc9
     pool:
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
     strategy:
       matrix:
         Release:
@@ -20,17 +20,16 @@ jobs:
           sudo apt-get install ninja-build
         displayName: 'Install Ninja'
       - script: |
-          export LDFLAGS="-fuse-ld=gold"
-          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=$(BuildType)
+          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0 -DCMAKE_BUILD_TYPE=$(BuildType)
           cmake --build build
         displayName: 'Build kl'
       - script: |
           cd build && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: ubuntu18_gcc7_coverage
+  - job: ubuntu20_gcc9_coverage
     pool:
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
     steps:
       - script: |
           which g++ && g++ --version
@@ -42,23 +41,22 @@ jobs:
       - template: templates/install-boost.yml
       - template: templates/install-lcov.yml
       - script: |
-          export LDFLAGS="-fuse-ld=gold"
           export PATH=$(pwd)/_deps/lcov/bin:$PATH
-          cmake -S . -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Coverage
-          cmake --build build --parallel 4
+          cmake -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0 -DCMAKE_BUILD_TYPE=Coverage
+          cmake --build build --parallel $(nproc)
         displayName: 'Build kl'
       - script: |
           cd build && cmake --build . --target kl-coverage
           ~/.local/bin/codecov -X gcov
         displayName: 'Send code coverage data'
 
-  - job: ubuntu18_clang8
+  - job: ubuntu20_clang10
     pool:
-      vmImage: 'ubuntu-18.04'
+      vmImage: 'ubuntu-20.04'
     steps:
       - template: templates/install-clang.yml
         parameters:
-          version: '8'
+          version: '10'
       - script: |
           which clang++ && clang++ --version
           cmake --version
@@ -68,32 +66,8 @@ jobs:
           sudo apt-get install ninja-build
         displayName: 'Install Ninja'
       - script: |
-          export LDFLAGS="-fuse-ld=gold" CXX=clang++ CC=clang
-          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release
-          cmake --build build
-        displayName: 'Build kl'
-      - script: |
-          cd build && ctest -VV --output-on-failure
-        displayName: 'Run CTest'
-
-  - job: ubuntu18_gcc9
-    pool:
-      vmImage: 'ubuntu-18.04'
-    steps:
-      - template: templates/install-gcc.yml
-        parameters:
-          version: '9'
-      - script: |
-          which g++ && g++ --version
-          cmake --version
-        displayName: 'Check environment'
-      - template: templates/install-boost.yml
-      - script: |
-          sudo apt-get install ninja-build
-        displayName: 'Install Ninja'
-      - script: |
-          export LDFLAGS="-fuse-ld=gold"
-          cmake -S . -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -DCMAKE_BUILD_TYPE=Release
+          export CXX=clang++ CC=clang
+          cmake -B build -G Ninja -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0 -DCMAKE_BUILD_TYPE=Release
           cmake --build build
         displayName: 'Build kl'
       - script: |
@@ -117,7 +91,7 @@ jobs:
         displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
-          cmake.exe -S . -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_67_0 -G "Visual Studio 16 2019" -A $(Architecture)
+          cmake.exe -B build -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0 -G "Visual Studio 16 2019" -A $(Architecture)
           cmake.exe --build build --config Release
         displayName: 'Build kl'
       - script: |
