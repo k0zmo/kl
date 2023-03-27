@@ -6,21 +6,23 @@
             "hidden": true,
             "binaryDir": "${sourceDir}/out/build/${presetName}",
             "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}"
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
         },
         {
-            "name": "Linux-GCC-Debug",
+            "name": "base-windows",
+            "hidden": true,
             "inherits": "base",
+            "condition": { "type": "equals", "rhs": "Windows", "lhs": "${hostSystemName}" },
+            "generator": "Ninja"
+        },
+        {
+            "name": "base-linux",
+            "hidden": true,
+            "inherits": "base",
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
             "generator": "Ninja",
-            "condition": {
-                "type": "equals",
-                "lhs": "${hostSystemName}",
-                "rhs": "Linux"
-            },
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug"
-            },
             "vendor": {
                 "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
                     "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
@@ -31,23 +33,43 @@
             }
         },
         {
-            "name": "Linux-Clang-Debug",
+            "name": "Linux-GCC-Debug",
+            "inherits": "base-linux",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Linux-GCC-Release",
             "inherits": "Linux-GCC-Debug",
             "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "Linux-Clang-Debug",
+            "inherits": "base-linux",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
                 "CMAKE_CXX_COMPILER": "clang++"
             }
         },
         {
+            "name": "Linux-Clang-Release",
+            "inherits": "Linux-Clang-Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
             "name": "x64-Debug",
-            "inherits": "base",
-            "generator": "Ninja",
-            "condition": {
-                "type": "equals",
-                "rhs": "Windows",
-                "lhs": "${hostSystemName}"
-            },
+            "inherits": "base-windows",
             "architecture": {
                 "value": "x64",
+                "strategy": "external"
+            },
+            "toolset": {
+                "value": "host=x64",
                 "strategy": "external"
             },
             "cacheVariables": {
@@ -56,16 +78,22 @@
             }
         },
         {
+            "name": "x64-Release",
+            "inherits": "x64-Debug",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
             "name": "x64-VS2022",
-            "inherits": "base",
+            "inherits": "base-windows",
             "generator": "Visual Studio 17 2022",
-            "condition": {
-                "type": "equals",
-                "rhs": "Windows",
-                "lhs": "${hostSystemName}"
-            },
             "architecture": {
                 "value": "x64",
+                "strategy": "set"
+            },
+            "toolset": {
+                "value": "host=x64",
                 "strategy": "set"
             }
         }
