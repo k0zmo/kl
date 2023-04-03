@@ -36,6 +36,9 @@ if(kl_master_project)
     set(CMAKE_CXX_EXTENSIONS OFF)
 
     include(Sanitizers)
+    if(NOT KL_FETCH_DEPENDENCIES)
+        set(kl_install_rules TRUE)
+    endif()
 endif()
 include(SourceGroup)
 
@@ -64,4 +67,30 @@ add_subdirectory(src)
 if(KL_TEST)
     enable_testing()
     add_subdirectory(tests)
+endif()
+
+if(kl_install_rules)
+    include(CMakePackageConfigHelpers)
+    configure_package_config_file(klConfig.cmake.in
+        klConfig.cmake
+        INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/kl
+        NO_SET_AND_CHECK_MACRO
+        NO_CHECK_REQUIRED_COMPONENTS_MACRO
+    )
+    write_basic_package_version_file(
+        ${CMAKE_CURRENT_BINARY_DIR}/klConfigVersion.cmake
+        VERSION ${kl_VERSION}
+        COMPATIBILITY SameMinorVersion
+    )
+
+    include(GNUInstallDirs)
+    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/klConfig.cmake
+                  ${CMAKE_CURRENT_BINARY_DIR}/klConfigVersion.cmake
+            DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/kl
+    )
+    install(EXPORT klTarget
+        NAMESPACE   kl::
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/kl
+        FILE        klTarget.cmake
+    )
 endif()

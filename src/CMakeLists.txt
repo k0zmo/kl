@@ -64,7 +64,7 @@ target_link_libraries(kl
         Boost::disable_autolinking
 )
 kl_source_group(kl TREE ${kl_SOURCE_DIR})
-set_target_properties(kl PROPERTIES FOLDER kl)
+set_target_properties(kl PROPERTIES FOLDER kl DEBUG_POSTFIX d)
 add_library(kl::kl ALIAS kl)
 
 if(KL_ENABLE_JSON)
@@ -81,7 +81,7 @@ if(KL_ENABLE_JSON)
         RAPIDJSON_HAS_STDSTRING=1
     )
     kl_source_group(kl-json TREE ${kl_SOURCE_DIR})
-    set_target_properties(kl-json PROPERTIES FOLDER kl)
+    set_target_properties(kl-json PROPERTIES FOLDER kl DEBUG_POSTFIX d)
     add_library(kl::json ALIAS kl-json)
 endif()
 
@@ -99,6 +99,21 @@ if(KL_ENABLE_YAML)
         target_compile_options(kl-yaml PRIVATE /wd4100 /wd4127 /wd4244 /wd4456 /wd4702)
     endif()
     kl_source_group(kl-yaml TREE ${kl_SOURCE_DIR})
-    set_target_properties(kl-yaml PROPERTIES FOLDER kl)
+    set_target_properties(kl-yaml PROPERTIES FOLDER kl DEBUG_POSTFIX d)
     add_library(kl::yaml ALIAS kl-yaml)
+endif()
+
+if(kl_install_rules)
+    install(TARGETS kl_cxx_flags EXPORT klTarget)
+    install(TARGETS kl
+        EXPORT klTarget
+        INCLUDES DESTINATION include
+    )
+    install(DIRECTORY ${kl_SOURCE_DIR}/include/kl DESTINATION include)
+    if(KL_ENABLE_JSON)
+        install(TARGETS kl-json EXPORT klTarget)
+    endif()
+    if(KL_ENABLE_YAML)
+        install(TARGETS kl-yaml EXPORT klTarget)
+    endif()
 endif()
