@@ -4,9 +4,9 @@
         {
             "name": "base",
             "hidden": true,
-            "binaryDir": "${sourceDir}/out/build/${presetName}",
+            "binaryDir": "${sourceDir}/build-${presetName}",
+            "installDir": "${sourceDir}/install-${presetName}",
             "cacheVariables": {
-                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
             }
         },
