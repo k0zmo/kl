@@ -11,6 +11,7 @@ endif()
 add_library(kl
     ${kl_SOURCE_DIR}/include/kl/detail/concepts.hpp
     ${kl_SOURCE_DIR}/include/kl/detail/macros.hpp
+    ${kl_SOURCE_DIR}/include/kl/detail/standalone_macros.hpp
     ${kl_SOURCE_DIR}/include/kl/base64.hpp
     ${kl_SOURCE_DIR}/include/kl/binary_rw.hpp
     ${kl_SOURCE_DIR}/include/kl/ctti.hpp

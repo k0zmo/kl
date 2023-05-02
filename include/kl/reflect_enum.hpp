@@ -1,11 +1,11 @@
 #pragma once
 
-#include "kl/detail/macros.hpp"
+#include "kl/detail/standalone_macros.hpp"
 
 #include <cstddef>
 
 /*
- * Requirements: boost 1.57+, C++14 compiler and preprocessor
+ * Requirements: C++14 compiler and preprocessor
  * Sample usage:
 
 namespace ns {
@@ -35,11 +35,12 @@ KL_REFLECT_ENUM(enum_, A, (B, bb), C)
  * Above definition is expanded to:
 
      namespace kl_reflect_enum_ {
+     using enum_type = enum_;
      inline constexpr ::kl::enum_reflection_pair<enum_> reflection_data[] = {
-         {enum_::A, "A"},
-         {enum_::B, "bb"},
-         {enum_::C, "C"},
-         {enum_{}, nullptr}};
+         {enum_type::A, "A"},
+         {enum_type::B, "bb"},
+         {enum_type::C, "C"},
+         {enum_type{}, nullptr}};
      }
      constexpr auto reflect_enum(::kl::enum_class<enum_>) noexcept
      {
@@ -95,12 +96,12 @@ private:
 } // namespace kl
 
 #define KL_REFLECT_ENUM(name_, ...)                                            \
-    KL_REFLECT_ENUM_SEQ(name_, KL_VARIADIC_TO_SEQ(__VA_ARGS__))
-
-#define KL_REFLECT_ENUM_SEQ(name_, values_)                                    \
-    namespace KL_REFLECT_ENUM_NSNAME(name_) {                                  \
-    inline constexpr ::kl::enum_reflection_pair<name_> reflection_data[] = {   \
-        KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_){name_{}, nullptr}};   \
+    namespace KL_REFLECT_ENUM_NSNAME(name_)                                    \
+    {                                                                          \
+        using enum_type = name_;                                               \
+        inline constexpr ::kl::enum_reflection_pair<name_> reflection_data[] = \
+            {KL_REFLECT_ENUM_REFLECTION_PAIRS(__VA_ARGS__),                    \
+             {enum_type{}, nullptr}};                                          \
     }                                                                          \
     [[maybe_unused]] constexpr auto reflect_enum(                              \
         ::kl::enum_class<name_>) noexcept                                      \
@@ -111,18 +112,16 @@ private:
     [[maybe_unused]] constexpr auto reflect_enum_unknown_name(                 \
         ::kl::enum_class<name_>) noexcept                                      \
     {                                                                          \
-        return "unknown <" KL_STRINGIZE(name_) ">";                            \
+        return "unknown <" #name_ ">";                                         \
     }
 
-#define KL_REFLECT_ENUM_NSNAME(name_) KL_CONCAT(kl_reflect_, name_)
+#define KL_MAKE_ENUM_REFLECTION_PAIR2(value, str)                              \
+    {                                                                          \
+        enum_type::value, #str                                                 \
+    }
+#define KL_MAKE_ENUM_REFLECTION_PAIR1(pair)                                    \
+    KL_MSVC_EXP(KL_MAKE_ENUM_REFLECTION_PAIR2 pair)
+#define KL_REFLECT_ENUM_REFLECTION_PAIRS(...)                                  \
+    KL_FOR_EACH(KL_MAKE_ENUM_REFLECTION_PAIR1, KL_MAKE_PAIRS(__VA_ARGS__))
 
-#define KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_)                       \
-    KL_SEQ_FOR_EACH2(name_, values_, KL_REFLECT_ENUM_REFLECTION_PAIR)
-
-#define KL_REFLECT_ENUM_REFLECTION_PAIR(name_, value_)                         \
-    KL_REFLECT_ENUM_REFLECTION_PAIR2(name_, KL_TUPLE_EXTEND_BY_FIRST(value_))
-
-// Assumes value_ is a tuple: (x, x) or (x, y) where `x` is the name and `y` is
-// the string form of the enum value
-#define KL_REFLECT_ENUM_REFLECTION_PAIR2(name_, value_)                        \
-    {name_::KL_TUPLE_ELEM(0, value_), KL_STRINGIZE(KL_TUPLE_ELEM(1, value_))},
+#define KL_REFLECT_ENUM_NSNAME(name_) kl_reflect_##name_
