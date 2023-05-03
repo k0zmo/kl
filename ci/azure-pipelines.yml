@@ -97,3 +97,24 @@ jobs:
       - script: |
           cd build && ctest --build-config Release -VV --output-on-failure
         displayName: 'Run CTest'
+
+  - job: windows_vc2022_conan
+    pool:
+      vmImage: 'windows-2022'
+    variables:
+      UseMultiToolTask: true
+    # Disable for now
+    condition: eq(1,2)
+    steps:
+      - script: |
+          pip install conan>=2.0.0
+          conan --version
+          conan profile detect
+        displayName: 'Install conan'
+      - script: |
+          cmake --version
+        displayName: 'Check environment'
+      - script: |
+          conan create . --build=missing -s build_type=Release -s compiler.cppstd=17 -o build_tests=True
+        displayName: 'Build kl package'
+
