@@ -2,6 +2,8 @@
 
 #include "kl/detail/macros.hpp"
 
+#include <boost/version.hpp>
+
 #include <cstddef>
 
 /*
@@ -152,3 +154,11 @@ private:
 // the string form of the enum value
 #define KL_REFLECT_ENUM_REFLECTION_PAIR2(name_, value_)                        \
     {name_::KL_TUPLE_ELEM(0, value_), KL_STRINGIZE(KL_TUPLE_ELEM(1, value_))},
+
+#if BOOST_VERSION < 107500 \
+ || BOOST_PP_LIMIT_TUPLE < 128 \
+ || (defined(_MSC_VER) && (!defined(_MSVC_TRADITIONAL) || _MSVC_TRADITIONAL))
+#  define KL_REFLECT_ENUM_LIMIT 64
+#else
+#  define KL_REFLECT_ENUM_LIMIT BOOST_PP_LIMIT_TUPLE
+#endif
