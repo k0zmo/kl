@@ -13,13 +13,13 @@
             }
         },
         {
-            "name": "base-windows",
+            "name": "windows",
             "hidden": true,
             "inherits": "base",
             "condition": { "type": "equals", "rhs": "Windows", "lhs": "${hostSystemName}" }
         },
         {
-            "name": "base-linux",
+            "name": "linux",
             "hidden": true,
             "inherits": "base",
             "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
@@ -39,37 +39,61 @@
             }
         },
         {
-            "name": "Linux-GCC-Debug",
-            "inherits": "base-linux",
+            "name": "msvc",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_CXX_FLAGS": "/DWIN32 /D_WINDOWS /W4 /GR /EHsc /wd4127 /wd4251 /wd4275 /D_SCL_SECURE_NO_WARNINGS",
+                "CMAKE_CXX_COMPILER": "cl"
+            }
+        },
+        {
+            "name": "gcc",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic"
+            }
+        },
+        {
+            "name": "clang",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -Wno-missing-braces",
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "debug",
+            "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
-            "name": "Linux-GCC-Release",
-            "inherits": "Linux-GCC-Debug",
+            "name": "release",
+            "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release"
             }
+        },
+        {
+            "name": "Linux-GCC-Debug",
+            "inherits": ["linux", "gcc", "debug"]
+        },
+        {
+            "name": "Linux-GCC-Release",
+            "inherits": ["linux", "gcc", "release"]
         },
         {
             "name": "Linux-Clang-Debug",
-            "inherits": "base-linux",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_COMPILER": "clang++"
-            }
+            "inherits": ["linux", "clang", "debug"]
         },
         {
             "name": "Linux-Clang-Release",
-            "inherits": "Linux-Clang-Debug",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
-            }
+            "inherits": ["linux", "clang", "release"]
         },
         {
             "name": "x64-Debug",
-            "inherits": "base-windows",
+            "inherits": ["windows", "msvc", "debug"],
             "architecture": {
                 "value": "x64",
                 "strategy": "external"
@@ -77,23 +101,15 @@
             "toolset": {
                 "value": "host=x64",
                 "strategy": "external"
-            },
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_COMPILER": "cl",
-                "CMAKE_PREFIX_PATH": "D:/Programowanie/pkgs/boost"
             }
         },
         {
             "name": "x64-Release",
-            "inherits": "x64-Debug",
-            "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
-            }
+            "inherits": ["release", "x64-Debug"]
         },
         {
             "name": "x64-VS2022",
-            "inherits": "base-windows",
+            "inherits": ["windows", "msvc"],
             "generator": "Visual Studio 17 2022",
             "architecture": {
                 "value": "x64",
@@ -102,9 +118,6 @@
             "toolset": {
                 "value": "host=x64",
                 "strategy": "set"
-            },
-            "cacheVariables": {
-                "CMAKE_PREFIX_PATH": "D:/Programowanie/pkgs/boost"
             }
         }
     ]

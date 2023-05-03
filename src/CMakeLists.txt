@@ -1,13 +1,3 @@
-add_library(kl_cxx_flags INTERFACE)
-target_compile_features(kl_cxx_flags INTERFACE cxx_std_17)
-
-if(KL_DEV_BUILD)
-    include(DevFlags)
-    target_link_libraries(kl_cxx_flags INTERFACE
-        $<BUILD_INTERFACE:kl::dev_flags>
-    )
-endif()
-
 add_library(kl
     ${kl_SOURCE_DIR}/include/kl/detail/concepts.hpp
     ${kl_SOURCE_DIR}/include/kl/detail/macros.hpp
@@ -52,6 +42,7 @@ elseif(UNIX)
     target_sources(kl PRIVATE file_view_unix.cpp)
 endif()
 
+target_compile_features(kl PUBLIC cxx_std_17)
 target_include_directories(kl
     PUBLIC $<BUILD_INTERFACE:${kl_SOURCE_DIR}/include>
 )
@@ -59,7 +50,6 @@ target_link_libraries(kl
     PUBLIC
         Boost::boost
         Microsoft.GSL::GSL
-        kl_cxx_flags
     PRIVATE
         Boost::disable_autolinking
 )
@@ -104,7 +94,6 @@ if(KL_ENABLE_YAML)
 endif()
 
 if(kl_install_rules)
-    install(TARGETS kl_cxx_flags EXPORT klTarget)
     install(TARGETS kl
         EXPORT klTarget
         INCLUDES DESTINATION include
