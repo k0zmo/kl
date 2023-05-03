@@ -4,30 +4,36 @@
         {
             "name": "base",
             "hidden": true,
-            "binaryDir": "${sourceDir}/build-${presetName}",
-            "installDir": "${sourceDir}/install-${presetName}",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "installDir": "${sourceDir}/install/${presetName}",
+            "generator": "Ninja",
             "cacheVariables": {
-                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_COLOR_DIAGNOSTICS": "ON"
             }
         },
         {
             "name": "base-windows",
             "hidden": true,
             "inherits": "base",
-            "condition": { "type": "equals", "rhs": "Windows", "lhs": "${hostSystemName}" },
-            "generator": "Ninja"
+            "condition": { "type": "equals", "rhs": "Windows", "lhs": "${hostSystemName}" }
         },
         {
             "name": "base-linux",
             "hidden": true,
             "inherits": "base",
             "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
-            "generator": "Ninja",
             "vendor": {
                 "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
                     "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
                     "copySourcesOptions": {
-                        "copySourcesOptions.exclusionList": [".vs", ".git", "out", "build"]
+                        "copySourcesOptions.exclusionList": [
+                            ".vs",
+                            ".git",
+                            ".cache",
+                            "build",
+                            "install"
+                        ]
                     }
                 }
             }
@@ -74,7 +80,8 @@
             },
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug",
-                "CMAKE_CXX_COMPILER": "cl"
+                "CMAKE_CXX_COMPILER": "cl",
+                "CMAKE_PREFIX_PATH": "D:/Programowanie/pkgs/boost"
             }
         },
         {
@@ -95,6 +102,9 @@
             "toolset": {
                 "value": "host=x64",
                 "strategy": "set"
+            },
+            "cacheVariables": {
+                "CMAKE_PREFIX_PATH": "D:/Programowanie/pkgs/boost"
             }
         }
     ]

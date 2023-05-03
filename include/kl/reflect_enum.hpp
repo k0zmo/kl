@@ -8,19 +8,19 @@
  * Requirements: boost 1.57+, C++14 compiler and preprocessor
  * Sample usage:
 
-namespace ns {
+     namespace ns {
 
-enum class enum_
-{
-    A, B, C
-};
-KL_REFLECT_ENUM(enum_, A, (B, bb), C)
-}
+     enum class enum_
+     {
+         A, B, C
+     };
+     KL_REFLECT_ENUM(enum_, A, (B, bb), C)
+     }
 
- * First argument is unqualified enum type name
+ * First argument is unqualified enum type name.
  * The rest is a list of enum values. Each value can be optionally a
-   tuple (pair) of its real name and name used for to-from string conversions
- * Macro should be placed inside the same namespace as the enum type
+   tuple (pair) of its real name and name used for to-from string conversions.
+ * Macro should be placed inside the same namespace as the enum type.
 
  * Use kl::enum_reflector<ns::enum_> to query enum properties:
      kl::enum_reflector<ns::enum_>::to_string(ns::enum_{C});
@@ -29,8 +29,8 @@ KL_REFLECT_ENUM(enum_, A, (B, bb), C)
      kl::enum_reflector<ns::enum_>::values();
  * Alternatively, use kl::reflect<ns::enum_>()
 
- * Remarks: Macro KL_REFLECT_ENUM works for unscoped as well as scoped
-   enums
+ * Remarks: Macro KL_REFLECT_ENUM works for unscoped enums as well as scoped
+   enums.
 
  * Above definition is expanded to:
 
@@ -45,6 +45,32 @@ KL_REFLECT_ENUM(enum_, A, (B, bb), C)
      {
          return ::kl::enum_reflection_view{kl_reflect_enum_::reflection_data};
      }
+
+ * KL_REFLECT_ENUM uses Boost PP's sequences under the hood. Despite that, the
+   conversion from variadics to a sequence goes through a tuple which is limited
+   to 64 arguments. Therefore KL_REFLECT_ENUM is limited to 64 enum values. You
+   can circumvent this issue by using alternative syntax with
+   KL_REFLECT_ENUM_SEQ as such:
+
+     namespace ns {
+
+     enum class enum_
+     {
+         A, B, C
+     };
+     KL_REFLECT_ENUM_SEQ(enum_, (A)(B, bb)(C))
+     }
+
+   With that, the limit goes up to 256 enum values.
+
+ * Alternatively, starting from Boost 1.75 you can increase tuple's limit by
+   defining BOOST_PP_LIMIT_TUPLE to 128 or 256. However, such change has no
+   effect on non-conforming preprocessor such as MSVC without /Zc:preprocessor
+   flag. Additionaly, sequence's limit can also be increased by defining
+   BOOST_PP_LIMIT_SEQ to 512 or 1024. Consult
+   https://www.boost.org/doc/libs/master/libs/preprocessor/doc/topics/limitations.html
+   for more information.
+
  */
 
 namespace kl {
