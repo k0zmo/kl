@@ -40,8 +40,7 @@
      inline constexpr ::kl::enum_reflection_pair<enum_> reflection_data[] = {
          {enum_::A, "A"},
          {enum_::B, "bb"},
-         {enum_::C, "C"},
-         {enum_{}, nullptr}};
+         {enum_::C, "C"}};
      }
      constexpr auto reflect_enum(::kl::enum_class<enum_>) noexcept
      {
@@ -92,16 +91,6 @@ struct enum_reflection_pair
     const char* name;
 };
 
-struct enum_reflection_sentinel
-{
-    template <typename Enum>
-    constexpr friend bool operator!=(const enum_reflection_pair<Enum>* it,
-                                     enum_reflection_sentinel) noexcept
-    {
-        return it->name;
-    }
-};
-
 template <typename Enum, std::size_t N>
 class enum_reflection_view
 {
@@ -110,12 +99,11 @@ public:
         const kl::enum_reflection_pair<Enum> (&arr)[N]) noexcept
         : first_{arr}
     {
-        static_assert(N > 1); // N includes null terminator
     }
 
     constexpr auto begin() const noexcept { return first_; }
-    constexpr auto end() const noexcept { return enum_reflection_sentinel{}; }
-    constexpr auto size() const noexcept { return N - 1; }
+    constexpr auto end() const noexcept { return first_ + N; }
+    constexpr auto size() const noexcept { return N; }
 
 private:
     const kl::enum_reflection_pair<Enum>* first_;
@@ -128,7 +116,7 @@ private:
 #define KL_REFLECT_ENUM_SEQ(name_, values_)                                    \
     namespace KL_REFLECT_ENUM_NSNAME(name_) {                                  \
     inline constexpr ::kl::enum_reflection_pair<name_> reflection_data[] = {   \
-        KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_){name_{}, nullptr}};   \
+        KL_REFLECT_ENUM_REFLECTION_PAIRS(name_, values_)};                     \
     }                                                                          \
     [[maybe_unused]] constexpr auto reflect_enum(                              \
         ::kl::enum_class<name_>) noexcept                                      \
