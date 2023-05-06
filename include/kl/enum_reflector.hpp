@@ -47,7 +47,7 @@ struct enum_reflector
     {
         return reflect_enum(enum_<enum_type>).size();
     }
-
+#if 0
     static constexpr std::optional<enum_type>
         from_string(std::string_view str) noexcept
     {
@@ -58,6 +58,30 @@ struct enum_reflector
         }
         return std::nullopt;
     }
+#else
+    template <std::size_t... Is>
+    static constexpr std::optional<enum_type>
+        from_string_impl(std::string_view str,
+                         kl::enum_reflection_view<enum_type, sizeof...(Is)> rng,
+                         std::index_sequence<Is...>) noexcept
+    {
+        std::optional<enum_type> ret;
+        auto fun = [&](auto p) noexcept {
+            if (!ret && str == p.name)
+                ret = p.value;
+        };
+        (fun(rng.template get<Is>()), ...);
+        return ret;
+    }
+
+    static constexpr std::optional<enum_type>
+        from_string(std::string_view str) noexcept
+    {
+        const auto rng = reflect_enum(enum_<enum_type>);
+        return from_string_impl(str, rng,
+                                std::make_index_sequence<rng.size()>{});
+    }
+#endif
 
     static constexpr const char* to_string(
         enum_type value,
