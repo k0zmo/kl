@@ -105,6 +105,13 @@ public:
     constexpr auto end() const noexcept { return first_ + N; }
     constexpr auto size() const noexcept { return N; }
 
+    template <std::size_t I>
+    constexpr const enum_reflection_pair<Enum>& get() const noexcept
+    {
+        static_assert(I < N);
+        return *(first_ + I);
+    }
+
 private:
     const kl::enum_reflection_pair<Enum>* first_;
 };
