@@ -71,11 +71,13 @@ class KlConan(ConanFile):
         self.info.options.rm_safe("build_tests")
         
     def package_info(self):
-        self.cpp_info.components["_core"].libs = ["kl"]
-        self.cpp_info.components["_core"].requires = ["ms-gsl::ms-gsl", "boost::headers"]
+        self.cpp_info.components["core"].libs = ["kl"]
+        self.cpp_info.components["core"].requires = ["ms-gsl::ms-gsl", "boost::headers"]
+        self.cpp_info.components["core"].set_property("cmake_target_name", "kl::kl")
         if self.options.with_json:
-            self.cpp_info.components["json"].requires = ["_core", "rapidjson::rapidjson"]
+            self.cpp_info.components["json"].requires = ["core", "rapidjson::rapidjson"]
             self.cpp_info.components["json"].libs = ["kl-json"]
         if self.options.with_yaml:
-            self.cpp_info.components["yaml"].requires = ["_core", "yaml-cpp::yaml-cpp"]
+            self.cpp_info.components["yaml"].requires = ["core", "yaml-cpp::yaml-cpp"]
             self.cpp_info.components["yaml"].libs = ["kl-yaml"]
+        self.cpp_info.set_property("cmake_target_name", "kl::all")
