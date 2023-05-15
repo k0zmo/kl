@@ -1,6 +1,6 @@
 from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake, cmake_layout
-
+from conan.tools.build import check_min_cppstd
 
 class KlConan(ConanFile):
     name = "kl"
@@ -23,6 +23,9 @@ class KlConan(ConanFile):
     }
     exports_sources = "CMakeLists.txt", "klConfig.cmake.in", "cmake/*", "include/*", "src/*", "tests/*"
     no_copy_source = True
+
+    def validate(self):
+        check_min_cppstd(self, "17")
 
     def config_options(self):
         if self.settings.os == "Windows":
