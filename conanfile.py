@@ -12,17 +12,18 @@ class KlConan(ConanFile):
     options = {
         "fPIC": [True, False],
         "with_json": [True, False],
-        "with_yaml": [True, False],
-        "build_tests": [True, False]
+        "with_yaml": [True, False]
     }
     default_options = {
         "fPIC": True,
         "with_json": True,
-        "with_yaml": True,
-        "build_tests": False
+        "with_yaml": True
     }
     exports_sources = "CMakeLists.txt", "klConfig.cmake.in", "cmake/*", "include/*", "src/*", "tests/*"
     no_copy_source = True
+
+    def _build_and_run_tests(self):
+        return not self.conf.get("tools.build:skip_test", default=False)
 
     def validate(self):
         check_min_cppstd(self, "17")
@@ -30,10 +31,6 @@ class KlConan(ConanFile):
     def config_options(self):
         if self.settings.os == "Windows":
             self.options.rm_safe("fPIC")
-
-    def build_requirements(self):
-        if self.options.build_tests:
-            self.test_requires("catch2/3.2.1")
 
     def requirements(self):
         self.requires("ms-gsl/4.0.0")
@@ -43,6 +40,9 @@ class KlConan(ConanFile):
         if self.options.with_yaml:
             self.requires("yaml-cpp/0.7.0")
 
+    def build_requirements(self):
+        self.test_requires("catch2/3.2.1")
+
     def layout(self):
         cmake_layout(self)
 
@@ -50,25 +50,22 @@ class KlConan(ConanFile):
         deps = CMakeDeps(self)
         deps.generate()
         tc = CMakeToolchain(self)
-        tc.cache_variables["KL_TEST"] = self.options.build_tests
         tc.cache_variables["KL_FETCH_DEPENDENCIES"] = False
         tc.cache_variables["KL_ENABLE_JSON"] = self.options.with_json
         tc.cache_variables["KL_ENABLE_YAML"] = self.options.with_yaml
+        tc.cache_variables["KL_TEST"] = self._build_and_run_tests()
         tc.generate()
 
     def build(self):
         cmake = CMake(self)
         cmake.configure()
         cmake.build()
-        if self.options.build_tests:
+        if self._build_and_run_tests():
             cmake.test()
             
     def package(self):
         cmake = CMake(self)
         cmake.install()
-        
-    def package_id(self):
-        self.info.options.rm_safe("build_tests")
         
     def package_info(self):
         self.cpp_info.components["core"].libs = ["kl"]
