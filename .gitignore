@@ -9,3 +9,4 @@
 /CMakeUserPresets.json
 /compile_commands.json
 /test_package/build/*
+/test_package/CMakeUserPresets.json

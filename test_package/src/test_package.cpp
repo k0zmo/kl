@@ -15,6 +15,8 @@ int main()
 #if defined(HAS_YAML)
     std::cout << "HAS_YAML: YES\n";
     (void)kl::yaml::serialize(123);
+    using namespace kl;
+    (void)"~"_yaml;
 #else
     std::cout << "HAS_YAML: NO\n";
 #endif
@@ -22,6 +24,8 @@ int main()
 #if defined(HAS_JSON)
     std::cout << "HAS_JSON: YES\n";
     (void)kl::json::serialize(123);
+    using namespace kl;
+    (void)"{}"_json;
 #else
     std::cout << "HAS_JSON: NO\n";
 #endif
