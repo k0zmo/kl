@@ -8,6 +8,7 @@ class KlConan(ConanFile):
 
     license = "MIT"
     url = "https://github.com/k0zmo/kl"
+    package_type = "static-library"
     settings = "os", "compiler", "build_type", "arch"
     options = {
         "fPIC": [True, False],
