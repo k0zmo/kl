@@ -9,7 +9,8 @@
             "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_COLOR_DIAGNOSTICS": "ON"
+                "CMAKE_COLOR_DIAGNOSTICS": "ON",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE": "ON"
             }
         },
         {
@@ -42,23 +43,47 @@
             "name": "msvc",
             "hidden": true,
             "cacheVariables": {
-                "CMAKE_CXX_FLAGS": "/DWIN32 /D_WINDOWS /W4 /GR /EHsc /wd4127 /wd4251 /wd4275 /D_SCL_SECURE_NO_WARNINGS",
-                "CMAKE_CXX_COMPILER": "cl"
+                "CMAKE_CXX_COMPILER": "cl",
+                "CMAKE_CXX_FLAGS": "/utf-8 /W4 /GR /EHsc /wd4127 /wd4251 /wd4275 /permissive- /Zc:inline /Zc:throwingNew /Zc:preprocessor /volatile:iso /DWIN32 /D_WINDOWS /D_SCL_SECURE_NO_WARNINGS /DWIN32_LEAN_AND_MEAN /D_WIN32_WINNT=0x0A00",
+                "CMAKE_CXX_FLAGS_DEBUG"  : "/JMC /Zi /Od",
+                "CMAKE_CXX_FLAGS_RELEASE": "/Zi /O2 /Oi /Ob2 /DNDEBUG /Gw /Gy",
+                "CMAKE_EXE_LINKER_FLAGS_DEBUG"     : "/DEBUG:FASTLINK /INCREMENTAL",
+                "CMAKE_MODULE_LINKER_FLAGS_DEBUG"  : "/DEBUG:FASTLINK /INCREMENTAL",
+                "CMAKE_SHARED_LINKER_FLAGS_DEBUG"  : "/DEBUG:FASTLINK /INCREMENTAL",
+                "CMAKE_EXE_LINKER_FLAGS_RELEASE"   : "/DEBUG /INCREMENTAL:NO /OPT:REF /OPT:ICF",
+                "CMAKE_MODULE_LINKER_FLAGS_RELEASE": "/DEBUG /INCREMENTAL:NO /OPT:REF /OPT:ICF",
+                "CMAKE_SHARED_LINKER_FLAGS_RELEASE": "/DEBUG /INCREMENTAL:NO /OPT:REF /OPT:ICF"
             }
         },
         {
             "name": "gcc",
             "hidden": true,
             "cacheVariables": {
-                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic"
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic",
+                "CMAKE_CXX_FLAGS_DEBUG"  : "-O0 -g -gsplit-dwarf",
+                "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+                "CMAKE_EXE_LINKER_FLAGS"   : "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
+                "CMAKE_MODULE_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
+                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
+                "CMAKE_EXE_LINKER_FLAGS_DEBUG"   : "-Wl,--gdb-index",
+                "CMAKE_MODULE_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index",
+                "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index"
             }
         },
         {
             "name": "clang",
             "hidden": true,
             "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++",
                 "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -Wno-missing-braces",
-                "CMAKE_CXX_COMPILER": "clang++"
+                "CMAKE_CXX_FLAGS_DEBUG"  : "-O0 -g -gsplit-dwarf",
+                "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
+                "CMAKE_EXE_LINKER_FLAGS"   : "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
+                "CMAKE_MODULE_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
+                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
+                "CMAKE_EXE_LINKER_FLAGS_DEBUG"   : "-Wl,--gdb-index",
+                "CMAKE_MODULE_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index",
+                "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index"
             }
         },
         {
@@ -72,7 +97,8 @@
             "name": "release",
             "hidden": true,
             "cacheVariables": {
-                "CMAKE_BUILD_TYPE": "Release"
+                "CMAKE_BUILD_TYPE": "Release",
+                "KL_BENCH": "ON"
             }
         },
         {
