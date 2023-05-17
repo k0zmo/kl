@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.13)
+cmake_minimum_required(VERSION 3.16...3.24)
 project(kl LANGUAGES CXX VERSION 0.1)
 
 # Set CMake modules path
