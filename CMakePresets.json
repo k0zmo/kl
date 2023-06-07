@@ -28,12 +28,14 @@
                 "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
                     "sourceDir": "$env{HOME}/.vs/$ms{projectDirName}",
                     "copySourcesOptions": {
-                        "copySourcesOptions.exclusionList": [
+                        "exclusionList": [
                             ".vs",
+                            ".vscode",
                             ".git",
                             ".cache",
                             "build",
-                            "install"
+                            "install",
+                            "out"
                         ]
                     }
                 }
