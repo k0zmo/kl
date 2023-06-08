@@ -1,5 +1,5 @@
 jobs:
-  - job: ubuntu20_gcc9
+  - job: ubuntu20_gcc11
     pool:
       vmImage: 'ubuntu-20.04'
     strategy:
@@ -8,9 +8,10 @@ jobs:
           BuildType: Release
         AddressSanitizer:
           BuildType: AddressSanitizer
-        UndefinedBehaviourSanitizer:
-          BuildType: UBSanitizer
     steps:
+      - template: templates/install-gcc.yml
+        parameters:
+          version: '11'
       - script: |
           which g++ && g++ --version
           cmake --version
@@ -27,10 +28,13 @@ jobs:
           cd build/Linux-GCC-$(BuildType) && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: ubuntu20_gcc9_coverage
+  - job: ubuntu20_gcc11_coverage
     pool:
       vmImage: 'ubuntu-20.04'
     steps:
+      - template: templates/install-gcc.yml
+        parameters:
+          version: '11'
       - script: |
           which g++ && g++ --version
           cmake --version
@@ -54,13 +58,13 @@ jobs:
           ~/.local/bin/codecov -X gcov
         displayName: 'Send code coverage data'
 
-  - job: ubuntu20_clang10
+  - job: ubuntu20_clang12
     pool:
       vmImage: 'ubuntu-20.04'
     steps:
       - template: templates/install-clang.yml
         parameters:
-          version: '10'
+          version: '12'
       - script: |
           which clang++ && clang++ --version
           cmake --version
@@ -77,22 +81,22 @@ jobs:
           cd build/Linux-Clang-Release && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: windows_vc2019
+  - job: windows_vc2022
     pool:
-      vmImage: 'windows-2019'
+      vmImage: 'windows-2022'
     variables:
-      CL: /MP
+      UseMultiToolTask: true
     steps:
       - script: |
           cmake --version
         displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
-          cmake.exe --preset=x64-VS2019 -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0 
-          cmake.exe --build build/x64-VS2019 --config Release
+          cmake.exe --preset=x64-VS2022 -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0 
+          cmake.exe --build build/x64-VS2022 --config Release
         displayName: 'Build kl'
       - script: |
-          cd build/x64-VS2019 && ctest --build-config Release -VV --output-on-failure
+          cd build/x64-VS2022 && ctest --build-config Release -VV --output-on-failure
         displayName: 'Run CTest'
 
   - job: windows_vc2022_conan
