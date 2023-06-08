@@ -85,7 +85,7 @@ TEST_CASE("yaml bench")
         test_t input;
 
         meter.measure([&] {
-            yaml::serialize_context ctx;
+            yaml::default_serialize_context ctx;
 
             auto doc_builder = yaml::to_sequence(ctx);
             for (int i = 0; i < num_objects; ++i)

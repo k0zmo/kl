@@ -4,6 +4,7 @@
 #include "kl/ctti.hpp"
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_set.hpp"
+#include "kl/type_traits.hpp"
 #include "kl/utility.hpp"
 #include "kl/yaml_fwd.hpp"
 
@@ -55,10 +56,11 @@ bool is_null_value(const T& t)
     return optional_traits<T>::is_null_value(t);
 }
 
-class dump_context
+class default_dump_context
 {
 public:
-    explicit dump_context(YAML::Emitter& emitter, bool skip_null_fields = true)
+    explicit default_dump_context(YAML::Emitter& emitter,
+                                  bool skip_null_fields = true)
         : emitter_{emitter}, skip_null_fields_{skip_null_fields}
     {
     }
@@ -76,10 +78,10 @@ private:
     bool skip_null_fields_;
 };
 
-class serialize_context
+class default_serialize_context
 {
 public:
-    explicit serialize_context(bool skip_null_fields = true)
+    explicit default_serialize_context(bool skip_null_fields = true)
         : skip_null_fields_{skip_null_fields}
     {
     }
@@ -166,11 +168,11 @@ void expect_map(const YAML::Node& value);
 
 namespace detail {
 
-template <typename Context>
+template <serialize_context C>
 class sequence_builder
 {
 public:
-    explicit sequence_builder(Context& ctx)
+    explicit sequence_builder(C& ctx)
         : ctx_{ctx}, node_{YAML::NodeType::Sequence}
     {
     }
@@ -191,17 +193,15 @@ public:
     operator YAML::Node() { return std::move(node_); }
 
 private:
-    Context& ctx_;
+    C& ctx_;
     YAML::Node node_;
 };
 
-template <typename Context>
+template <serialize_context C>
 class map_builder
 {
 public:
-    explicit map_builder(Context& ctx) : ctx_{ctx}, node_{YAML::NodeType::Map}
-    {
-    }
+    explicit map_builder(C& ctx) : ctx_{ctx}, node_{YAML::NodeType::Map} {}
 
     template <typename T, typename Key>
     map_builder& add(const Key& member_name, const T& value)
@@ -220,7 +220,7 @@ public:
     operator YAML::Node() { return std::move(node_); }
 
 private:
-    Context& ctx_;
+    C& ctx_;
     YAML::Node node_;
 };
 
@@ -292,16 +292,14 @@ private:
 };
 } // namespace detail
 
-template <typename Context>
-auto to_sequence(Context& ctx)
+auto to_sequence(serialize_context auto& ctx)
 {
-    return detail::sequence_builder<Context>{ctx};
+    return detail::sequence_builder{ctx};
 }
 
-template <typename Context>
-auto to_map(Context& ctx)
+auto to_map(serialize_context auto& ctx)
 {
-    return detail::map_builder<Context>{ctx};
+    return detail::map_builder{ctx};
 }
 
 inline auto from_sequence(const YAML::Node& node)
@@ -318,53 +316,50 @@ namespace detail {
 
 std::string type_name(const YAML::Node& value);
 
-using ::kl::detail::has_reserve_v;
-using ::kl::detail::is_growable_range;
-using ::kl::detail::is_map_alike;
-using ::kl::detail::is_range;
+using ::kl::detail::arithmetic;
+using ::kl::detail::growable_range;
+using ::kl::detail::map_alike;
 
 // encode implementation
 
 // Two overloads below fixes encoding uint8_t as a double-quoted
 // hexadecimal value (128 => "\x80\")
-template <typename Context>
-void encode(unsigned char v, Context& ctx)
+void encode(unsigned char v, dump_context auto& ctx)
 {
     ctx.emitter() << +v;
 }
 
-template <typename Context>
-void encode(signed char v, Context& ctx)
+void encode(signed char v, dump_context auto& ctx)
 {
     ctx.emitter() << +v;
 }
 
-template <typename Context>
-void encode(const view& v, Context& ctx)
+void encode(const view& v, dump_context auto& ctx)
 {
     ctx.emitter() << v.value();
 }
 
-template <typename Context>
-void encode(std::nullptr_t, Context& ctx)
+void encode(std::nullptr_t, dump_context auto& ctx)
 {
     ctx.emitter() << YAML::Null;
 }
 
-template <typename Context>
-void encode(const std::string& str, Context& ctx)
+void encode(const std::string& str, dump_context auto& ctx)
 {
     // We repeat encode() for std::string even though yaml-cpp has a native
     // support for it. This is because encode() has higher priority than dump()
     // for supported types and our encode for "range alike" catches this case
-    // which is not what we want for the strings. Also, we don't provide const
-    // char* overload since yaml-cpp's overload calls std::string variant in the
-    // end.
+    // which is not what we want for the strings.
     ctx.emitter() << str;
 }
 
-template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
-void encode(const Map& map, Context& ctx)
+void encode(const char* str, dump_context auto& ctx)
+{
+    // Same as above
+    ctx.emitter() << str;
+}
+
+void encode(const map_alike auto& map, dump_context auto& ctx)
 {
     ctx.emitter() << YAML::BeginMap;
     for (const auto& [key, value] : map)
@@ -380,9 +375,7 @@ void encode(const Map& map, Context& ctx)
     ctx.emitter() << YAML::EndMap;
 }
 
-template <typename Range, typename Context,
-          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
-void encode(const Range& rng, Context& ctx)
+void encode(const std::ranges::range auto& rng, dump_context auto& ctx)
 {
     ctx.emitter() << YAML::BeginSeq;
     for (const auto& v : rng)
@@ -390,9 +383,7 @@ void encode(const Range& rng, Context& ctx)
     ctx.emitter() << YAML::EndSeq;
 }
 
-template <typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
-void encode(const Reflectable& refl, Context& ctx)
+void encode(const reflectable auto& refl, dump_context auto& ctx)
 {
     ctx.emitter() << YAML::BeginMap;
     ctti::reflect(refl, [&ctx](auto& field, auto name) {
@@ -407,8 +398,8 @@ void encode(const Reflectable& refl, Context& ctx)
     ctx.emitter() << YAML::EndMap;
 }
 
-template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
-void encode(const Enum& e, Context& ctx)
+template <typename Enum> requires std::is_enum_v<Enum>
+void encode(const Enum& e, dump_context auto& ctx)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
         yaml::dump(kl::to_string(e), ctx);
@@ -416,8 +407,8 @@ void encode(const Enum& e, Context& ctx)
         yaml::dump(underlying_cast(e), ctx);
 }
 
-template <typename Enum, typename Context>
-void encode(const enum_set<Enum>& set, Context& ctx)
+template <typename Enum>
+void encode(const enum_set<Enum>& set, dump_context auto& ctx)
 {
     static_assert(is_enum_reflectable_v<Enum>,
                   "Only sets of reflectable enums are supported");
@@ -430,22 +421,18 @@ void encode(const enum_set<Enum>& set, Context& ctx)
     ctx.emitter() << YAML::EndSeq;
 }
 
-template <typename Tuple, typename Context, std::size_t... Is>
-void encode_tuple(const Tuple& tuple, Context& ctx, std::index_sequence<Is...>)
+template <typename... Ts>
+void encode(const std::tuple<Ts...>& tuple, dump_context auto& ctx)
 {
     ctx.emitter() << YAML::BeginSeq;
-    (yaml::dump(std::get<Is>(tuple), ctx), ...);
-    ctx.emitter() << YAML::EndSeq;
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (..., yaml::dump(std::get<Is>(tuple), ctx));
+    }(std::make_index_sequence<sizeof...(Ts)>{});
+   ctx.emitter() << YAML::EndSeq;
 }
 
-template <typename... Ts, typename Context>
-void encode(const std::tuple<Ts...>& tuple, Context& ctx)
-{
-    encode_tuple(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
-}
-
-template <typename T, typename Context>
-void encode(const std::optional<T>& opt, Context& ctx)
+template <typename T>
+void encode(const std::optional<T>& opt, dump_context auto& ctx)
 {
     if (!opt)
         ctx.emitter() << YAML::Null;
@@ -456,54 +443,46 @@ void encode(const std::optional<T>& opt, Context& ctx)
 // to_yaml implementation
 
 // For all arithmetic types
-template <typename Arithmetic, typename Context,
-          enable_if<std::is_arithmetic<Arithmetic>> = true>
-YAML::Node to_yaml(Arithmetic value, Context&)
+YAML::Node to_yaml(arithmetic auto value, serialize_context auto&)
 {
     return YAML::Node{value};
 }
 
-template <typename Context>
-YAML::Node to_yaml(unsigned char value, Context&)
+YAML::Node to_yaml(unsigned char value, serialize_context auto&)
 {
     return YAML::Node{+value};
 }
 
-template <typename Context>
-YAML::Node to_yaml(signed char value, Context&)
+YAML::Node to_yaml(signed char value, serialize_context auto&)
 {
     return YAML::Node{+value};
 }
 
-template <typename Context>
-YAML::Node to_yaml(view v, Context&)
+YAML::Node to_yaml(view v, serialize_context auto&)
 {
     return v.value();
 }
 
-template <typename Context>
-YAML::Node to_yaml(std::nullptr_t, Context&)
+YAML::Node to_yaml(std::nullptr_t, serialize_context auto&)
 {
     return YAML::Node{};
 }
 
-template <typename Context>
-YAML::Node to_yaml(const std::string& str, Context&)
+YAML::Node to_yaml(const std::string& str, serialize_context auto&)
 {
     return YAML::Node{str};
 }
 
-template <typename Context>
-YAML::Node to_yaml(const char* str, Context&)
+YAML::Node to_yaml(const char* str, serialize_context auto&)
 {
     return YAML::Node{str};
 }
 
 // For all T's that quacks like a std::map
-template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
-YAML::Node to_yaml(const Map& map, Context& ctx)
+template <map_alike M>
+YAML::Node to_yaml(const M& map, serialize_context auto& ctx)
 {
-    static_assert(std::is_constructible_v<std::string, typename Map::key_type>,
+    static_assert(std::is_constructible_v<std::string, typename M::key_type>,
                   "std::string must be constructible from the Map's key type");
 
     YAML::Node obj{YAML::NodeType::Map};
@@ -516,9 +495,8 @@ YAML::Node to_yaml(const Map& map, Context& ctx)
 }
 
 // For all T's that quacks like a range
-template <typename Range, typename Context,
-          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
-YAML::Node to_yaml(const Range& rng, Context& ctx)
+YAML::Node to_yaml(const std::ranges::range auto& rng,
+                   serialize_context auto& ctx)
 {
     YAML::Node arr{YAML::NodeType::Sequence};
     for (const auto& v : rng)
@@ -527,9 +505,7 @@ YAML::Node to_yaml(const Range& rng, Context& ctx)
 }
 
 // For all T's for which there's a type_info defined
-template <typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
-YAML::Node to_yaml(const Reflectable& refl, Context& ctx)
+YAML::Node to_yaml(const reflectable auto& refl, serialize_context auto& ctx)
 {
     YAML::Node obj{YAML::NodeType::Map};
     ctti::reflect(refl, [&obj, &ctx](auto& field, auto name) {
@@ -539,8 +515,8 @@ YAML::Node to_yaml(const Reflectable& refl, Context& ctx)
     return obj;
 }
 
-template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
-YAML::Node to_yaml(Enum e, Context& ctx)
+template <typename Enum> requires std::is_enum_v<Enum>
+YAML::Node to_yaml(Enum e, serialize_context auto& ctx)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
     {
@@ -553,8 +529,8 @@ YAML::Node to_yaml(Enum e, Context& ctx)
     }
 }
 
-template <typename Enum, typename Context>
-YAML::Node to_yaml(const enum_set<Enum>& set, Context& ctx)
+template <typename Enum>
+YAML::Node to_yaml(const enum_set<Enum>& set, serialize_context auto& ctx)
 {
     static_assert(is_enum_reflectable_v<Enum>,
                   "Only sets of reflectable enums are supported");
@@ -569,23 +545,18 @@ YAML::Node to_yaml(const enum_set<Enum>& set, Context& ctx)
     return arr;
 }
 
-template <typename Tuple, typename Context, std::size_t... Is>
-YAML::Node tuple_to_yaml(const Tuple& tuple, Context& ctx,
-                         std::index_sequence<Is...>)
+template <typename... Ts>
+YAML::Node to_yaml(const std::tuple<Ts...>& tuple, serialize_context auto& ctx)
 {
     YAML::Node arr{YAML::NodeType::Sequence};
-    (arr.push_back(yaml::serialize(std::get<Is>(tuple), ctx)), ...);
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (..., arr.push_back(yaml::serialize(std::get<Is>(tuple), ctx)));
+    }(std::make_index_sequence<sizeof...(Ts)>{});
     return arr;
 }
 
-template <typename... Ts, typename Context>
-YAML::Node to_yaml(const std::tuple<Ts...>& tuple, Context& ctx)
-{
-    return tuple_to_yaml(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
-}
-
-template <typename T, typename Context>
-YAML::Node to_yaml(const std::optional<T>& opt, Context& ctx)
+template <typename T>
+YAML::Node to_yaml(const std::optional<T>& opt, serialize_context auto& ctx)
 {
     if (opt)
         return yaml::serialize(*opt, ctx);
@@ -609,10 +580,10 @@ T from_scalar_yaml(const YAML::Node& value)
     }
 }
 
-template <typename Arithmetic, enable_if<std::is_arithmetic<Arithmetic>> = true>
-void from_yaml(Arithmetic& out, const YAML::Node& value)
+template <arithmetic A>
+void from_yaml(A& out, const YAML::Node& value)
 {
-    out = from_scalar_yaml<Arithmetic>(value);
+    out = from_scalar_yaml<A>(value);
 }
 
 inline void from_yaml(std::string& out, const YAML::Node& value)
@@ -637,8 +608,8 @@ inline void from_yaml(view& out, const YAML::Node& value)
     out = view{value};
 }
 
-template <typename Map, enable_if<is_map_alike<Map>> = true>
-void from_yaml(Map& out, const YAML::Node& value)
+template <map_alike M>
+void from_yaml(M& out, const YAML::Node& value)
 {
     yaml::expect_map(value);
 
@@ -648,10 +619,9 @@ void from_yaml(Map& out, const YAML::Node& value)
     {
         try
         {
-            // There's no way to construct K and V directly in the Map
-            out.emplace(
-                yaml::deserialize<typename Map::key_type>(obj.first),
-                yaml::deserialize<typename Map::mapped_type>(obj.second));
+            // There's no way to construct K and V directly in the map_alike
+            out.emplace(yaml::deserialize<typename M::key_type>(obj.first),
+                        yaml::deserialize<typename M::mapped_type>(obj.second));
         }
         catch (deserialize_error& ex)
         {
@@ -663,24 +633,22 @@ void from_yaml(Map& out, const YAML::Node& value)
     }
 }
 
-template <typename GrowableRange,
-          enable_if<std::negation<is_map_alike<GrowableRange>>,
-                    is_range<GrowableRange>> = true>
-void from_yaml(GrowableRange& out, const YAML::Node& value)
+template <growable_range R>
+void from_yaml(R& out, const YAML::Node& value)
 {
     yaml::expect_sequence(value);
 
     out.clear();
-    if constexpr (has_reserve_v<GrowableRange>)
+    if constexpr (requires { out.reserve(0U); })
         out.reserve(value.size());
 
     for (const auto& item : value)
     {
         try
         {
-            // There's no way to construct T directly in the GrowableRange
+            // There's no way to construct T directly in the growable_range
             out.push_back(
-                yaml::deserialize<typename GrowableRange::value_type>(item));
+                yaml::deserialize<typename R::value_type>(item));
         }
         catch (deserialize_error& ex)
         {
@@ -692,8 +660,8 @@ void from_yaml(GrowableRange& out, const YAML::Node& value)
     }
 }
 
-template <typename Reflectable>
-void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
+template <reflectable R>
+void reflectable_from_yaml(R& out, const YAML::Node& value)
 {
     if (value.IsMap())
     {
@@ -713,7 +681,7 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
     }
     else if (value.IsSequence())
     {
-        if (value.size() > ctti::num_fields<Reflectable>())
+        if (value.size() > ctti::num_fields<R>())
         {
             throw deserialize_error{"sequence size is greater than "
                                     "declared struct's field "
@@ -741,8 +709,8 @@ void reflectable_from_yaml(Reflectable& out, const YAML::Node& value)
     }
 }
 
-template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
-void from_yaml(Reflectable& out, const YAML::Node& value)
+template <reflectable R>
+void from_yaml(R& out, const YAML::Node& value)
 {
     try
     {
@@ -750,14 +718,14 @@ void from_yaml(Reflectable& out, const YAML::Node& value)
     }
     catch (deserialize_error& ex)
     {
-        std::string msg = "error when deserializing type " +
-                          std::string(ctti::name<Reflectable>());
+        std::string msg =
+            "error when deserializing type " + std::string(ctti::name<R>());
         ex.add(msg.c_str());
         throw;
     }
 }
 
-template <typename Enum, enable_if<std::is_enum<Enum>> = true>
+template <typename Enum> requires std::is_enum_v<Enum>
 void from_yaml(Enum& out, const YAML::Node& value)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
@@ -792,18 +760,13 @@ void from_yaml(enum_set<Enum>& out, const YAML::Node& value)
     }
 }
 
-template <typename Tuple, std::size_t... Is>
-void tuple_from_yaml(Tuple& out, const YAML::Node& value,
-                     std::index_sequence<Is...>)
-{
-    (yaml::deserialize(std::get<Is>(out), yaml::at(value, Is)), ...);
-}
-
 template <typename... Ts>
 void from_yaml(std::tuple<Ts...>& out, const YAML::Node& value)
 {
     yaml::expect_sequence(value);
-    tuple_from_yaml(out, value, std::make_index_sequence<sizeof...(Ts)>{});
+    [&]<std::size_t... Is>(std::index_sequence<Is...>) {
+        (..., yaml::deserialize(std::get<Is>(out), yaml::at(value, Is)));
+    }(std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename T>
@@ -815,114 +778,70 @@ void from_yaml(std::optional<T>& out, const YAML::Node& value)
     out = yaml::deserialize<T>(value);
 }
 
-template <typename T, typename Context>
-void dump(const T&, Context&, priority_tag<0>)
-{
-    static_assert(always_false_v<T>,
-                  "Cannot dump an instance of type T - no viable "
-                  "definition of encode provided");
-}
-
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(ctx.emitter() << obj, void())
-{
-    ctx.emitter() << obj;
-}
-
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(encode(obj, ctx), void())
-{
-    encode(obj, ctx);
-}
-
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<3>)
-    -> decltype(yaml::serializer<T>::encode(obj, ctx), void())
-{
-    yaml::serializer<T>::encode(obj, ctx);
-}
-
-template <typename T, typename Context>
-YAML::Node serialize(const T&, Context&, priority_tag<0>)
-{
-    static_assert(always_false_v<T>,
-                  "Cannot serialize an instance of type T - no viable "
-                  "definition of to_yaml provided");
-    return {}; // Keeps compiler happy
-}
-
-template <typename T, typename Context>
-auto serialize(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(to_yaml(obj, ctx))
-{
-    return to_yaml(obj, ctx);
-}
-
-template <typename T, typename Context>
-auto serialize(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(yaml::serializer<T>::to_yaml(obj, ctx))
-{
-    return yaml::serializer<T>::to_yaml(obj, ctx);
-}
-
-template <typename T>
-void deserialize(T&, const YAML::Node&, priority_tag<0>)
-{
-    static_assert(always_false_v<T>,
-                  "Cannot deserialize an instance of type T - no viable "
-                  "definition of from_yaml provided");
-}
-
-template <typename T>
-auto deserialize(T& out, const YAML::Node& value, priority_tag<1>)
-    -> decltype(from_yaml(out, value), void())
-{
-    from_yaml(out, value);
-}
-
-template <typename T>
-auto deserialize(T& out, const YAML::Node& value, priority_tag<2>)
-    -> decltype(yaml::serializer<T>::from_yaml(out, value), void())
-{
-    yaml::serializer<T>::from_yaml(out, value);
-}
 } // namespace detail
 
 template <typename T>
 std::string dump(const T& obj)
 {
     YAML::Emitter emitter;
-    dump_context ctx{emitter};
+    default_dump_context ctx{emitter};
 
     yaml::dump(obj, ctx);
     return {emitter.c_str()};
 }
 
-template <typename T, typename Context>
-void dump(const T& obj, Context& ctx)
+template <typename T>
+void dump(const T& obj, dump_context auto& ctx)
 {
-    detail::dump(obj, ctx, priority_tag<3>{});
+    using yaml::detail::encode;
+
+    if constexpr (requires { yaml::serializer<T>::encode(obj, ctx); })
+        yaml::serializer<T>::encode(obj, ctx);
+    else if constexpr (requires { encode(obj, ctx); })
+        encode(obj, ctx);
+    else if constexpr (requires { ctx.emitter() << obj; })
+        ctx.emitter() << obj;
+    else
+        static_assert(always_false_v<T>,
+                      "Cannot dump an instance of type T - no viable "
+                      "definition of encode provided");
 }
 
 template <typename T>
 YAML::Node serialize(const T& obj)
 {
-    serialize_context ctx{};
+    default_serialize_context ctx{};
     return serialize(obj, ctx);
 }
 
-template <typename T, typename Context>
-YAML::Node serialize(const T& obj, Context& ctx)
+template <typename T>
+YAML::Node serialize(const T& obj, serialize_context auto& ctx)
 {
-    return detail::serialize(obj, ctx, priority_tag<2>{});
+    using yaml::detail::to_yaml;
+
+    if constexpr (requires { yaml::serializer<T>::to_yaml(obj, ctx); })
+        return yaml::serializer<T>::to_yaml(obj, ctx);
+    else if constexpr (requires { to_yaml(obj, ctx); })
+        return to_yaml(obj, ctx);
+    else
+        static_assert(always_false_v<T>,
+                      "Cannot serialize an instance of type T - no viable "
+                      "definition of to_yaml provided");
 }
 
 template <typename T>
 void deserialize(T& out, const YAML::Node& value)
 {
-    return detail::deserialize(out, value, priority_tag<2>{});
+    using yaml::detail::from_yaml;
+
+    if constexpr (requires { yaml::serializer<T>::from_yaml(out, value); })
+        yaml::serializer<T>::from_yaml(out, value);
+    else if constexpr (requires { from_yaml(out, value); })
+        from_yaml(out, value);
+    else
+        static_assert(always_false_v<T>,
+                      "Cannot deserialize an instance of type T - no viable "
+                      "definition of from_yaml provided");
 }
 
 // Shorter version of from which can't be overloaded. Only use to invoke

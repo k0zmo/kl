@@ -84,7 +84,7 @@ jobs:
     pool:
       vmImage: 'windows-2025'
     variables:
-      CL: /MP
+      UseMultiToolTask: true
     steps:
       - script: |
           cmake --version
@@ -115,5 +115,5 @@ jobs:
           cmake --version
         displayName: 'Check environment'
       - script: |
-          conan create . --build=missing -s build_type=Release -s compiler.cppstd=17
+          conan create . --build=missing -s build_type=Release -s compiler.cppstd=20
         displayName: 'Build kl package'

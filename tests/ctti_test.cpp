@@ -128,12 +128,12 @@ TEST_CASE("ctti")
     SECTION("type not registered")
     {
         using T = std::vector<int>;
-        REQUIRE(!kl::ctti::is_reflectable<T>);
+        REQUIRE(!kl::is_reflectable_v<T>);
     }
 
     SECTION("global type A")
     {
-        REQUIRE(kl::ctti::is_reflectable<A>);
+        REQUIRE(kl::is_reflectable_v<A>);
         REQUIRE(kl::ctti::num_fields<A>() == 2);
 
         std::ostringstream ss;
@@ -149,7 +149,7 @@ TEST_CASE("ctti")
     {
         using B = ns::B;
 
-        REQUIRE(kl::ctti::is_reflectable<B>);
+        REQUIRE(kl::is_reflectable_v<B>);
         REQUIRE(kl::ctti::num_fields<B>() == 3);
 
         std::ostringstream ss;
@@ -186,7 +186,7 @@ TEST_CASE("ctti")
 
     SECTION("type S in namespace ns with std::array<>")
     {
-        REQUIRE(kl::ctti::is_reflectable<S>);
+        REQUIRE(kl::reflectable<S>);
         static_assert(kl::ctti::num_fields<S>() == 4);
 
         const S s = {5, false, {3.14f}, A{"ZXC", {1, 2, 3, 4, 5, 6}, 0}};
@@ -203,7 +203,7 @@ TEST_CASE("ctti")
 
     SECTION("type Sdev")
     {
-        REQUIRE(kl::ctti::is_reflectable<Sdev>);
+        REQUIRE(kl::reflectable<Sdev>);
         static_assert(kl::ctti::num_fields<Sdev>() == 3);
 
         Sdev sd{};
@@ -224,7 +224,7 @@ TEST_CASE("ctti")
     {
         using T = ns::inner::T;
 
-        REQUIRE(kl::ctti::is_reflectable<T>);
+        REQUIRE(kl::reflectable<T>);
         REQUIRE(kl::ctti::num_fields<T>() == 2 + 2+ 4);
 
         T t{"HELLO",{"WORLD", "Hello"}};

@@ -94,16 +94,6 @@ template <typename T, typename U>
 struct is_same<T, U> : std::integral_constant<bool, std::is_same_v<T, U>>
 {
 };
-
-// C++20 stuff
-template <typename T>
-struct remove_cvref
-{
-    using type = std::remove_cv_t<std::remove_reference_t<T>>;
-};
-
-template <typename T>
-using remove_cvref_t = typename remove_cvref<T>::type;
 } // namespace kl
 
 #define KL_HAS_TYPEDEF_HELPER(type)                                            \
