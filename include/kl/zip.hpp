@@ -59,7 +59,7 @@ public:
     template <typename Tuple>
     bool not_equal(const Tuple& tup) const
     {
-        return tuple::not_equal_fn::call(tup, pack_);
+        return tuple::not_equal(tup, pack_);
     }
 
 private:
@@ -84,11 +84,11 @@ public:
     {
     }
 
-    reference operator*() const { return tuple::transform_ref_fn::call(pack_); }
+    reference operator*() const { return tuple::transform_ref(pack_); }
 
     zipped_iterator& operator++()
     {
-        tuple::for_each_fn::call(pack_, [](auto& f) { ++f; });
+        tuple::for_each(pack_, [](auto& f) { ++f; });
         return *this;
     }
 
