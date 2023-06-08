@@ -30,12 +30,6 @@ To bit_cast(const From& from) noexcept
     return to;
 }
 
-// From ranges-v3
-template <unsigned N>
-struct priority_tag : priority_tag<N - 1> {};
-template <>
-struct priority_tag<0> {};
-
 // From https://vector-of-bool.github.io/2017/08/12/partial-specializations.html
 template <typename T>
 struct type_t {};

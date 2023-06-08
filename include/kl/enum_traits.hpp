@@ -2,6 +2,7 @@
 
 #include "kl/utility.hpp"
 
+#include <concepts>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
@@ -89,8 +90,8 @@ struct enum_trait_support_range
                underlying_cast(e) < max_value();
     }
 
-    template <typename Integral, enable_if<std::is_integral<Integral>> = true>
-    constexpr static bool in_range(Integral v) noexcept
+    template <std::integral I>
+    constexpr static bool in_range(I v) noexcept
     {
         return v >= min_value() && v < max_value();
     }

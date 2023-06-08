@@ -42,7 +42,7 @@ elseif(UNIX)
     target_sources(kl PRIVATE file_view_unix.cpp)
 endif()
 
-target_compile_features(kl PUBLIC cxx_std_17)
+target_compile_features(kl PUBLIC cxx_std_20)
 target_include_directories(kl
     PUBLIC $<BUILD_INTERFACE:${kl_SOURCE_DIR}/include>
 )

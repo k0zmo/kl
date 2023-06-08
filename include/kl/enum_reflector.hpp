@@ -13,22 +13,14 @@
 
 namespace kl {
 
-namespace detail {
+template <typename T>
+concept reflectable_enum = std::is_enum_v<T> &&
+    requires(T) {
+        { reflect_enum(::kl::enum_<T>) };
+    };
 
-KL_VALID_EXPR_HELPER(has_reflect_enum, reflect_enum(::kl::enum_<T>))
-} // namespace detail
-
-template <typename Enum, bool is_enum = std::is_enum_v<Enum>>
-struct is_enum_reflectable : std::false_type {};
-
-// NOTE: We can't instantiate enum_reflector<Enum> with Enum being not a enum
-// type. This would cause compilation error on underlying_type alias. That's why
-// we check is_defined only if Enum is an actual enum type.
-template <typename Enum>
-struct is_enum_reflectable<Enum, true>
-    : std::bool_constant<detail::has_reflect_enum_v<Enum>>
-{
-};
+template <typename T>
+using is_enum_reflectable = std::bool_constant<reflectable_enum<T>>;
 
 template <typename T>
 inline constexpr bool is_enum_reflectable_v = is_enum_reflectable<T>::value;
@@ -141,15 +133,15 @@ constexpr enum_reflector<Enum> reflect() noexcept
     return {};
 }
 
-template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
-const char* to_string(Enum e) noexcept
+template <reflectable_enum E>
+const char* to_string(E e) noexcept
 {
-    return enum_reflector<Enum>::to_string(e);
+    return enum_reflector<E>::to_string(e);
 }
 
-template <typename Enum, enable_if<is_enum_reflectable<Enum>> = true>
-std::optional<Enum> from_string(std::string_view str) noexcept
+template <reflectable_enum E>
+std::optional<E> from_string(std::string_view str) noexcept
 {
-    return enum_reflector<Enum>::from_string(str);
+    return enum_reflector<E>::from_string(str);
 }
 } // namespace kl

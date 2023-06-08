@@ -337,7 +337,7 @@ TEST_CASE("json")
         t.non_opt = 23;
 
         rapidjson::Document doc;
-        json::serialize_context ctx{doc.GetAllocator(), false};
+        json::borrowing_serialize_context ctx{doc.GetAllocator(), false};
 
         REQUIRE(json::serialize(t, ctx).IsObject());
         REQUIRE(json::serialize(t, ctx).MemberCount() == 2);
@@ -961,7 +961,7 @@ TEST_CASE("json dump")
 
         StringBuffer sb;
         Writer<StringBuffer> writer{sb};
-        kl::json::dump_context<Writer<StringBuffer>> ctx{writer, false};
+        kl::json::default_dump_context<Writer<StringBuffer>> ctx{writer, false};
 
         json::dump(t, ctx);
         std::string res = sb.GetString();
