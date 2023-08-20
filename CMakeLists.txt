@@ -37,7 +37,6 @@ if(kl_master_project)
     # Don't use any extensions (GNU or MSVC)
     set(CMAKE_CXX_EXTENSIONS OFF)
 
-    include(Sanitizers)
     if(NOT KL_FETCH_DEPENDENCIES)
         set(kl_install_rules TRUE)
     endif()

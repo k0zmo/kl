@@ -104,6 +104,39 @@
             }
         },
         {
+            "name": "asan",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "ASan",
+                "CMAKE_CXX_FLAGS_ASAN": "-O1 -g -fsanitize=address -fno-omit-frame-pointer -DNDEBUG"
+            }
+        },
+        {
+            "name": "tsan",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "TSan",
+                "CMAKE_CXX_FLAGS_TSAN": "-O1 -g -fsanitize=thread -DNDEBUG"
+            }
+        },
+        {
+            "name": "ubsan",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "UBSan",
+                "CMAKE_CXX_FLAGS_UBSAN": "-O1 -g -fsanitize=undefined -fno-omit-frame-pointer -DNDEBUG"
+            }
+        },
+        {
+            "name": "msan",
+            "description": "This is Clang-only configuration",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "MSan",
+                "CMAKE_CXX_FLAGS_MSAN": "-O2 -g -fsanitize=memory -fno-omit-frame-pointer -DNDEBUG"
+            }
+        },
+        {
             "name": "Linux-GCC-Debug",
             "inherits": ["linux", "gcc", "debug"]
         },
@@ -112,12 +145,28 @@
             "inherits": ["linux", "gcc", "release"]
         },
         {
+            "name": "Linux-GCC-AddressSanitizer",
+            "inherits": ["linux", "gcc", "asan"]
+        },
+        {
+            "name": "Linux-GCC-ThreadSanitizer",
+            "inherits": ["linux", "gcc", "tsan"]
+        },
+        {
             "name": "Linux-Clang-Debug",
             "inherits": ["linux", "clang", "debug"]
         },
         {
             "name": "Linux-Clang-Release",
             "inherits": ["linux", "clang", "release"]
+        },
+        {
+            "name": "Linux-Clang-AddressSanitizer",
+            "inherits": ["linux", "clang", "asan"]
+        },
+        {
+            "name": "Linux-Clang-ThreadSanitizer",
+            "inherits": ["linux", "clang", "tsan"]
         },
         {
             "name": "x64-Debug",
