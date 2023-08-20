@@ -46,6 +46,7 @@ jobs:
           cmake --build build/Linux-GCC-Coverage --parallel $(nproc)
         displayName: 'Build kl'
       - script: |
+          set -e
           cd build/Linux-GCC-Coverage && cmake --build . --target kl-coverage
           ~/.local/bin/codecov -X gcov
         displayName: 'Send code coverage data'
