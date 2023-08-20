@@ -62,14 +62,11 @@
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic",
-                "CMAKE_CXX_FLAGS_DEBUG"  : "-O0 -g -gsplit-dwarf",
+                "CMAKE_CXX_FLAGS_DEBUG"  : "-O0 -g",
                 "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
                 "CMAKE_EXE_LINKER_FLAGS"   : "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
                 "CMAKE_MODULE_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
-                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
-                "CMAKE_EXE_LINKER_FLAGS_DEBUG"   : "-Wl,--gdb-index",
-                "CMAKE_MODULE_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index",
-                "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index"
+                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed"
             }
         },
         {
@@ -78,14 +75,11 @@
             "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "clang++",
                 "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic -Wno-missing-braces",
-                "CMAKE_CXX_FLAGS_DEBUG"  : "-O0 -g -gsplit-dwarf",
+                "CMAKE_CXX_FLAGS_DEBUG"  : "-O0 -g",
                 "CMAKE_CXX_FLAGS_RELEASE": "-O3 -DNDEBUG",
                 "CMAKE_EXE_LINKER_FLAGS"   : "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
                 "CMAKE_MODULE_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
-                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed",
-                "CMAKE_EXE_LINKER_FLAGS_DEBUG"   : "-Wl,--gdb-index",
-                "CMAKE_MODULE_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index",
-                "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index"
+                "CMAKE_SHARED_LINKER_FLAGS": "-Wl,--exclude-libs=ALL -Wl,-z,defs -Wl,--as-needed"
             }
         },
         {
@@ -96,11 +90,31 @@
             }
         },
         {
+            "name": "debug-split",
+            "description": "Cannot be used with BFD linker which doesn't support --gdb-index flag",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_FLAGS_DEBUG"  : "-O0 -g -gsplit-dwarf",
+                "CMAKE_EXE_LINKER_FLAGS_DEBUG"   : "-Wl,--gdb-index",
+                "CMAKE_MODULE_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index",
+                "CMAKE_SHARED_LINKER_FLAGS_DEBUG": "-Wl,--gdb-index"
+            }
+        },
+        {
             "name": "release",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
                 "KL_BENCH": "ON"
+            }
+        },
+        {
+            "name": "coverage",
+            "description": "Build flags are defined in cmake/CodeCoverage.cmake as DEBUG + --coverage",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Coverage"
             }
         },
         {
@@ -145,12 +159,16 @@
             "inherits": ["linux", "gcc", "release"]
         },
         {
+            "name": "Linux-GCC-Coverage",
+            "inherits": ["linux", "gcc", "coverage"]
+        },
+        {
             "name": "Linux-GCC-AddressSanitizer",
             "inherits": ["linux", "gcc", "asan"]
         },
         {
-            "name": "Linux-GCC-ThreadSanitizer",
-            "inherits": ["linux", "gcc", "tsan"]
+            "name": "Linux-GCC-UBSanitizer",
+            "inherits": ["linux", "gcc", "ubsan"]
         },
         {
             "name": "Linux-Clang-Debug",
@@ -165,8 +183,8 @@
             "inherits": ["linux", "clang", "asan"]
         },
         {
-            "name": "Linux-Clang-ThreadSanitizer",
-            "inherits": ["linux", "clang", "tsan"]
+            "name": "Linux-Clang-UBSanitizer",
+            "inherits": ["linux", "clang", "ubsan"]
         },
         {
             "name": "x64-Debug",
@@ -185,9 +203,9 @@
             "inherits": ["release", "x64-Debug"]
         },
         {
-            "name": "x64-VS2022",
+            "name": "x64-VS2019",
             "inherits": ["windows", "msvc"],
-            "generator": "Visual Studio 17 2022",
+            "generator": "Visual Studio 16 2019",
             "architecture": {
                 "value": "x64",
                 "strategy": "set"
@@ -196,6 +214,11 @@
                 "value": "host=x64",
                 "strategy": "set"
             }
+        },
+        {
+            "name": "x64-VS2022",
+            "inherits": "x64-VS2019",
+            "generator": "Visual Studio 17 2022"
         }
     ]
 }
