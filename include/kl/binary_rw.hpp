@@ -1,12 +1,12 @@
 #pragma once
 
-#include "kl/type_traits.hpp"
+#include "kl/utility.hpp"
 
 #include <gsl/span>
 
 #include <cstddef>
-#include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 namespace kl {
 

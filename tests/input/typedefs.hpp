@@ -4,6 +4,10 @@
 #include "kl/reflect_enum.hpp"
 #include "kl/reflect_struct.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <tuple>
 #include <vector>
 #include <map>
 #include <string>

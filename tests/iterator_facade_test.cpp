@@ -3,6 +3,11 @@
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_template_test_macros.hpp>
 
+#include <cstddef>
+#include <iterator>
+#include <utility>
+#include <vector>
+
 namespace {
 
 template <typename T, typename U>

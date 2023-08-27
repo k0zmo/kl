@@ -1,5 +1,5 @@
-#include "kl/enum_range.hpp"
 #include "kl/enum_reflector.hpp"
+#include "kl/reflect_enum.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 

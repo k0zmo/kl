@@ -2,8 +2,9 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <vector>
+#include <algorithm>
 #include <sstream>
+#include <vector>
 
 TEST_CASE("stream_join")
 {

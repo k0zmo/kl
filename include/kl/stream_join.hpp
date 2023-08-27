@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iosfwd>
 #include <iterator>
 #include <type_traits>
 

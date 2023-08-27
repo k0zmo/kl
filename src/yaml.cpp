@@ -1,4 +1,5 @@
 #include "kl/yaml.hpp"
+#include "kl/enum_reflector.hpp"
 #include "kl/reflect_enum.hpp"
 
 #include <iterator>

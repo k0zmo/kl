@@ -5,8 +5,8 @@
 
 #include <boost/core/demangle.hpp>
 
+#include <cstddef>
 #include <typeinfo>
-#include <type_traits>
 #include <string>
 
 namespace kl {

@@ -1,12 +1,17 @@
 #include "kl/ctti.hpp"
+#include "kl/reflect_struct.hpp"
 #include "kl/stream_join.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <string>
-#include <vector>
 #include <array>
+#include <cstddef>
+#include <ios>
+#include <ostream>
 #include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace test {
 

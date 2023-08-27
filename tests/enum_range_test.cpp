@@ -1,4 +1,5 @@
 #include "kl/enum_range.hpp"
+#include "kl/enum_traits.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 

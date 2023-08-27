@@ -5,6 +5,7 @@
 #include "kl/iterator_facade.hpp"
 
 #include <cstddef>
+#include <iterator>
 #include <type_traits>
 
 namespace kl {

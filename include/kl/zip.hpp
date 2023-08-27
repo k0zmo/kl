@@ -2,6 +2,7 @@
 
 #include "kl/tuple.hpp"
 
+#include <cstddef>
 #include <iterator>
 #include <tuple>
 #include <type_traits>

@@ -2,6 +2,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstdint>
+
 TEST_CASE("bit_cast")
 {
     float f = 3.14f;

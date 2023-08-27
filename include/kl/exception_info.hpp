@@ -4,8 +4,11 @@
 
 #include <boost/core/demangle.hpp>
 
+#include <exception>
+#include <ostream>
 #include <sstream>
 #include <memory>
+#include <string>
 #include <type_traits>
 #include <typeinfo>
 #include <utility>

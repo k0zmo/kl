@@ -7,20 +7,29 @@
 #include "kl/binary_rw/variant.hpp"
 #include "kl/binary_rw/vector.hpp"
 
+#include <boost/endian/arithmetic.hpp>
 #include <catch2/catch_test_macros.hpp>
+
 #include <gsl/span>
 #include <gsl/string_span>
 #include <gsl/span_ext> // operator==
 
-#include <cstring>
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <map>
 #include <optional>
+#include <set>
+#include <string>
+#include <variant>
+#include <vector>
 
-static constexpr inline std::byte operator"" _b(unsigned long long i)
+static constexpr inline std::byte operator""_b(unsigned long long i)
 {
     return static_cast<std::byte>(i);
 }
 
-static constexpr inline std::byte operator"" _b(char c)
+static constexpr inline std::byte operator""_b(char c)
 {
     return static_cast<std::byte>(c);
 }

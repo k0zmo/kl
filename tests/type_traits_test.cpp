@@ -1,6 +1,9 @@
 #include "kl/type_traits.hpp"
+#include "kl/utility.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+
+#include <type_traits>
 
 namespace {
 

@@ -3,7 +3,9 @@
 #include "kl/type_traits.hpp"
 #include "kl/reflect_enum.hpp"
 #include "kl/range.hpp"
+#include "kl/utility.hpp"
 
+#include <cstddef>
 #include <string_view>
 #include <type_traits>
 #include <array>

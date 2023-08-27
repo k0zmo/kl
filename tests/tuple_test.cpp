@@ -3,6 +3,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <optional>
+#include <tuple>
+#include <type_traits>
 #include <vector>
 
 TEST_CASE("tuple")

@@ -1,6 +1,11 @@
 #include "kl/base64.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <gsl/span>
+
+#include <cstddef>
+#include <string>
+#include <vector>
 
 namespace {
 

@@ -3,10 +3,12 @@
 
 #include <catch2/catch_test_macros.hpp>
 
-#include <exception>
-#include <vector>
-#include <stdexcept>
 #include <cstring>
+#include <exception>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace {
 
