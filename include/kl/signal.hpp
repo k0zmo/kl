@@ -714,12 +714,12 @@ private:
 
 namespace kl::this_signal {
 
-void stop_emission() noexcept
+inline void stop_emission() noexcept
 {
     detail::get_tls_signal_info().emission_stopped = true;
 }
 
-connection current_connection() noexcept
+inline connection current_connection() noexcept
 {
     auto slot = detail::get_tls_signal_info().current_slot;
     return slot ? connection{*slot} : connection{};
