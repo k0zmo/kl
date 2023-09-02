@@ -88,7 +88,7 @@ TEST_CASE("enum_reflector")
             REQUIRE(reflector::to_string(access_mode::read_only) ==
                     "read_only"s);
             REQUIRE(reflector::to_string(access_mode::max) == "max"s);
-            REQUIRE(reflector::to_string((access_mode)4) == "unknown <access_mode>"s);
+            REQUIRE(reflector::to_string(static_cast<access_mode>(4)) == "unknown <access_mode>"s);
         }
 
         SECTION("from_string")
@@ -127,7 +127,7 @@ TEST_CASE("enum_reflector")
             REQUIRE(refl.to_string(ns::inner::colour_space::lab) == "lab"s);
             REQUIRE(refl.to_string(ns::inner::colour_space::hls) == "hls"s);
             REQUIRE(refl.to_string(ns::inner::colour_space::luv) == "luv"s);
-            REQUIRE(refl.to_string((ns::inner::colour_space)40) == "unknown <colour_space>"s);
+            REQUIRE(refl.to_string(static_cast<ns::inner::colour_space>(40)) == "unknown <colour_space>"s);
         }
 
         SECTION("from_string")

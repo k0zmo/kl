@@ -39,7 +39,7 @@ namespace detail {
 
 constexpr std::uint16_t get16bits(const char* d) noexcept
 {
-    return (d[0] | (d[1] << 8));
+    return static_cast<std::uint16_t>(d[0] | (d[1] << 8));
 }
 } // namespace detail
 
@@ -70,7 +70,7 @@ constexpr std::uint32_t hsieh(const char* data, std::size_t length) noexcept
     case 3:
         hash += detail::get16bits(data);
         hash ^= hash << 16;
-        hash ^= ((signed char)data[sizeof(uint16_t)]) << 18;
+        hash ^= static_cast<signed char>(data[sizeof(uint16_t)]) << 18;
         hash += hash >> 11;
         break;
     case 2:
@@ -79,7 +79,7 @@ constexpr std::uint32_t hsieh(const char* data, std::size_t length) noexcept
         hash += hash >> 17;
         break;
     case 1:
-        hash += (signed char)*data;
+        hash += static_cast<signed char>(*data);
         hash ^= hash << 10;
         hash += hash >> 1;
     }

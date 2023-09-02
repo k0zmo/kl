@@ -75,12 +75,12 @@ file_view::file_view(const char* file_path)
     if (!file_info.st_size)
         return; // Empty file
 
-    void* file_view =
-        ::mmap(nullptr, file_info.st_size, PROT_READ, MAP_PRIVATE, fd, 0);
-    if (!file_view)
+    void* mapped = ::mmap(nullptr, static_cast<std::size_t>(file_info.st_size),
+                          PROT_READ, MAP_PRIVATE, fd, 0);
+    if (!mapped)
         throw_system_error();
 
-    contents_ = gsl::span{static_cast<const std::byte*>(file_view),
+    contents_ = gsl::span{static_cast<const std::byte*>(mapped),
                           static_cast<std::size_t>(file_info.st_size)};
 }
 
