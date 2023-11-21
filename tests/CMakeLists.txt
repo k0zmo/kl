@@ -55,8 +55,8 @@ foreach(test_file ${test_files})
 endforeach()
 
 # Add kl-coverage target for calculating test coverage
-include(CodeCoverage)
 if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    include(CodeCoverage)
     kl_add_coverage_target_lcov(kl-coverage
         COMMAND kl-tests
         FILTERS

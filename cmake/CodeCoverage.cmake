@@ -21,8 +21,8 @@
 #   # Executable under the coverage test
 #   add_executable(sample-tests all-tests.cpp)
 #   # ...
-#   include(CodeCoverage)
 #   if(CMAKE_BUILD_TYPE STREQUAL "Coverage")
+#       include(CodeCoverage)
 #       kl_add_coverage_target_lcov(sample-coverage
 #           COMMAND sample-tests # Or ${CMAKE_CTEST_EXECUTABLE}
 #           OUTPUT_NAME coverage
@@ -48,6 +48,10 @@ macro(kl_ignore_errors_call _out)
 endmacro()
 
 function(kl_add_coverage_target_lcov _target)
+    if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
+       NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
+        message(FATAL_ERROR "kl_add_coverage_target_lcov works only for GCC or Clang")
+    endif()
     find_program(LCOV_EXECUTABLE lcov)
     mark_as_advanced(LCOV_EXECUTABLE)
     if(NOT LCOV_EXECUTABLE)
@@ -126,6 +130,11 @@ function(kl_add_coverage_target_lcov _target)
 endfunction()
 
 function(kl_add_coverage_target_gcovr _target)
+    if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
+       NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
+        message(FATAL_ERROR "kl_add_coverage_target_gcovr works only for GCC or Clang")
+    endif()
+
     find_program(GCOVR_EXECUTABLE gcovr)
     mark_as_advanced(GCOVR_EXECUTABLE)
     if(NOT GCOVR_EXECUTABLE)
@@ -222,6 +231,9 @@ function(kl_add_coverage_target_gcovr _target)
 endfunction()
 
 function(kl_add_coverage_target_occ _target)
+    if(NOT MSVC)
+        message(FATAL_ERROR "kl_add_coverage_target_occ works only with MSVC")
+    endif()
     find_program(OPEN_CPP_COVERAGE_EXECUTABLE OpenCppCoverage)
     mark_as_advanced(OPEN_CPP_COVERAGE_EXECUTABLE)
     if(NOT OPEN_CPP_COVERAGE_EXECUTABLE)
@@ -284,15 +296,3 @@ function(kl_add_coverage_target_occ _target)
         WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
     )
 endfunction()
-
-# Define 'Coverage' build type for Clang and GCC
-if(NOT (CMAKE_CXX_COMPILER_ID STREQUAL "Clang") AND
-   NOT (CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
-    message(STATUS "No coverage build type for compiler: ${CMAKE_CXX_COMPILER_ID}")
-else()
-    include(DefineBuildType)
-    kl_define_build_type(Coverage
-        BASE Debug
-        COMPILER_FLAGS "--coverage"
-    )
-endif()
