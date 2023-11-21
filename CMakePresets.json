@@ -166,6 +166,10 @@
             "inherits": [":release", "x64-Debug"]
         },
         {
+            "name": "x64-AddressSanitizer",
+            "inherits": [":asan", "x64-Debug"]
+        },
+        {
             "name": "x64-VS2019",
             "inherits": [":windows", ":cl"],
             "generator": "Visual Studio 16 2019",

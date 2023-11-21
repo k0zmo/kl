@@ -35,6 +35,10 @@ set(compile_options_release
     /Gy  # Allows the compiler to package individual functions in the form of packaged functions (COMDATs).
     /DNDEBUG
 )
+set(compile_options_asan
+    ${compile_options_debug}
+    /fsanitize=address # Enables AddressSanitizer
+)
 set(link_options)
 set(link_options_debug
     /DEBUG          # Create a debugging information file for the executable.
@@ -45,6 +49,10 @@ set(link_options_release
     /INCREMENTAL:NO # always perform a full link
     /OPT:REF        # Remove unreferenced packaged functions and data
     /OPT:ICF        # Perform identical COMDAT folding.
+)
+set(link_options_asan
+    ${link_options_debug}
+    /INFERASANLIBS  # Enables the default AddressSanitizer libraries
 )
 
 include(${CMAKE_CURRENT_LIST_DIR}/../SetFlags.cmake)
