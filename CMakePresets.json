@@ -2,7 +2,7 @@
     "version": 3,
     "configurePresets": [
         {
-            "name": "base",
+            "name": ":base",
             "hidden": true,
             "binaryDir": "${sourceDir}/build/${presetName}",
             "installDir": "${sourceDir}/install/${presetName}",
@@ -14,15 +14,15 @@
             }
         },
         {
-            "name": "windows",
+            "name": ":windows",
             "hidden": true,
-            "inherits": "base",
-            "condition": { "type": "equals", "rhs": "Windows", "lhs": "${hostSystemName}" }
+            "inherits": ":base",
+            "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
         },
         {
-            "name": "linux",
+            "name": ":linux",
             "hidden": true,
-            "inherits": "base",
+            "inherits": ":base",
             "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
             "vendor": {
                 "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
@@ -42,7 +42,7 @@
             }
         },
         {
-            "name": "msvc",
+            "name": ":cl",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "cl",
@@ -58,7 +58,7 @@
             }
         },
         {
-            "name": "gcc",
+            "name": ":gcc",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_CXX_FLAGS": "-Wall -Wextra -Wpedantic",
@@ -70,7 +70,7 @@
             }
         },
         {
-            "name": "clang",
+            "name": ":clang",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "clang++",
@@ -84,14 +84,14 @@
             }
         },
         {
-            "name": "debug",
+            "name": ":debug",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Debug"
             }
         },
         {
-            "name": "debug-split",
+            "name": ":debug-split",
             "description": "Cannot be used with BFD linker which doesn't support --gdb-index flag",
             "hidden": true,
             "cacheVariables": {
@@ -103,7 +103,7 @@
             }
         },
         {
-            "name": "release",
+            "name": ":release",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
@@ -111,7 +111,7 @@
             }
         },
         {
-            "name": "coverage",
+            "name": ":coverage",
             "description": "Build flags are defined in cmake/CodeCoverage.cmake as DEBUG + --coverage",
             "hidden": true,
             "cacheVariables": {
@@ -119,7 +119,7 @@
             }
         },
         {
-            "name": "asan",
+            "name": ":asan",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "ASan",
@@ -127,7 +127,7 @@
             }
         },
         {
-            "name": "tsan",
+            "name": ":tsan",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "TSan",
@@ -135,7 +135,7 @@
             }
         },
         {
-            "name": "ubsan",
+            "name": ":ubsan",
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "UBSan",
@@ -143,7 +143,7 @@
             }
         },
         {
-            "name": "msan",
+            "name": ":msan",
             "description": "This is Clang-only configuration",
             "hidden": true,
             "cacheVariables": {
@@ -153,43 +153,43 @@
         },
         {
             "name": "Linux-GCC-Debug",
-            "inherits": ["linux", "gcc", "debug"]
+            "inherits": [":linux", ":gcc", ":debug"]
         },
         {
             "name": "Linux-GCC-Release",
-            "inherits": ["linux", "gcc", "release"]
+            "inherits": [":linux", ":gcc", ":release"]
         },
         {
             "name": "Linux-GCC-Coverage",
-            "inherits": ["linux", "gcc", "coverage"]
+            "inherits": [":linux", ":gcc", ":coverage"]
         },
         {
             "name": "Linux-GCC-AddressSanitizer",
-            "inherits": ["linux", "gcc", "asan"]
+            "inherits": [":linux", ":gcc", ":asan"]
         },
         {
             "name": "Linux-GCC-UBSanitizer",
-            "inherits": ["linux", "gcc", "ubsan"]
+            "inherits": [":linux", ":gcc", ":ubsan"]
         },
         {
             "name": "Linux-Clang-Debug",
-            "inherits": ["linux", "clang", "debug"]
+            "inherits": [":linux", ":clang", ":debug"]
         },
         {
             "name": "Linux-Clang-Release",
-            "inherits": ["linux", "clang", "release"]
+            "inherits": [":linux", ":clang", ":release"]
         },
         {
             "name": "Linux-Clang-AddressSanitizer",
-            "inherits": ["linux", "clang", "asan"]
+            "inherits": [":linux", ":clang", ":asan"]
         },
         {
             "name": "Linux-Clang-UBSanitizer",
-            "inherits": ["linux", "clang", "ubsan"]
+            "inherits": [":linux", ":clang", ":ubsan"]
         },
         {
             "name": "x64-Debug",
-            "inherits": ["windows", "msvc", "debug"],
+            "inherits": [":windows", ":cl", ":debug"],
             "architecture": {
                 "value": "x64",
                 "strategy": "external"
@@ -201,11 +201,11 @@
         },
         {
             "name": "x64-Release",
-            "inherits": ["release", "x64-Debug"]
+            "inherits": [":release", "x64-Debug"]
         },
         {
             "name": "x64-VS2019",
-            "inherits": ["windows", "msvc"],
+            "inherits": [":windows", ":cl"],
             "generator": "Visual Studio 16 2019",
             "architecture": {
                 "value": "x64",
