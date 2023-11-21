@@ -7,7 +7,6 @@ set(compile_options
     /GR              # Enable Run-Time Type Information
     /EHsc            # Enables standard C++ stack unwinding, assumes that functions declared as extern "C" never throw a C++ exception
     /permissive-     # Specify standards-conforming compiler behavior
-    /Zc:inline       # Remove unreferenced COMDAT
     /Zc:throwingNew  # Assume operator new throws
     /Zc:preprocessor # Enable preprocessor conformance mode
     /volatile:iso    # Selects strict volatile semantics as defined by the ISO-standard C++ language.
@@ -27,12 +26,13 @@ set(compile_options_debug
     /Zi  # Produces a separate PDB file that contains all the symbolic debugging information for use with the debugger
 )
 set(compile_options_release
-    /O2  # Maximize Speed
-    /Zi  # Produces a separate PDB file that contains all the symbolic debugging information for use with the debugger
-    /Oi  # Generate Intrinsic Functions
-    /Ob3 # Specifies more aggressive inlining than /Ob2
-    /Gw  # Package global data in COMDAT sections for optimization.
-    /Gy  # Allows the compiler to package individual functions in the form of packaged functions (COMDATs).
+    /O2         # Maximize Speed
+    /Zi         # Produces a separate PDB file that contains all the symbolic debugging information for use with the debugger
+    /Oi         # Generate Intrinsic Functions
+    /Zc:inline  # Remove unreferenced COMDAT
+    /Ob3        # Specifies more aggressive inlining than /Ob2
+    /Gw         # Package global data in COMDAT sections for optimization.
+    /Gy         # Allows the compiler to package individual functions in the form of packaged functions (COMDATs).
     /DNDEBUG
 )
 set(compile_options_asan
