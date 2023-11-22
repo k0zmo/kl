@@ -114,6 +114,30 @@
             }
         },
         {
+            "name": ":x64-arch-external",
+            "hidden": true,
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "toolset": {
+                "value": "host=x64",
+                "strategy": "external"
+            }
+        },
+        {
+            "name": ":x64-arch-set",
+            "hidden": true,
+            "architecture": {
+                "value": "x64",
+                "strategy": "set"
+            },
+            "toolset": {
+                "value": "host=x64",
+                "strategy": "set"
+            }
+        },
+        {
             "name": "Linux-GCC-Debug",
             "inherits": [":linux", ":gcc", ":debug"]
         },
@@ -151,40 +175,24 @@
         },
         {
             "name": "x64-Debug",
-            "inherits": [":windows", ":cl", ":debug"],
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
-            "toolset": {
-                "value": "host=x64",
-                "strategy": "external"
-            }
+            "inherits": [":windows", ":cl", ":x64-arch-external", ":debug"]
         },
         {
             "name": "x64-Release",
-            "inherits": [":release", "x64-Debug"]
+            "inherits": [":windows", ":cl", ":x64-arch-external", ":release"]
         },
         {
             "name": "x64-AddressSanitizer",
-            "inherits": [":asan", "x64-Debug"]
+            "inherits": [":windows", ":cl", ":x64-arch-external", ":asan"]
         },
         {
             "name": "x64-VS2019",
-            "inherits": [":windows", ":cl"],
-            "generator": "Visual Studio 16 2019",
-            "architecture": {
-                "value": "x64",
-                "strategy": "set"
-            },
-            "toolset": {
-                "value": "host=x64",
-                "strategy": "set"
-            }
+            "inherits": [":windows", ":cl", ":x64-arch-set"],
+            "generator": "Visual Studio 16 2019"
         },
         {
             "name": "x64-VS2022",
-            "inherits": "x64-VS2019",
+            "inherits": [":windows", ":cl", ":x64-arch-set"],
             "generator": "Visual Studio 17 2022"
         }
     ]
