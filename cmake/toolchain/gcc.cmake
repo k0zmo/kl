@@ -2,56 +2,55 @@ include_guard()
 
 set(CMAKE_CXX_COMPILER "g++" CACHE STRING "CXX Compiler")
 
-set(compile_options
+set(CXX_FLAGS
     -Wall
     -Wextra
     -Wpedantic
 )
-set(compile_options_debug
+set(CXX_FLAGS_DEBUG
     -O0
     -g
     # Consider adding -gsplit-dwarf
 )
-set(compile_options_release
+set(CXX_FLAGS_RELEASE
     -O3
     -DNDEBUG
 )
-set(compile_options_coverage
-    ${compile_options_debug}
+set(CXX_FLAGS_COVERAGE ${CXX_FLAGS_DEBUG}
     --coverage
 )
-set(compile_options_asan
+set(CXX_FLAGS_ASAN
     -O1
     -g
     -fsanitize=address
     -fno-omit-frame-pointer
     -DNDEBUG
 )
-set(compile_options_tsan
+set(CXX_FLAGS_TSAN
     -O1
     -g
     -fsanitize=thread
     -DNDEBUG
 )
-set(compile_options_ubsan
+set(CXX_FLAGS_UBSAN
     -O1
     -g
     -fsanitize=undefined
     -fno-omit-frame-pointer
     -DNDEBUG
 )
-set(link_options
+set(LINKER_FLAGS
     -Wl,--exclude-libs=ALL
     -Wl,--as-needed
     -Wl,-z,defs
 )
-set(link_options_debug
+set(LINKER_FLAGS_DEBUG
     # Consider adding -Wl,--gdb-index (requires gold, lld or mold)
 )
-set(link_options_release)
-set(link_options_coverage ${link_options_debug})
-set(link_options_asan)
-set(link_options_tsan)
-set(link_options_ubsan)
+set(LINKER_FLAGS_RELEASE)
+set(LINKER_FLAGS_COVERAGE ${LINKER_FLAGS_DEBUG})
+set(LINKER_FLAGS_ASAN)
+set(LINKER_FLAGS_TSAN)
+set(LINKER_FLAGS_UBSAN)
 
 include(${CMAKE_CURRENT_LIST_DIR}/../SetFlags.cmake)

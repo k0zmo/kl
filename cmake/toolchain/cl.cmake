@@ -2,7 +2,7 @@ include_guard()
 
 set(CMAKE_CXX_COMPILER "cl.exe" CACHE STRING "CXX Compiler")
 
-set(compile_options
+set(CXX_FLAGS
     /utf-8           # Set source and execution character sets to UTF-8
     /GR              # Enable Run-Time Type Information
     /EHsc            # Enables standard C++ stack unwinding, assumes that functions declared as extern "C" never throw a C++ exception
@@ -20,12 +20,12 @@ set(compile_options
     /DWIN32_LEAN_AND_MEAN
     /D_WIN32_WINNT=0x0A00
 )
-set(compile_options_debug
+set(CXX_FLAGS_DEBUG
     /JMC # Just My Code debugging
     /Od  # Turns off all optimizations in the program and speeds compilation.
     /Zi  # Produces a separate PDB file that contains all the symbolic debugging information for use with the debugger
 )
-set(compile_options_release
+set(CXX_FLAGS_RELEASE
     /O2         # Maximize Speed
     /Zi         # Produces a separate PDB file that contains all the symbolic debugging information for use with the debugger
     /Oi         # Generate Intrinsic Functions
@@ -35,23 +35,21 @@ set(compile_options_release
     /Gy         # Allows the compiler to package individual functions in the form of packaged functions (COMDATs).
     /DNDEBUG
 )
-set(compile_options_asan
-    ${compile_options_debug}
+set(CXX_FLAGS_ASAN ${CXX_FLAGS_DEBUG}
     /fsanitize=address # Enables AddressSanitizer
 )
-set(link_options)
-set(link_options_debug
+set(LINKER_FLAGS)
+set(LINKER_FLAGS_DEBUG
     /DEBUG          # Create a debugging information file for the executable.
     /INCREMENTAL    # Link incrementally 
 )
-set(link_options_release
+set(LINKER_FLAGS_RELEASE
     /DEBUG          # Create a debugging information file for the executable.
     /INCREMENTAL:NO # always perform a full link
     /OPT:REF        # Remove unreferenced packaged functions and data
     /OPT:ICF        # Perform identical COMDAT folding.
 )
-set(link_options_asan
-    ${link_options_debug}
+set(LINKER_FLAGS_ASAN ${LINKER_FLAGS_DEBUG}
     /INFERASANLIBS  # Enables the default AddressSanitizer libraries
 )
 
