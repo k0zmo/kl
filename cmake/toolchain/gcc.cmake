@@ -3,18 +3,26 @@ include_guard()
 set(CMAKE_CXX_COMPILER "g++" CACHE STRING "CXX Compiler")
 
 set(CXX_FLAGS
+    -fasynchronous-unwind-tables
+    -ffunction-sections
+    -fdata-sections
+    -grecord-gcc-switches
+    -pipe
     -Wall
     -Wextra
     -Wpedantic
+    -Werror=format-security
 )
 set(CXX_FLAGS_DEBUG
     -O0
     -g
     # Consider adding -gsplit-dwarf
+    -D_GLIBCXX_ASSERTIONS
 )
 set(CXX_FLAGS_RELEASE
     -O3
     -DNDEBUG
+    -D_FORTIFY_SOURCE=2
 )
 set(CXX_FLAGS_COVERAGE ${CXX_FLAGS_DEBUG}
     --coverage
@@ -43,6 +51,9 @@ set(LINKER_FLAGS
     -Wl,--exclude-libs=ALL
     -Wl,--as-needed
     -Wl,-z,defs
+    -Wl,-z,now
+    -Wl,-z,relro
+    -Wl,-gc-sections
 )
 set(LINKER_FLAGS_DEBUG
     # Consider adding -Wl,--gdb-index (requires gold, lld or mold)
