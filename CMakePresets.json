@@ -16,13 +16,13 @@
         {
             "name": ":windows",
             "hidden": true,
-            "inherits": ":base",
+            "inherits": [":base"],
             "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Windows" }
         },
         {
             "name": ":linux",
             "hidden": true,
-            "inherits": ":base",
+            "inherits": [":base"],
             "condition": { "type": "equals", "lhs": "${hostSystemName}", "rhs": "Linux" },
             "vendor": {
                 "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
@@ -42,7 +42,7 @@
             }
         },
         {
-            "name": ":cl",
+            "name": ":msvc",
             "hidden": true,
             "toolchainFile": "${sourceDir}/cmake/toolchain/cl.cmake",
             "cacheVariables": {
@@ -138,61 +138,61 @@
             }
         },
         {
-            "name": "Linux-GCC-Debug",
+            "name": "gcc-debug",
             "inherits": [":linux", ":gcc", ":debug"]
         },
         {
-            "name": "Linux-GCC-Release",
+            "name": "gcc-release",
             "inherits": [":linux", ":gcc", ":release"]
         },
         {
-            "name": "Linux-GCC-Coverage",
+            "name": "gcc-coverage",
             "inherits": [":linux", ":gcc", ":coverage"]
         },
         {
-            "name": "Linux-GCC-AddressSanitizer",
+            "name": "gcc-asan",
             "inherits": [":linux", ":gcc", ":asan"]
         },
         {
-            "name": "Linux-GCC-UBSanitizer",
+            "name": "gcc-ubsan",
             "inherits": [":linux", ":gcc", ":ubsan"]
         },
         {
-            "name": "Linux-Clang-Debug",
+            "name": "clang-debug",
             "inherits": [":linux", ":clang", ":debug"]
         },
         {
-            "name": "Linux-Clang-Release",
+            "name": "clang-release",
             "inherits": [":linux", ":clang", ":release"]
         },
         {
-            "name": "Linux-Clang-AddressSanitizer",
+            "name": "clang-asan",
             "inherits": [":linux", ":clang", ":asan"]
         },
         {
-            "name": "Linux-Clang-UBSanitizer",
+            "name": "clang-ubsan",
             "inherits": [":linux", ":clang", ":ubsan"]
         },
         {
-            "name": "x64-Debug",
-            "inherits": [":windows", ":cl", ":x64-arch-external", ":debug"]
+            "name": "msvc-debug",
+            "inherits": [":windows", ":msvc", ":x64-arch-external", ":debug"]
         },
         {
-            "name": "x64-Release",
-            "inherits": [":windows", ":cl", ":x64-arch-external", ":release"]
+            "name": "msvc-release",
+            "inherits": [":windows", ":msvc", ":x64-arch-external", ":release"]
         },
         {
-            "name": "x64-AddressSanitizer",
-            "inherits": [":windows", ":cl", ":x64-arch-external", ":asan"]
+            "name": "msvc-asan",
+            "inherits": [":windows", ":msvc", ":x64-arch-external", ":asan"]
         },
         {
-            "name": "x64-VS2019",
-            "inherits": [":windows", ":cl", ":x64-arch-set"],
+            "name": "vs2019",
+            "inherits": [":windows", ":msvc", ":x64-arch-set"],
             "generator": "Visual Studio 16 2019"
         },
         {
-            "name": "x64-VS2022",
-            "inherits": [":windows", ":cl", ":x64-arch-set"],
+            "name": "vs2022",
+            "inherits": [":windows", ":msvc", ":x64-arch-set"],
             "generator": "Visual Studio 17 2022"
         }
     ]

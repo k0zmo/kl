@@ -5,11 +5,11 @@ jobs:
     strategy:
       matrix:
         Release:
-          BuildType: Release
+          CMakePreset: gcc-release
         AddressSanitizer:
-          BuildType: AddressSanitizer
+          CMakePreset: gcc-asan
         UndefinedBehaviourSanitizer:
-          BuildType: UBSanitizer
+          CMakePreset: gcc-ubsan
     steps:
       - script: |
           which g++ && g++ --version
@@ -20,11 +20,11 @@ jobs:
           sudo apt-get install ninja-build
         displayName: 'Install Ninja'
       - script: |
-          cmake --preset=Linux-GCC-$(BuildType) -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
-          cmake --build build/Linux-GCC-$(BuildType)
+          cmake --preset=$(CMakePreset) -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
+          cmake --build build/$(CMakePreset)
         displayName: 'Build kl'
       - script: |
-          cd build/Linux-GCC-$(BuildType) && ctest -VV --output-on-failure
+          cd build/$(CMakePreset) && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
   - job: ubuntu20_gcc9_coverage
@@ -45,12 +45,12 @@ jobs:
       - template: templates/install-lcov.yml
       - script: |
           export PATH=$(pwd)/_deps/lcov/bin:$PATH
-          cmake --preset=Linux-GCC-Coverage -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
-          cmake --build build/Linux-GCC-Coverage
+          cmake --preset=gcc-coverage -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
+          cmake --build build/gcc-coverage
         displayName: 'Build kl'
       - script: |
           set -e
-          cd build/Linux-GCC-Coverage && cmake --build . --target kl-coverage
+          cd build/gcc-coverage && cmake --build . --target kl-coverage
           ~/.local/bin/codecov -X gcov
         displayName: 'Send code coverage data'
 
@@ -70,11 +70,11 @@ jobs:
           sudo apt-get install ninja-build
         displayName: 'Install Ninja'
       - script: |
-          cmake --preset=Linux-Clang-Release -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
-          cmake --build build/Linux-Clang-Release
+          cmake --preset=clang-release -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
+          cmake --build build/clang-release
         displayName: 'Build kl'
       - script: |
-          cd build/Linux-Clang-Release && ctest -VV --output-on-failure
+          cd build/clang-release && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
   - job: windows_vc2019
@@ -88,11 +88,11 @@ jobs:
         displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
-          cmake.exe --preset=x64-VS2019 -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0 
-          cmake.exe --build build/x64-VS2019 --config Release
+          cmake.exe --preset=vs2019 -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0 
+          cmake.exe --build build/vs2019 --config Release
         displayName: 'Build kl'
       - script: |
-          cd build/x64-VS2019 && ctest --build-config Release -VV --output-on-failure
+          cd build/vs2019 && ctest --build-config Release -VV --output-on-failure
         displayName: 'Run CTest'
 
   - job: windows_vc2022_conan

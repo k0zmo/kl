@@ -16,13 +16,13 @@ install:
   - cd %APPVEYOR_BUILD_FOLDER%
 
 before_build:
-  - cmd: cmake --preset=x64-VS2022 --toolchain C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake
+  - cmd: cmake --preset=vs2022 --toolchain C:/Tools/vcpkg/scripts/buildsystems/vcpkg.cmake
 
 build_script:
-  - cmd: cmake --build build/x64-VS2022 --config Release -- /verbosity:minimal /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
+  - cmd: cmake --build build/vs2022 --config Release -- /verbosity:minimal /logger:"C:\Program Files\AppVeyor\BuildAgent\Appveyor.MSBuildLogger.dll"
 
 test_script:
-  - cmd: build\\x64-VS2022\\tests\\Release\\kl-tests -r junit -o results.xml
+  - cmd: build\\vs2022\\tests\\Release\\kl-tests -r junit -o results.xml
 
 after_test:
   - ps: |
