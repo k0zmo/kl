@@ -44,21 +44,23 @@
         {
             "name": ":msvc",
             "hidden": true,
-            "toolchainFile": "${sourceDir}/cmake/toolchain/cl.cmake",
             "cacheVariables": {
-                "CMAKE_CXX_COMPILER": "cl"
+                "CMAKE_CXX_COMPILER": "cl",
+                "CMAKE_PROJECT_INCLUDE_BEFORE": "${sourceDir}/cmake/compilers/msvc.cmake"
             }
         },
         {
             "name": ":gcc",
             "hidden": true,
-            "toolchainFile": "${sourceDir}/cmake/toolchain/gcc.cmake"
+            "cacheVariables": {
+                "CMAKE_PROJECT_INCLUDE_BEFORE": "${sourceDir}/cmake/compilers/gcc.cmake"
+            }
         },
         {
             "name": ":clang",
             "hidden": true,
-            "toolchainFile": "${sourceDir}/cmake/toolchain/clang.cmake",
             "cacheVariables": {
+                "CMAKE_PROJECT_INCLUDE_BEFORE": "${sourceDir}/cmake/compilers/clang.cmake",
                 "CMAKE_PCH_INSTANTIATE_TEMPLATES": "ON"
             }
         },

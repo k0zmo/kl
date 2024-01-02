@@ -1,4 +1,4 @@
-include_guard()
+include_guard(GLOBAL)
 
 set(CMAKE_CXX_COMPILER "cl.exe" CACHE STRING "CXX Compiler")
 
@@ -10,7 +10,7 @@ set(CXX_FLAGS
     /Zc:throwingNew  # Assume operator new throws
     /Zc:preprocessor # Enable preprocessor conformance mode
     /volatile:iso    # Selects strict volatile semantics as defined by the ISO-standard C++ language.
-    /W4 
+    /W4
     /wd4127 # disable: `conditional expression is constant`
     /wd4251 # disable: `'type' : class 'type1' needs to have dll-interface to be used by clients of class 'type2'`
     /wd4275 # disable: `non - DLL-interface class 'class_1' used as base for DLL-interface class 'class_2'`
@@ -41,7 +41,7 @@ set(CXX_FLAGS_ASAN ${CXX_FLAGS_DEBUG}
 set(LINKER_FLAGS)
 set(LINKER_FLAGS_DEBUG
     /DEBUG          # Create a debugging information file for the executable.
-    /INCREMENTAL    # Link incrementally 
+    /INCREMENTAL    # Link incrementally
 )
 set(LINKER_FLAGS_RELEASE
     /DEBUG          # Create a debugging information file for the executable.
@@ -53,4 +53,4 @@ set(LINKER_FLAGS_ASAN ${LINKER_FLAGS_DEBUG}
     /INFERASANLIBS  # Enables the default AddressSanitizer libraries
 )
 
-include(${CMAKE_CURRENT_LIST_DIR}/../SetFlags.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/SetFlags.cmake)
