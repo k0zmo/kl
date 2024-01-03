@@ -51,12 +51,7 @@ struct enum_reflector
     static constexpr std::optional<enum_type>
         from_string(std::string_view str) noexcept
     {
-        // NOTE: MSVC2017/2019 goes haywire here when we loop directly over the
-        // expression which under the table uses `auto&&` to extend the lifetime
-        // of it. Thus we assign the expression to `auto` and only then we loop
-        // over it.
-        const auto rng = reflect_enum(enum_<enum_type>);
-        for (const auto& vn : rng)
+        for (const auto& vn : reflect_enum(enum_<enum_type>))
         {
             if (str == vn.name)
                 return {vn.value};
