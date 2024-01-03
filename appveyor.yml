@@ -11,7 +11,7 @@ init:
 
 install:
   - cd C:\Tools\vcpkg
-  - git fetch origin && git reset --hard 2022.08.15
+  - git fetch origin && git reset --hard 2023.11.20
   - .\bootstrap-vcpkg.bat
   - cd %APPVEYOR_BUILD_FOLDER%
 
