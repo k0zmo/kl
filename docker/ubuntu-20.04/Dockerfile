@@ -15,7 +15,7 @@ RUN wget -q "https://packages.microsoft.com/config/ubuntu/$(lsb_release -rs)/pac
  && dpkg -i packages-microsoft-prod.deb \
  && rm packages-microsoft-prod.deb
 
-# Install gcc-11 and dotnet 6.0 (required for CMake VScode extension)
+# Install gcc, clang and dotnet 6.0 (required for CMake VScode extension)
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test \
  && apt-get update -qq \
  && apt-get install -y --no-install-recommends \
@@ -33,13 +33,13 @@ RUN add-apt-repository ppa:ubuntu-toolchain-r/test \
 WORKDIR /tmp
 
 # CMake
-RUN wget -O - https://github.com/Kitware/CMake/releases/download/v3.28.0/cmake-3.28.0-Linux-x86_64.tar.gz | tar --strip=1 -C /usr/local -xzf -
+RUN wget -O - https://github.com/Kitware/CMake/releases/download/v3.29.3/cmake-3.29.3-Linux-x86_64.tar.gz | tar --strip=1 -C /usr/local -xzf -
 
 # Boost
-RUN wget -O - https://boostorg.jfrog.io/artifactory/main/release/1.82.0/source/boost_1_82_0.tar.gz | tar -xzf - \
- && cd boost_1_82_0 \
+RUN wget -O - https://boostorg.jfrog.io/artifactory/main/release/1.85.0/source/boost_1_85_0.tar.gz | tar -xzf - \
+ && cd boost_1_85_0 \
  && ./bootstrap.sh \
  && ./b2 --with-system link=static cxxflags=-fPIC cflags=-fPIC -a -j$(nproc) install \
- && rm -rf /tmp/boost_1_82_0
+ && rm -rf /tmp/boost_1_85_0
 
 WORKDIR /root

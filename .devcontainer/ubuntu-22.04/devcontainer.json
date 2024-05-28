@@ -1,0 +1,27 @@
+{
+    "name": "Ubuntu 22.04",
+    "build": {
+        "dockerfile": "../../docker/ubuntu-22.04/Dockerfile",
+        "context": "../../docker/ubuntu-20.04"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "josetr.cmake-language-support-vscode",
+                "vadimcn.vscode-lldb",
+                "mhutchie.git-graph",
+                "ms-vscode.cmake-tools",
+                "ms-dotnettools.vscode-dotnet-runtime",
+                "llvm-vs-code-extensions.vscode-clangd",
+                "-twxs.cmake",
+                "SteveBushResearch.BuildOutputColorizer"
+            ],
+            "settings": {
+                "cmake.languageSupport.dotnetPath": "/usr/bin/dotnet"
+            }
+        }
+    },
+    "containerEnv": {
+        "NINJA_STATUS": "[%r processes, %f/%t @ %o/s : %es] "
+    }
+}
