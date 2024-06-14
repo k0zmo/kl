@@ -9,8 +9,7 @@
             "generator": "Ninja",
             "cacheVariables": {
                 "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-                "CMAKE_COLOR_DIAGNOSTICS": "ON",
-                "CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE": "ON"
+                "CMAKE_COLOR_DIAGNOSTICS": "ON"
             }
         },
         {
@@ -76,6 +75,7 @@
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_INTERPROCEDURAL_OPTIMIZATION": "ON",
                 "KL_BENCH": "ON"
             }
         },
