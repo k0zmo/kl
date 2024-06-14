@@ -15,8 +15,8 @@ FetchContent_Declare(yamlcpp
     URL_HASH SHA256=4d5e664a7fb2d7445fc548cc8c0e1aa7b1a496540eb382d137e2cc263e6d3ef5
 )
 FetchContent_Declare(Catch2
-    URL https://github.com/catchorg/Catch2/archive/v3.1.0.zip
-    URL_HASH SHA256=7219c2ca75a6b2a157b1b162e4ad819fb32585995cac32542a4f72d950dd96f7
+    URL https://github.com/catchorg/Catch2/archive/v3.6.0.zip
+    URL_HASH SHA256=aa0ebf551ffbf098ec1e253b5fee234c30b4ee54a31b1be63cb1a7735d3cf391
 )
 
 FetchContent_GetProperties(GSL)

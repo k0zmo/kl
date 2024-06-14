@@ -27,8 +27,10 @@ TEST_CASE("hash")
         {
         default:
             REQUIRE(false);
+            break;
         case "3"_h:
             REQUIRE(true);
+            break;
         }
     }
 
@@ -41,8 +43,10 @@ TEST_CASE("hash")
         {
         default:
             REQUIRE(false);
+            break;
         case "test"_h:
             REQUIRE(true);
+            break;
         }
     }
 
