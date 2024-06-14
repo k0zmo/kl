@@ -103,5 +103,4 @@ if(COMMAND target_precompile_headers)
             <yaml-cpp/yaml.h>
         )
     endif()
-    set_source_files_properties(main_test.cpp PROPERTIES SKIP_PRECOMPILE_HEADERS ON)
 endif()
