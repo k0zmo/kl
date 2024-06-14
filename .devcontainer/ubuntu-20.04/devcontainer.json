@@ -23,5 +23,6 @@
     },
     "containerEnv": {
         "NINJA_STATUS": "[%r processes, %f/%t @ %o/s : %es] "
-    }
+    },
+    "remoteUser": "dev"
 }
