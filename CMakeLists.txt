@@ -27,12 +27,23 @@ cmake_dependent_option(KL_DEV_BUILD "Enable compiler flags useful while developi
     "${kl_master_project}" OFF)
 cmake_dependent_option(KL_USE_OPENCPPCOVERAGE "Use OpenCppCoverage to calculate code coverage." OFF
     "${kl_master_project}" OFF)
+cmake_dependent_option(KL_DISABLE_CCACHE "Disable auto-detection of ccache." OFF
+    "${kl_master_project}" OFF)
 option(KL_ENABLE_JSON "Enable kl-json target and fetch its dependencies (RapidJSON)." ON)
 option(KL_ENABLE_YAML "Enable kl-yaml target and fetch its dependencies (yaml-cpp)." ON)
 option(KL_FETCH_DEPENDENCIES "Fetch required dependencies (barring Boost) using CMake's FetchContent."
        ${default_fetch_dependencies})
 
 if(kl_master_project)
+    if(NOT KL_DISABLE_CCACHE)
+        find_program(ccache_executable ccache)
+        if(ccache_executable)
+            message(STATUS "Using ccache from '${ccache_executable}'")
+            set(CMAKE_DISABLE_PRECOMPILE_HEADERS ON)
+            set(CMAKE_CXX_COMPILER_LAUNCHER ${ccache_executable})
+        endif()
+    endif()
+
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
     # Don't use any extensions (GNU or MSVC)
     set(CMAKE_CXX_EXTENSIONS OFF)

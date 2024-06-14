@@ -22,7 +22,8 @@
         }
     },
     "containerEnv": {
-        "NINJA_STATUS": "[%r processes, %f/%t @ %o/s : %es] "
+        "NINJA_STATUS": "[%r processes, %f/%t @ %o/s : %es] ",
+        "CCACHE_DIR": "${containerWorkspaceFolder}/.cache/ccache"
     },
     "remoteUser": "dev"
 }

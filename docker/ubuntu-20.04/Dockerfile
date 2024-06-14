@@ -8,6 +8,7 @@ RUN apt-get update \
     wget \
     software-properties-common \
     apt-transport-https \
+    xz-utils \
  && rm -rf /var/lib/apt/lists/*
 
 # Register the Microsoft repository GPG keys
@@ -41,6 +42,11 @@ RUN wget -O - https://boostorg.jfrog.io/artifactory/main/release/1.85.0/source/b
  && ./bootstrap.sh \
  && ./b2 --with-system link=static cxxflags=-fPIC cflags=-fPIC -a -j$(nproc) install \
  && rm -rf /tmp/boost_1_85_0
+
+# CCache
+RUN mkdir -p /opt/ccache \
+ && wget -O - https://github.com/ccache/ccache/releases/download/v4.9/ccache-4.9-linux-x86_64.tar.xz | tar --strip=1 -C /opt/ccache --strip=1 -xJf - \
+ && ln -s /opt/ccache/ccache /usr/local/bin/ccache 
 
 ARG USERNAME=dev
 ARG USER_UID=1000
