@@ -1,4 +1,4 @@
-function(kl_source_group _target)   
+function(kl_source_group _target)
     cmake_parse_arguments(arg "" "TREE;PREFIX" "" ${ARGN})
     if(arg_UNPARSED_ARGUMENTS)
         message(FATAL_ERROR "Unknown keywords given to kl_source_group(): \"${arg_UNPARSED_ARGUMENTS}\"")

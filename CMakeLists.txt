@@ -15,7 +15,7 @@ else()
 endif()
 
 set(default_fetch_dependencies ON)
-if(DEFINED VCPKG_TOOLCHAIN)
+if(DEFINED VCPKG_TOOLCHAIN OR DEFINED CONAN_HOST_PROFILE)
     set(default_fetch_dependencies OFF)
 endif()
 

@@ -63,11 +63,11 @@ class KlConan(ConanFile):
         cmake.build()
         if self._build_and_run_tests():
             cmake.test()
-            
+
     def package(self):
         cmake = CMake(self)
         cmake.install()
-        
+
     def package_info(self):
         self.cpp_info.components["core"].libs = ["kl"]
         self.cpp_info.components["core"].requires = ["ms-gsl::ms-gsl", "boost::headers"]
