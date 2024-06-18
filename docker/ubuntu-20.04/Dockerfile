@@ -6,6 +6,9 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     git \
     wget \
+    zip \
+    unzip \
+    curl \
     software-properties-common \
     apt-transport-https \
     xz-utils \
@@ -26,6 +29,7 @@ RUN add-apt-repository ppa:ubuntu-toolchain-r/test \
     clang++-12 \
     llvm-12 \
     dotnet-runtime-6.0 \
+    python3-pip \
  && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 90 \
  && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 90 \
  && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-12 90 \
@@ -64,3 +68,13 @@ RUN groupadd --gid $USER_GID $USERNAME \
 USER $USERNAME
 
 WORKDIR /home/$USERNAME
+
+# vcpkg
+RUN git clone https://github.com/microsoft/vcpkg \
+ && ./vcpkg/bootstrap-vcpkg.sh
+ENV VCPKG_ROOT=/home/$USERNAME/vcpkg
+ENV PATH="${PATH}:/home/$USERNAME/vcpkg"
+
+# Conan
+RUN pip3 install conan
+ENV PATH="${PATH}:/home/$USERNAME/.local/bin"
