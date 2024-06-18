@@ -13,6 +13,18 @@
             }
         },
         {
+            "name": ":conan",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/conan_provider.cmake"
+            }
+        },
+        {
+            "name": ":vcpkg",
+            "hidden": true,
+            "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        },
+        {
             "name": ":windows",
             "hidden": true,
             "inherits": [":base"],
