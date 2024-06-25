@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- From https://devblogs.microsoft.com/cppblog/cpp-build-throughput-investigation-and-tune-up/ -->
+<Project>
+  <PropertyGroup>
+    <UseProjectTMPDirectory>true</UseProjectTMPDirectory>
+    <UseMSBuildResourceManager>true</UseMSBuildResourceManager>
+    <UseMultiToolTask>true</UseMultiToolTask>
+    <EnforceProcessCountAcrossBuilds>true</EnforceProcessCountAcrossBuilds>
+    <EnableClServerMode>true</EnableClServerMode>
+    <BuildPassReferences>true</BuildPassReferences>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+    </ClCompile>
+    <CustomBuild>
+      <BuildInParallel>true</BuildInParallel>
+    </CustomBuild>
+  </ItemDefinitionGroup>
+  <Target Name="SetProjectTMPDirectory"
+          BeforeTargets="BeforeClCompile"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(UseProjectTMPDirectory)' == 'true'">
+    <PropertyGroup>
+      <OriginalTmp>$(TMP)</OriginalTmp>
+    </PropertyGroup>
+    <MakeDir Directories="$(IntDirFullPath)TMP"/>
+    <SetEnv Name ="TMP"
+            Value ="$(IntDirFullPath)TMP"
+            Prefix ="false">
+    </SetEnv>
+  </Target>
+  <Target Name="RestoreTMPDirectory"
+          BeforeTargets="AfterClCompile"
+          Condition="'$(DesignTimeBuild)' != 'true' and '$(UseProjectTMPDirectory)' == 'true'" >
+    <SetEnv Name ="TMP"
+            Value ="$(OriginalTmp)"
+            Prefix ="false">
+    </SetEnv>
+  </Target>
+</Project>

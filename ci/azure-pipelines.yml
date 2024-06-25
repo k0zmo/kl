@@ -89,7 +89,7 @@ jobs:
       - template: templates/install-boost.yml
       - script: |
           cmake.exe --preset=vs2019 -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
-          cmake.exe --build build/vs2019 --config Release
+          cmake.exe --build build/vs2019 --config Release --parallel
         displayName: 'Build kl'
       - script: |
           cd build/vs2019 && ctest --build-config Release -VV --output-on-failure
