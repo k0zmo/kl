@@ -50,9 +50,10 @@ target_link_libraries(kl
     PUBLIC
         Boost::boost
         Microsoft.GSL::GSL
-    PRIVATE
-        Boost::disable_autolinking
 )
+if(TARGET Boost::disable_autolinking)
+    target_link_libraries(kl PRIVATE Boost::disable_autolinking)
+endif()
 kl_source_group(kl TREE ${kl_SOURCE_DIR})
 set_target_properties(kl PROPERTIES FOLDER kl DEBUG_POSTFIX d)
 add_library(kl::kl ALIAS kl)

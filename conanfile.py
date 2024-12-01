@@ -35,12 +35,12 @@ class KlConan(ConanFile):
             self.options.rm_safe("fPIC")
 
     def requirements(self):
-        self.requires("ms-gsl/4.0.0")
-        self.requires("boost/1.81.0")
+        self.requires("ms-gsl/4.0.0", transitive_headers=True)
+        self.requires("boost/1.81.0", transitive_headers=True)
         if self.options.with_json:
-            self.requires("rapidjson/cci.20220822")
+            self.requires("rapidjson/cci.20220822", transitive_headers=True)
         if self.options.with_yaml:
-            self.requires("yaml-cpp/0.7.0")
+            self.requires("yaml-cpp/0.7.0", transitive_headers=True)
 
     def build_requirements(self):
         self.test_requires("catch2/3.2.1")
