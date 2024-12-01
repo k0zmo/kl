@@ -18,7 +18,8 @@ class KlConan(ConanFile):
     default_options = {
         "fPIC": True,
         "with_json": True,
-        "with_yaml": True
+        "with_yaml": True,
+        "boost/*:header_only": True
     }
     exports_sources = "CMakeLists.txt", "klConfig.cmake.in", "cmake/*", "include/*", "src/*", "tests/*"
     no_copy_source = True
