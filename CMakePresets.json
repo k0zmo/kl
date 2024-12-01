@@ -57,7 +57,8 @@
             "hidden": true,
             "cacheVariables": {
                 "CMAKE_CXX_COMPILER": "cl",
-                "CMAKE_PROJECT_INCLUDE_BEFORE": "${sourceDir}/cmake/compilers/msvc.cmake"
+                "CMAKE_PROJECT_INCLUDE_BEFORE": "${sourceDir}/cmake/compilers/msvc.cmake",
+                "KL_DISABLE_CCACHE": true
             }
         },
         {
