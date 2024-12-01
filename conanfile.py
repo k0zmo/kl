@@ -56,6 +56,13 @@ class KlConan(ConanFile):
         tc.cache_variables["KL_ENABLE_JSON"] = self.options.with_json
         tc.cache_variables["KL_ENABLE_YAML"] = self.options.with_yaml
         tc.cache_variables["KL_TEST"] = self._build_and_run_tests()
+        # This is only used for "development workflow" but it kinda conflicts
+        # with conan_provider.cmake that we use. It also confuses VS Code's
+        # CMake tools as recreating CMakeUserPresets.json at the end of CMake's
+        # configuration phase causes it to mark it as dirty and thus CMake
+        # reconfigure every single time. NB: For package creation, CMake's
+        # presets are not used - all parameters are passed through command line.
+        tc.user_presets_path = None
         tc.generate()
 
     def build(self):
