@@ -112,6 +112,6 @@ jobs:
           cmake --version
         displayName: 'Check environment'
       - script: |
-          conan create . --build=missing -s build_type=Release -s compiler.cppstd=17 -o build_tests=True
+          conan create . --build=missing -s build_type=Release -s compiler.cppstd=17
         displayName: 'Build kl package'
 

@@ -16,7 +16,8 @@
             "name": ":conan",
             "hidden": true,
             "cacheVariables": {
-                "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/conan_provider.cmake"
+                "CMAKE_PROJECT_TOP_LEVEL_INCLUDES": "${sourceDir}/cmake/conan_provider.cmake",
+                "CONAN_INSTALL_ARGS": "--build=missing;-o;&:with_json=True;-o;&:with_yaml=True"
             }
         },
         {
@@ -131,26 +132,14 @@
         {
             "name": ":x64-arch-external",
             "hidden": true,
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
-            "toolset": {
-                "value": "host=x64",
-                "strategy": "external"
-            }
+            "architecture": { "strategy": "external", "value": "x64" },
+            "toolset":      { "strategy": "external", "value": "host=x64" }
         },
         {
             "name": ":x64-arch-set",
             "hidden": true,
-            "architecture": {
-                "value": "x64",
-                "strategy": "set"
-            },
-            "toolset": {
-                "value": "host=x64",
-                "strategy": "set"
-            }
+            "architecture": { "strategy": "set", "value": "x64" },
+            "toolset":      { "strategy": "set", "value": "host=x64" }
         },
         {
             "name": "gcc-debug",
