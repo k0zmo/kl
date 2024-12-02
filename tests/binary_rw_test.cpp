@@ -100,7 +100,7 @@ TEST_CASE("binary_reader")
         REQUIRE(r.left() == 0);
         REQUIRE(r.pos() == 4);
     }
-
+#ifndef _MSC_VER // MSVC doesn't like ensure_z which is deprecated anyway
     SECTION("read cstring as span")
     {
         const char* str = "Hello world!";
@@ -116,6 +116,7 @@ TEST_CASE("binary_reader")
         REQUIRE(r.read<char>() == '!');
         REQUIRE(r.left() == 0);
     }
+#endif
 }
 
 TEST_CASE("binary_reader - map")
@@ -494,7 +495,7 @@ TEST_CASE("binary_writer")
             REQUIRE(buf[3] == 0x01_b);
         }
     }
-
+#ifndef _MSC_VER // MSVC doesn't like ensure_z which is deprecated anyway
     SECTION("write cstring as span")
     {
         const char* str = "Hello, world!";
@@ -507,6 +508,7 @@ TEST_CASE("binary_writer")
         REQUIRE(gsl::as_bytes(gsl::ensure_z(str)) ==
                 gsl::as_bytes(gsl::span<std::byte>{buf}));
     }
+#endif
 }
 
 TEST_CASE("binary_writer - string")
