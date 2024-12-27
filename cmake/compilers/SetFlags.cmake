@@ -34,22 +34,27 @@ endif()
 if(CXX_FLAGS_COVERAGE)
     set(CMAKE_CXX_FLAGS_COVERAGE "${CXX_FLAGS_COVERAGE}"
         CACHE STRING "Flags used by the CXX compiler during COVERAGE builds.")
+    mark_as_advanced(CMAKE_CXX_FLAGS_COVERAGE)
 endif()
 if(CXX_FLAGS_ASAN)
     set(CMAKE_CXX_FLAGS_ASAN "${CXX_FLAGS_ASAN}"
         CACHE STRING "Flags used by the CXX compiler during ASAN builds.")
+    mark_as_advanced(CMAKE_CXX_FLAGS_ASAN)
 endif()
 if(CXX_FLAGS_TSAN)
     set(CMAKE_CXX_FLAGS_TSAN "${CXX_FLAGS_TSAN}"
         CACHE STRING "Flags used by the CXX compiler during TSAN builds.")
+    mark_as_advanced(CMAKE_CXX_FLAGS_TSAN)
 endif()
 if(CXX_FLAGS_MSAN)
     set(CMAKE_CXX_FLAGS_MSAN "${CXX_FLAGS_MSAN}"
         CACHE STRING "Flags used by the CXX compiler during MSAN builds.")
+    mark_as_advanced(CMAKE_CXX_FLAGS_MSAN)
 endif()
 if(CXX_FLAGS_UBSAN)
     set(CMAKE_CXX_FLAGS_UBSAN "${CXX_FLAGS_UBSAN}"
         CACHE STRING "Flags used by the CXX compiler during UBSAN builds.")
+    mark_as_advanced(CMAKE_CXX_FLAGS_UBSAN)
 endif()
 
 foreach(_type IN ITEMS EXE MODULE SHARED)
@@ -68,22 +73,27 @@ foreach(_type IN ITEMS EXE MODULE SHARED)
     if(LINKER_FLAGS_COVERAGE)
         set(CMAKE_${_type}_LINKER_FLAGS_COVERAGE "${LINKER_FLAGS_COVERAGE}"
             CACHE STRING "Flags used by the linker during COVERAGE builds.")
+        mark_as_advanced(CMAKE_${_type}_LINKER_FLAGS_COVERAGE)
     endif()
     if(LINKER_FLAGS_ASAN)
         set(CMAKE_${_type}_LINKER_FLAGS_ASAN "${LINKER_FLAGS_ASAN}"
             CACHE STRING "Flags used by the linker during ASAN builds.")
+        mark_as_advanced(CMAKE_${_type}_LINKER_FLAGS_ASAN)
     endif()
     if(LINKER_FLAGS_TSAN)
         set(CMAKE_${_type}_LINKER_FLAGS_TSAN "${LINKER_FLAGS_TSAN}"
             CACHE STRING "Flags used by the linker during TSAN builds.")
+        mark_as_advanced(CMAKE_${_type}_LINKER_FLAGS_TSAN)
     endif()
     if(LINKER_FLAGS_MSAN)
         set(CMAKE_${_type}_LINKER_FLAGS_MSAN "${LINKER_FLAGS_MSAN}"
             CACHE STRING "Flags used by the linker during MSAN builds.")
+        mark_as_advanced(CMAKE_${_type}_LINKER_FLAGS_MSAN)
     endif()
     if(LINKER_FLAGS_UBSAN)
         set(CMAKE_${_type}_LINKER_FLAGS_UBSAN "${LINKER_FLAGS_UBSAN}"
             CACHE STRING "Flags used by the linker during UBSAN builds.")
+        mark_as_advanced(CMAKE_${_type}_LINKER_FLAGS_UBSAN)
     endif()
 endforeach()
 

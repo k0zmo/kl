@@ -45,6 +45,7 @@ if(kl_master_project)
     endif()
 
     set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+    set(CMAKE_CXX_STANDARD 17)
     # Don't use any extensions (GNU or MSVC)
     set(CMAKE_CXX_EXTENSIONS OFF)
 
