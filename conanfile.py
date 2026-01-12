@@ -36,7 +36,7 @@ class KlConan(ConanFile):
 
     def requirements(self):
         self.requires("ms-gsl/4.0.0", transitive_headers=True)
-        self.requires("boost/1.81.0", transitive_headers=True)
+        self.requires("boost/1.86.0", transitive_headers=True)
         if self.options.with_json:
             self.requires("rapidjson/cci.20220822", transitive_headers=True)
         if self.options.with_yaml:

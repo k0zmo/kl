@@ -190,11 +190,6 @@
             "inherits": [":windows", ":msvc", ":x64-arch-external", ":asan"]
         },
         {
-            "name": "vs2019",
-            "inherits": [":windows", ":msvc", ":x64-arch-set"],
-            "generator": "Visual Studio 16 2019"
-        },
-        {
             "name": "vs2022",
             "inherits": [":windows", ":msvc", ":x64-arch-set"],
             "generator": "Visual Studio 17 2022"

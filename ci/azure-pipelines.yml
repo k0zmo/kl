@@ -1,7 +1,7 @@
 jobs:
-  - job: ubuntu20_gcc9
+  - job: ubuntu24_gcc13
     pool:
-      vmImage: 'ubuntu-20.04'
+      vmImage: 'ubuntu-24.04'
     strategy:
       matrix:
         Release:
@@ -20,16 +20,16 @@ jobs:
           sudo apt-get install ninja-build
         displayName: 'Install Ninja'
       - script: |
-          cmake --preset=$(CMakePreset) -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
+          cmake --preset=$(CMakePreset) -DCMAKE_PREFIX_PATH=_deps/boost_1_85_0
           cmake --build build/$(CMakePreset)
         displayName: 'Build kl'
       - script: |
           cd build/$(CMakePreset) && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: ubuntu20_gcc9_coverage
+  - job: ubuntu24_gcc13_coverage
     pool:
-      vmImage: 'ubuntu-20.04'
+      vmImage: 'ubuntu-24.04'
     steps:
       - script: |
           which g++ && g++ --version
@@ -44,8 +44,11 @@ jobs:
         displayName: 'Install Ninja'
       - template: templates/install-lcov.yml
       - script: |
+          sudo apt-get install libcapture-tiny-perl libdatetime-perl
+        displayName: Install Perl dependency for lcov
+      - script: |
           export PATH=$(pwd)/_deps/lcov/bin:$PATH
-          cmake --preset=gcc-coverage -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
+          cmake --preset=gcc-coverage -DCMAKE_PREFIX_PATH=_deps/boost_1_85_0
           cmake --build build/gcc-coverage
         displayName: 'Build kl'
       - script: |
@@ -54,13 +57,13 @@ jobs:
           ~/.local/bin/codecov -X gcov
         displayName: 'Send code coverage data'
 
-  - job: ubuntu20_clang10
+  - job: ubuntu24_clang20
     pool:
-      vmImage: 'ubuntu-20.04'
+      vmImage: 'ubuntu-24.04'
     steps:
       - template: templates/install-clang.yml
         parameters:
-          version: '10'
+          version: '20'
       - script: |
           which clang++ && clang++ --version
           cmake --version
@@ -70,16 +73,16 @@ jobs:
           sudo apt-get install ninja-build
         displayName: 'Install Ninja'
       - script: |
-          cmake --preset=clang-release -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
+          cmake --preset=clang-release -DCMAKE_PREFIX_PATH=_deps/boost_1_85_0
           cmake --build build/clang-release
         displayName: 'Build kl'
       - script: |
           cd build/clang-release && ctest -VV --output-on-failure
         displayName: 'Run CTest'
 
-  - job: windows_vc2019
+  - job: windows_vc2022
     pool:
-      vmImage: 'windows-2019'
+      vmImage: 'windows-2025'
     variables:
       CL: /MP
     steps:
@@ -88,16 +91,16 @@ jobs:
         displayName: 'Check environment'
       - template: templates/install-boost.yml
       - script: |
-          cmake.exe --preset=vs2019 -DCMAKE_PREFIX_PATH=_deps/boost_1_77_0
-          cmake.exe --build build/vs2019 --config Release --parallel
+          cmake.exe --preset=vs2022 -DCMAKE_PREFIX_PATH=_deps/boost_1_85_0
+          cmake.exe --build build/vs2022 --config Release --parallel
         displayName: 'Build kl'
       - script: |
-          cd build/vs2019 && ctest --build-config Release -VV --output-on-failure
+          cd build/vs2022 && ctest --build-config Release -VV --output-on-failure
         displayName: 'Run CTest'
 
   - job: windows_vc2022_conan
     pool:
-      vmImage: 'windows-2022'
+      vmImage: 'windows-2025'
     variables:
       UseMultiToolTask: true
     # Disable for now
@@ -114,4 +117,3 @@ jobs:
       - script: |
           conan create . --build=missing -s build_type=Release -s compiler.cppstd=17
         displayName: 'Build kl package'
-

@@ -1,7 +1,7 @@
 steps:
   - bash: |
       mkdir -p _deps && cd _deps
-      curl -L http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_1.16.orig.tar.xz -o lcov.tar.xz
+      curl -L http://ftp.de.debian.org/debian/pool/main/l/lcov/lcov_2.4.orig.tar.xz -o lcov.tar.xz
       tar -xf lcov.tar.xz
-      mv lcov-1.16 lcov
+      mv lcov-2.4 lcov
     displayName: 'Install LCov'

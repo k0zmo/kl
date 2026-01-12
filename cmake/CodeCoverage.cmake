@@ -97,6 +97,8 @@ function(kl_add_coverage_target_lcov _target)
         -q
         --capture
         --directory .
+        --ignore-errors inconsistent
+        --ignore-errors source
         --output-file ${output_name}.all.info
         ${branch_coverage}
     )

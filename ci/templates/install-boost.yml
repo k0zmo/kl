@@ -1,7 +1,7 @@
 steps:
   - bash: |
       mkdir -p _deps && cd _deps
-      curl -L https://boostorg.jfrog.io/artifactory/main/release/1.77.0/source/boost_1_77_0.tar.gz -o boost.tar.gz
+      curl -L https://archives.boost.io/release/1.85.0/source/boost_1_85_0.tar.gz -o boost.tar.gz
       tar -xf boost.tar.gz
     displayName: 'Download Boost'
 
