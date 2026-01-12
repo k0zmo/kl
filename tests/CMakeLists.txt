@@ -82,7 +82,6 @@ if(COMMAND target_precompile_headers)
     target_precompile_headers(kl-tests PRIVATE
         <gsl/span>
         <gsl/span_ext>
-        <gsl/string_span>
         <istream>
         <ostream>
         <ios>
