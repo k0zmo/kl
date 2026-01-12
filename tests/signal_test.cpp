@@ -25,7 +25,7 @@ struct Baz
 };
 } // namespace test
 
-TEST_CASE("signal")
+TEST_CASE("signal - base functionality", "[signal]")
 {
     SECTION("empty signal")
     {
@@ -266,7 +266,7 @@ TEST_CASE("signal")
     }
 }
 
-TEST_CASE("connection")
+TEST_CASE("signal - connection", "[signal]")
 {
     SECTION("empty connection")
     {
@@ -402,7 +402,7 @@ TEST_CASE("connection")
     }
 }
 
-TEST_CASE("scoped_connection")
+TEST_CASE("signal - scoped_connection", "[signal]")
 {
     SECTION("empty")
     {
@@ -435,7 +435,7 @@ TEST_CASE("scoped_connection")
     }
 }
 
-TEST_CASE("stopping signal emission")
+TEST_CASE("signal - stopping signal emission", "[signal]")
 {
     kl::signal<void()> s;
     int i = 0;
@@ -483,7 +483,7 @@ TEST_CASE("stopping signal emission")
     }
 }
 
-TEST_CASE("disconnect during signal emission")
+TEST_CASE("signal - disconnect during signal emission", "[signal]")
 {
     kl::signal<void()> s;
     int i = 0;
@@ -545,7 +545,7 @@ TEST_CASE("disconnect during signal emission")
     }
 }
 
-TEST_CASE("connect and disconnect during signal emission")
+TEST_CASE("signal - connect and disconnect during signal emission", "[signal]")
 {
     class Test
     {
@@ -602,7 +602,7 @@ TEST_CASE("connect and disconnect during signal emission")
             (std::vector<int>{0, 99, 2, 99, 0, 99, 2, 99, 4, 99, 4, 99}));
 }
 
-TEST_CASE("disconnect and recursively emit")
+TEST_CASE("signal - disconnect and recursively emit", "[signal]")
 {
     kl::signal<void()> s;
     kl::connection c1, c2;
@@ -622,7 +622,7 @@ TEST_CASE("disconnect and recursively emit")
     CHECK(i == 8);
 }
 
-TEST_CASE("one-time slot connection with a next emission in a handler")
+TEST_CASE("signal - one-time slot connection with a next emission in a handler", "[signal]")
 {
     kl::signal<void()> s;
     kl::connection c;
@@ -678,7 +678,7 @@ TEST_CASE("one-time slot connection with a next emission in a handler")
     }
 }
 
-TEST_CASE("add slot to signal during emission")
+TEST_CASE("signal - add slot to signal during emission", "[signal]")
 {
     kl::signal<void()> s;
     kl::connection c;
@@ -761,7 +761,7 @@ int counter::num_moves{0};
 
 } // namespace
 
-TEST_CASE("by value vs by const ref")
+TEST_CASE("signal - by value vs by const ref", "[signal]")
 {
     using kl::signal;
 
@@ -805,7 +805,7 @@ TEST_CASE("by value vs by const ref")
     }
 }
 
-TEST_CASE("disconnect all slots during emission")
+TEST_CASE("signal - disconnect all slots during emission", "[signal]")
 {
     kl::signal<void()> s;
     int i = 0;
@@ -844,7 +844,7 @@ TEST_CASE("disconnect all slots during emission")
     }
 }
 
-TEST_CASE("move signal during emission")
+TEST_CASE("signal - move signal during emission", "[signal]")
 {
     kl::signal<void()> s, s2;
     int i = 0;
