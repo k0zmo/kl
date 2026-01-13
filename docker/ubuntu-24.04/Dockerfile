@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:24.04
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -14,18 +14,20 @@ RUN apt-get update \
     gpg-agent \
     xz-utils \
     sudo \
+    fish \
  && rm -rf /var/lib/apt/lists/*
 
 RUN add-apt-repository ppa:ubuntu-toolchain-r/test \
  && apt-get install -y --no-install-recommends \
-    g++-13 \
-    gcc-13 \
-    clang++-15 \
-    llvm-15 \
+    g++-14 \
+    gcc-14 \
+    clang++-20 \
+    llvm-20 \
+    libclang-rt-20-dev \
     python3-pip \
- && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-13 90 \
- && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-13 90 \
- && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-15 90 \
+ && update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-14 90 \
+ && update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-14 90 \
+ && update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-20 90 \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /tmp
@@ -62,20 +64,13 @@ ARG MOLD_VERSION=2.34.1
 RUN wget -O - https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-x86_64-linux.tar.gz \
   | tar --strip-components=1 --directory /usr/local -xzf -
 
-# Install fish
-RUN apt-add-repository ppa:fish-shell/release-4 \
- && apt-get update \
- && apt-get install -y --no-install-recommends fish
+# Configure the default ubuntu user (uid=1000)
+ARG USERNAME=ubuntu
 
-ARG USERNAME=dev
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-
-# Create the user
-RUN groupadd --gid $USER_GID $USERNAME \
- && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /usr/bin/fish \
+RUN chsh -s /usr/bin/fish $USERNAME \
  && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
- && chmod 0440 /etc/sudoers.d/$USERNAME
+ && chmod 0440 /etc/sudoers.d/$USERNAME \
+ && touch /home/$USERNAME/.sudo_as_admin_successful
 
 USER $USERNAME
 
@@ -88,5 +83,5 @@ ENV VCPKG_ROOT=/home/$USERNAME/vcpkg
 ENV PATH="${PATH}:/home/$USERNAME/vcpkg"
 
 # Conan
-RUN pip3 install conan
+RUN pip3 install conan --break-system-package
 ENV PATH="${PATH}:/home/$USERNAME/.local/bin"

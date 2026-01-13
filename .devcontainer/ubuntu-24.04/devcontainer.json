@@ -1,8 +1,8 @@
 {
-    "name": "Ubuntu 22.04",
+    "name": "Ubuntu 24.04",
     "build": {
-        "dockerfile": "../../docker/ubuntu-22.04/Dockerfile",
-        "context": "../../docker/ubuntu-22.04"
+        "dockerfile": "../../docker/ubuntu-24.04/Dockerfile",
+        "context": "../../docker/ubuntu-24.04"
     },
     "customizations": {
         "vscode": {
@@ -20,5 +20,5 @@
         "NINJA_STATUS": "[%r processes, %f/%t @ %o/s : %es] ",
         "CCACHE_DIR": "${containerWorkspaceFolder}/.cache/ccache"
     },
-    "remoteUser": "dev"
+    "remoteUser": "ubuntu"
 }
