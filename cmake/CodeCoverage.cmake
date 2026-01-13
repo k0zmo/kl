@@ -97,14 +97,14 @@ function(kl_add_coverage_target_lcov _target)
         -q
         --capture
         --directory .
-        --ignore-errors inconsistent
-        --ignore-errors source
+        --ignore-errors inconsistent,source
         --output-file ${output_name}.all.info
         ${branch_coverage}
     )
     list(APPEND cmd COMMAND
         ${LCOV_EXECUTABLE}
         -q
+        --ignore-errors inconsistent,source
         --extract ${output_name}.all.info
         ${arg_FILTERS}
         --output-file ${output_name}.info
@@ -113,6 +113,7 @@ function(kl_add_coverage_target_lcov _target)
     list(APPEND cmd COMMAND
         ${GENHTML_EXECUTABLE}
         -q
+        --ignore-errors inconsistent,corrupt
         --output-directory ${output_name}
         ${output_name}.info
         ${branch_coverage}
