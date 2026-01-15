@@ -18,6 +18,7 @@ set(CXX_FLAGS_RELEASE
 )
 set(CXX_FLAGS_COVERAGE ${CXX_FLAGS_DEBUG}
     --coverage
+    -fprofile-update=atomic # Workaround for https://gcc.gnu.org/bugzilla/show_bug.cgi?id=68080
 )
 set(CXX_FLAGS_ASAN
     -O1
