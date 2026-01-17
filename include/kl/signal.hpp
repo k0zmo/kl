@@ -2,11 +2,13 @@
 
 #include <kl/defer.hpp>
 
+#include <atomic>
 #include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <utility>
 
 namespace kl::detail {
@@ -27,15 +29,15 @@ public:
     ref_counted(const ref_counted&) noexcept : count_{0} {}
     ref_counted& operator=(const ref_counted&) noexcept { return *this; }
 
-    void add_ref() noexcept { ++count_; }
+    void add_ref() noexcept { count_.fetch_add(1, std::memory_order_relaxed); }
     void release() noexcept
     {
-        if (--count_ == 0)
+        if (count_.fetch_sub(1, std::memory_order_acq_rel) == 1)
             delete static_cast<Derived*>(this);
     }
 
 private:
-    std::ptrdiff_t count_;
+    std::atomic<std::ptrdiff_t> count_;
 };
 
 class slot_state : public ref_counted<slot_state>
@@ -53,37 +55,36 @@ public:
 
     void block() noexcept
     {
-        ++blocking_;
+        blocking_.fetch_add(1, std::memory_order_relaxed);
     }
 
     void unblock() noexcept
     {
-        assert(blocking_ > 0);
-        --blocking_;
+        const auto prev = blocking_.fetch_sub(1, std::memory_order_relaxed);
+        assert(prev > 0);
+        (void)prev;
     }
 
     bool blocked() const noexcept
     {
-        return blocking_ > 0;
+        return blocking_.load(std::memory_order_relaxed) > 0;
     }
 
     bool connected() const noexcept
     {
-        return sender_ != nullptr;
+        return sender_.load(std::memory_order_acquire) != nullptr;
     }
 
     void disconnect() noexcept
     {
-        if (sender_)
-        {
-            sender_->disconnect(id());
-            sender_ = nullptr;
-        }
+        auto* sender = sender_.exchange(nullptr, std::memory_order_acq_rel);
+        if (sender)
+            sender->disconnect(id());
     }
 
     bool valid() const noexcept
     {
-        return sender_ != nullptr;
+        return sender_.load(std::memory_order_acquire) != nullptr;
     }
 
     std::uintptr_t id() const noexcept
@@ -92,10 +93,10 @@ public:
     }
 
 protected:
-    signal_base* sender_;
+    std::atomic<signal_base*> sender_;
 
 private:
-    unsigned blocking_{0};
+    std::atomic<unsigned> blocking_{0};
 };
 
 struct tls_signal_info
@@ -367,11 +368,16 @@ public:
     signal& operator=(const signal&) = delete;
 
     signal(signal&& other) noexcept
-        : slots_{std::exchange(other.slots_, nullptr)},
-          tail_{std::exchange(other.tail_, nullptr)},
-          deferred_cleanup_{other.deferred_cleanup_}
     {
-        rebind();
+        {
+            std::lock_guard<std::mutex> lock{other.mutex_};
+            slots_ = std::exchange(other.slots_, nullptr);
+            tail_ = std::exchange(other.tail_, nullptr);
+            deferred_cleanup_ = other.deferred_cleanup_;
+            other.deferred_cleanup_ = false;
+        }
+        std::lock_guard<std::mutex> lock{mutex_};
+        rebind_locked();
     }
 
     signal& operator=(signal&& other) noexcept
@@ -385,8 +391,9 @@ public:
     {
         if (!slot)
             return {};
+        std::lock_guard<std::mutex> lock{mutex_};
         auto slot_impl = new signal::slot(this, std::move(slot));
-        insert_new_slot(slot_impl, at);
+        insert_new_slot_locked(slot_impl, at);
         return connection{*slot_impl};
     }
 
@@ -497,6 +504,16 @@ public:
     // Emits signal
     void operator()(Args... args)
     {
+        active_emissions_.fetch_add(1, std::memory_order_acq_rel);
+        KL_DEFER({
+            const auto prev = active_emissions_.fetch_sub(1, std::memory_order_acq_rel);
+            if (prev == 1)
+            {
+                std::lock_guard<std::mutex> lock{mutex_};
+                cleanup_invalidated_slots_locked();
+            }
+        });
+
         auto& emission_state = detail::get_tls_signal_info();
         // Rollback tls_signal_info back to its pre-emission value
         auto prev_emission_state = emission_state;
@@ -504,40 +521,66 @@ public:
 
         emission_state.emission_stopped = false;
 
-        // Save the last slot on the list to call. Any slots added after this
-        // line during this emission (by reentrant call) will not be called.
-        const auto last = tail_;
-
-        for (auto iter = slots_; iter; iter = iter->next)
+        // We can't traverse the list without synchronization while other
+        // threads may connect/disconnect. Instead we:
+        //  - snapshot the tail ("last") once under lock
+        //  - traverse slot-by-slot, acquiring the lock only to read next
+        //  - hold a ref to each slot while invoking user code
+        slot* last = nullptr;
+        slot* current = nullptr;
         {
-            if (!iter->blocked() && iter->valid())
+            std::lock_guard<std::mutex> lock{mutex_};
+            last = tail_;
+            if (last)
+                last->add_ref();
+            current = slots_;
+            if (current)
+                current->add_ref();
+        }
+        KL_DEFER(
+            if (last)
+                last->release();
+        );
+
+        while (current)
+        {
+            if (!current->blocked() && current->valid())
             {
-                ++iter->num_emissions;
-                KL_DEFER(--iter->num_emissions);
-                emission_state.current_slot = iter;
-
-                iter->target(args...);
-
-                if (emission_state.emission_stopped)
-                    break;
+                // Invoke the slot if it's valid (not disconnected) and not blocked
+                emission_state.current_slot = current;
+                current->target(args...);
             }
-            // Last represents last item on the list, inclusively so we need to
-            // stop iterating after handling it, not just before.
-            if (iter == last)
+
+            const bool is_last = (current == last);
+
+            slot* next = nullptr;
+            if (!is_last && !emission_state.emission_stopped)
+            {
+                std::lock_guard<std::mutex> lock{mutex_};
+                next = current->next;
+                if (next)
+                    next->add_ref();
+            }
+
+            current->release();
+            current = next;
+
+            if (is_last || emission_state.emission_stopped)
                 break;
         }
-
-        cleanup_invalidated_slots();
     }
 
     // Disconnects all slots bound to this signal
     void disconnect_all_slots() noexcept
     {
+        std::lock_guard<std::mutex> lock{mutex_};
+        const bool can_remove = !emission_in_progress();
         for (slot *iter = slots_, *prev = nullptr; iter;)
         {
-            if (iter->invalidate())
+            iter->invalidate();
+            if (can_remove)
             {
-                iter = remove_slot(*iter, prev);
+                iter = remove_slot_locked(*iter, prev);
             }
             else
             {
@@ -551,6 +594,7 @@ public:
     // Retrieves number of slots connected to this signal
     size_t num_slots() const noexcept
     {
+        std::lock_guard<std::mutex> lock{mutex_};
         size_t sum{0};
         for (auto iter = slots_; iter; iter = iter->next)
         {
@@ -565,28 +609,33 @@ public:
 
     friend void swap(signal& left, signal& right) noexcept
     {
+        if (&left == &right)
+            return;
+        std::scoped_lock lock{left.mutex_, right.mutex_};
         using std::swap;
         swap(left.slots_, right.slots_);
         swap(left.tail_, right.tail_);
         swap(left.deferred_cleanup_, right.deferred_cleanup_);
 
-        left.rebind();
-        right.rebind();
+        left.rebind_locked();
+        right.rebind_locked();
     }
 
 private:
     void disconnect(std::uintptr_t id) noexcept override
     {
+        std::lock_guard<std::mutex> lock{mutex_};
+        const bool can_remove = !emission_in_progress();
         for (slot *iter = slots_, *prev = nullptr; iter;
              prev = iter, iter = iter->next)
         {
             if (iter->id() != id)
                 continue;
 
-            if (iter->invalidate())
+            iter->invalidate();
+            if (can_remove)
             {
-                // No one uses the slot right now so we can safely remove it.
-                remove_slot(*iter, prev);
+                remove_slot_locked(*iter, prev);
             }
             else
             {
@@ -597,9 +646,9 @@ private:
         }
     }
 
-    void rebind() noexcept
+    void rebind_locked() noexcept
     {
-        cleanup_invalidated_slots();
+        cleanup_invalidated_slots_locked();
 
         // Rebind back-pointer to new signal
         for (auto iter = slots_; iter; iter = iter->next)
@@ -608,29 +657,31 @@ private:
         }
     }
 
-    void cleanup_invalidated_slots() noexcept
+    void cleanup_invalidated_slots_locked() noexcept
     {
         if (!deferred_cleanup_)
             return;
 
-        bool new_deferred_cleanup_ = false;
+        // Never physically remove slots while any emission is in-flight.
+        if (emission_in_progress())
+        {
+            deferred_cleanup_ = true;
+            return;
+        }
+
         for (slot *iter = slots_, *prev = nullptr; iter;)
         {
-            const bool is_valid = iter->valid();
-
-            if (is_valid || iter->num_emissions > 0)
+            if (iter->valid())
             {
-                if (!is_valid) // iter->num_emissions > 0
-                    new_deferred_cleanup_ = true;
                 prev = iter;
                 iter = iter->next;
             }
             else
             {
-                iter = remove_slot(*iter, prev);
+                iter = remove_slot_locked(*iter, prev);
             }
         }
-        deferred_cleanup_ = new_deferred_cleanup_;
+        deferred_cleanup_ = false;
     }
 
 private:
@@ -645,28 +696,33 @@ private:
         slot(const slot&) = delete;
         slot& operator=(const slot&) = delete;
 
-        bool invalidate() noexcept
+        void invalidate() noexcept
         {
             rebind(nullptr);
-            return num_emissions == 0;
         }
 
         void rebind(signal_base* parent) noexcept
         {
-            sender_ = parent;
+            sender_.store(parent, std::memory_order_release);
         }
 
         slot* next{nullptr};
-        std::uint32_t num_emissions{0};
         const slot_type target;
     };
 
     slot* slots_{nullptr}; // owning pointer
     slot* tail_{nullptr};  // observer ptr
+    std::atomic<std::uint32_t> active_emissions_{0};
+    mutable std::mutex mutex_;
     bool deferred_cleanup_{false};
 
 private:
-    void insert_new_slot(slot* new_slot, connect_position at) noexcept
+    bool emission_in_progress() const noexcept
+    {
+        return active_emissions_.load(std::memory_order_acquire) != 0;
+    }
+
+    void insert_new_slot_locked(slot* new_slot, connect_position at) noexcept
     {
         if (!slots_)
         {
@@ -677,15 +733,7 @@ private:
 
         if (at == at_back)
         {
-            auto iter = slots_, prev = slots_;
-            while (iter)
-            {
-                prev = iter;
-                iter = iter->next;
-            }
-
-            iter = prev;
-            iter->next = new_slot;
+            tail_->next = new_slot;
             tail_ = new_slot;
         }
         else
@@ -695,9 +743,9 @@ private:
         }
     }
 
-    slot* remove_slot(slot& to_remove, slot* prev) noexcept
+    slot* remove_slot_locked(slot& to_remove, slot* prev) noexcept
     {
-        assert(to_remove.num_emissions == 0);
+        assert(!emission_in_progress());
         slot* next = to_remove.next;
         if (prev)
             prev->next = next;

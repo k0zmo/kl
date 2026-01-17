@@ -4,9 +4,13 @@
 #include <catch2/catch_approx.hpp>
 
 #include <algorithm>
+#include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
 #include <vector>
 
@@ -542,6 +546,95 @@ TEST_CASE("signal - disconnect during signal emission", "[signal]")
 
         s();
         CHECK(i == 4);
+    }
+}
+
+TEST_CASE("signal - signal thread safety (emit vs connect/disconnect)", "[signal]")
+{
+    SECTION("disconnect from another thread while slot is executing")
+    {
+        kl::signal<void()> s;
+        std::atomic<int> calls{0};
+
+        std::mutex m;
+        std::condition_variable cv;
+        bool entered = false;
+        bool proceed = false;
+
+        kl::connection c = s.connect([&] {
+            calls.fetch_add(1, std::memory_order_relaxed);
+            std::unique_lock<std::mutex> lock{m};
+            entered = true;
+            cv.notify_one();
+            cv.wait(lock, [&] { return proceed; });
+        });
+
+        std::thread emitter{[&] { s(); }};
+
+        {
+            std::unique_lock<std::mutex> lock{m};
+            cv.wait(lock, [&] { return entered; });
+        }
+
+        std::thread disconnector{[&] { c.disconnect(); }};
+        disconnector.join();
+
+        {
+            std::lock_guard<std::mutex> lock{m};
+            proceed = true;
+        }
+        cv.notify_one();
+        emitter.join();
+
+        CHECK(calls.load(std::memory_order_relaxed) == 1);
+        CHECK(!c.connected());
+
+        s();
+        CHECK(calls.load(std::memory_order_relaxed) == 1);
+    }
+
+    SECTION("connect from another thread during emission is not called until next emission")
+    {
+        kl::signal<void()> s;
+        std::atomic<int> slot_a_calls{0};
+        std::atomic<int> slot_b_calls{0};
+
+        std::mutex m;
+        std::condition_variable cv;
+        bool entered = false;
+        bool proceed = false;
+
+        s.connect([&] {
+            slot_a_calls.fetch_add(1, std::memory_order_relaxed);
+            std::unique_lock<std::mutex> lock{m};
+            entered = true;
+            cv.notify_one();
+            cv.wait(lock, [&] { return proceed; });
+        });
+
+        std::thread emitter{[&] { s(); }};
+
+        {
+            std::unique_lock<std::mutex> lock{m};
+            cv.wait(lock, [&] { return entered; });
+        }
+
+        // Connect B while A is executing; B must not run in this emission.
+        s.connect([&] { slot_b_calls.fetch_add(1, std::memory_order_relaxed); });
+
+        {
+            std::lock_guard<std::mutex> lock{m};
+            proceed = true;
+        }
+        cv.notify_one();
+        emitter.join();
+
+        CHECK(slot_a_calls.load(std::memory_order_relaxed) == 1);
+        CHECK(slot_b_calls.load(std::memory_order_relaxed) == 0);
+
+        s();
+        CHECK(slot_a_calls.load(std::memory_order_relaxed) == 2);
+        CHECK(slot_b_calls.load(std::memory_order_relaxed) == 1);
     }
 }
 
