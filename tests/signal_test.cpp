@@ -4,6 +4,10 @@
 #include <catch2/catch_approx.hpp>
 
 #include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cstdint>
 #include <atomic>
 #include <condition_variable>
 #include <functional>
@@ -12,6 +16,7 @@
 #include <string>
 #include <thread>
 #include <utility>
+#include <thread>
 #include <vector>
 
 namespace test {
@@ -959,4 +964,196 @@ TEST_CASE("signal - move signal during emission", "[signal]")
     CHECK(i == 3);
     CHECK(s.num_slots() == 0);
     CHECK(s2.num_slots() == 0);
+}
+
+namespace {
+
+std::atomic<std::int64_t> sum{0};
+
+void f(int i)
+{
+    sum += i;
+}
+void f1(int i)
+{
+    sum += i;
+}
+void f2(int i)
+{
+    sum += i;
+}
+void f3(int i)
+{
+    sum += i;
+}
+
+void emit_many(kl::signal<void(int)>& sig)
+{
+    for (int i = 0; i < 10000; ++i)
+        sig(1);
+}
+
+void connect_emit(kl::signal<void(int)>& sig)
+{
+    for (int i = 0; i < 100; ++i)
+    {
+        kl::scoped_connection c = sig.connect(f);
+        for (int j = 0; j < 100; ++j)
+            sig(1);
+    }
+}
+
+void connect_cross(kl::signal<void(int)>& s1, kl::signal<void(int)>& s2,
+                   std::atomic<int>& go)
+{
+    auto cross = s1.connect([&](int i) {
+        if (i & 1)
+            f(i);
+        else
+            s2(i + 1);
+    });
+
+    go++;
+    while (go != 3)
+        std::this_thread::yield();
+
+    for (int i = 0; i < 1000000; ++i)
+        s1(i);
+}
+
+} // namespace
+
+TEST_CASE("signal - multithreading", "[signal]")
+{
+    SECTION("threaded mix")
+    {
+        sum = 0;
+
+        kl::signal<void(int)> sig;
+
+        std::array<std::thread, 10> threads;
+        for (auto& t : threads)
+            t = std::thread(connect_emit, std::ref(sig));
+
+        for (auto& t : threads)
+            t.join();
+    }
+
+    SECTION("threaded emission")
+    {
+        sum = 0;
+
+        kl::signal<void(int)> sig;
+        sig.connect(f);
+
+        std::array<std::thread, 10> threads;
+        for (auto& t : threads)
+            t = std::thread(emit_many, std::ref(sig));
+
+        for (auto& t : threads)
+            t.join();
+
+        CHECK(sum == 100000l);
+    }
+
+    SECTION("cross connections")
+    {
+        sum = 0;
+
+        kl::signal<void(int)> sig1;
+        kl::signal<void(int)> sig2;
+
+        std::atomic<int> go{0};
+
+        std::thread t1(connect_cross, std::ref(sig1), std::ref(sig2),
+                       std::ref(go));
+        std::thread t2(connect_cross, std::ref(sig2), std::ref(sig1),
+                       std::ref(go));
+
+        while (go != 2)
+            std::this_thread::yield();
+        go++;
+
+        t1.join();
+        t2.join();
+
+        CHECK(sum == 1000000000000ll);
+    }
+
+    SECTION("threaded misc")
+    {
+        sum = 0;
+        kl::signal<void(int)> sig;
+        std::atomic<bool> run{true};
+
+        std::mutex connections_mutex;
+        std::vector<kl::connection> connections;
+        connections.reserve(4096);
+
+        auto emitter = [&] {
+            while (run)
+            {
+                sig(1);
+            }
+        };
+
+        auto conn = [&] {
+            while (run)
+            {
+                for (int i = 0; i < 10; ++i)
+                {
+                    auto c1 = sig.connect(f1);
+                    auto c2 = sig.connect(f2);
+                    auto c3 = sig.connect(f3);
+
+                    std::scoped_lock lock(connections_mutex);
+                    connections.push_back(std::move(c1));
+                    connections.push_back(std::move(c2));
+                    connections.push_back(std::move(c3));
+                    if (connections.size() > 8192)
+                    {
+                        connections.erase(connections.begin(),
+                                          connections.begin() +
+                                              (connections.size() - 4096));
+                    }
+                }
+            }
+        };
+
+        auto disconn = [&] {
+            while (run)
+            {
+                kl::connection c;
+                {
+                    std::scoped_lock lock(connections_mutex);
+                    if (connections.empty())
+                        continue;
+                    c = std::move(connections.back());
+                    connections.pop_back();
+                }
+                c.disconnect();
+            }
+        };
+
+        std::array<std::thread, 20> emitters;
+        std::array<std::thread, 20> conns;
+        std::array<std::thread, 20> disconns;
+
+        for (auto& t : conns)
+            t = std::thread(conn);
+        for (auto& t : emitters)
+            t = std::thread(emitter);
+        for (auto& t : disconns)
+            t = std::thread(disconn);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        run = false;
+
+        for (auto& t : emitters)
+            t.join();
+        for (auto& t : disconns)
+            t.join();
+        for (auto& t : conns)
+            t.join();
+    }
 }
