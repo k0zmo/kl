@@ -1,59 +1,121 @@
 #pragma once
 
+#include <kl/defer.hpp>
+
+#include <atomic>
 #include <cassert>
 #include <cstddef>
+#include <cstdint>
 #include <functional>
 #include <memory>
-#include <tuple>
-#include <type_traits>
+#include <mutex>
 #include <utility>
+
+namespace kl::detail {
+
+struct signal_base
+{
+    virtual void disconnect(std::uintptr_t id) noexcept = 0;
+
+protected:
+    ~signal_base() = default;
+};
+
+template <typename Derived>
+struct ref_counted
+{
+public:
+    ref_counted() noexcept : count_{0} {}
+    ref_counted(const ref_counted&) noexcept : count_{0} {}
+    ref_counted& operator=(const ref_counted&) noexcept { return *this; }
+
+    void add_ref() noexcept { count_.fetch_add(1, std::memory_order_relaxed); }
+    void release() noexcept
+    {
+        if (count_.fetch_sub(1, std::memory_order_acq_rel) == 1)
+            delete static_cast<Derived*>(this);
+    }
+
+private:
+    std::atomic<std::ptrdiff_t> count_;
+};
+
+class slot_state : public ref_counted<slot_state>
+{
+public:
+    explicit slot_state(signal_base* sender) noexcept
+        : sender_{sender}
+    {
+        add_ref();
+    }
+    virtual ~slot_state() = default;
+
+    slot_state(const slot_state&) = delete;
+    slot_state& operator=(const slot_state&) = delete;
+
+    void block() noexcept
+    {
+        blocking_.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    void unblock() noexcept
+    {
+        const auto prev = blocking_.fetch_sub(1, std::memory_order_relaxed);
+        assert(prev > 0);
+        (void)prev;
+    }
+
+    bool blocked() const noexcept
+    {
+        return blocking_.load(std::memory_order_relaxed) > 0;
+    }
+
+    bool connected() const noexcept
+    {
+        return sender_.load(std::memory_order_acquire) != nullptr;
+    }
+
+    void disconnect() noexcept
+    {
+        auto* sender = sender_.exchange(nullptr, std::memory_order_acq_rel);
+        if (sender)
+            sender->disconnect(id());
+    }
+
+    bool valid() const noexcept
+    {
+        return sender_.load(std::memory_order_acquire) != nullptr;
+    }
+
+    std::uintptr_t id() const noexcept
+    {
+        return reinterpret_cast<std::uintptr_t>(this);
+    }
+
+protected:
+    std::atomic<signal_base*> sender_;
+
+private:
+    std::atomic<unsigned> blocking_{0};
+};
+
+struct tls_signal_info
+{
+    bool emission_stopped{false};
+    detail::slot_state* current_slot{nullptr};
+};
+
+inline auto& get_tls_signal_info() noexcept
+{
+    thread_local tls_signal_info info;
+    return info;
+}
+} // namespace kl::detail
 
 namespace kl {
 
-class connection;
-
-namespace detail {
-
-class signal_base
-{
-protected:
-    friend class kl::connection;
-
-    signal_base() noexcept = default;
-    ~signal_base() = default;
-
-    signal_base(signal_base&&) noexcept {}
-    signal_base& operator=(signal_base&&) noexcept { return *this; }
-
-private:
-    signal_base(const signal_base&) = delete;
-    signal_base& operator=(const signal_base&) = delete;
-
-    virtual void disconnect(int id) noexcept = 0;
-};
-
-struct connection_info final
-{
-    connection_info(signal_base* sender, int id) noexcept
-        : sender{sender}, id{id}
-    {
-    }
-
-    signal_base* sender;
-    const int id;
-    unsigned blocking{0};
-};
-
-template <typename T>
-size_t hash_std(T&& v)
-{
-    using remove_cvref_t = std::remove_cv_t<std::remove_reference_t<T>>;
-    return std::hash<remove_cvref_t>{}(std::forward<T>(v));
-}
-} // namespace detail
-
 /*
- * Represent a connection from given signal to a slot. Can be used to disconnect
+ * Represents a connection from given signal to a slot. Can be used to disconnect
  * the connection at any time later.
  * connection object can be kept inside standard containers (e.g unordered_set)
  * compared between each others and finally move/copy around.
@@ -61,19 +123,42 @@ size_t hash_std(T&& v)
 class connection final
 {
 public:
-    // Creates empty connection
-    connection() noexcept = default;
-    ~connection() = default;
+    connection() noexcept : slot_{} {}
+    explicit connection(detail::slot_state& slot) noexcept : slot_{&slot}
+    {
+        slot_->add_ref();
+    }
 
-    // Copy constructor/operator
-    connection(const connection&) = default;
-    connection& operator=(const connection&) = default;
+    ~connection()
+    {
+        if (slot_)
+            slot_->release();
+    }
 
-    // Move constructor/operator
+    connection(const connection& other) : slot_{other.slot_}
+    {
+        if (slot_)
+            slot_->add_ref();
+    }
+
+    connection& operator=(const connection& other)
+    {
+        if (this != &other)
+        {
+            if (slot_)
+                slot_->release();
+            slot_ = other.slot_;
+            if (slot_)
+                slot_->add_ref();
+        }
+        return *this;
+    }
+
     connection(connection&& other) noexcept
-        : impl_{std::exchange(other.impl_, nullptr)}
+        : slot_{std::exchange(other.slot_, nullptr)}
     {
     }
+
     connection& operator=(connection&& other) noexcept
     {
         swap(*this, other);
@@ -81,59 +166,79 @@ public:
     }
 
     // Disconnects the connection. No-op if connection is already disconnected.
-    void disconnect()
+    void disconnect() noexcept
     {
-        if (!connected())
+        if (!slot_)
             return;
-        impl_->sender->disconnect(impl_->id);
-        impl_ = nullptr;
+        slot_->disconnect();
+        slot_->release();
+        slot_ = nullptr;
     }
 
     // Returns true if connection is valid
-    bool connected() const { return impl_ && impl_->sender; }
+    bool connected() const noexcept { return slot_ && slot_->connected(); }
 
     size_t hash() const noexcept
     {
         // Get hash out of underlying pointer
-        return detail::hash_std(impl_);
+        return std::hash<detail::slot_state*>{}(slot_);
     }
 
+public:
     class blocker
     {
     public:
         blocker() noexcept = default;
-        blocker(connection& con) : impl_{con.impl_}
+        blocker(connection& con) noexcept: slot_{con.slot_}
         {
-            if (impl_)
-                ++impl_->blocking;
+            if (slot_)
+            {
+                slot_->add_ref();
+                slot_->block();
+            }
         }
 
         ~blocker()
         {
-            if (impl_)
-                --impl_->blocking;
+            if (slot_)
+            {
+                slot_->unblock();
+                slot_->release();
+            }
         }
 
-        blocker(const blocker& other) : impl_{other.impl_}
+        blocker(const blocker& other) noexcept : slot_{other.slot_}
         {
-            if (impl_)
-                ++impl_->blocking;
+            if (slot_)
+            {
+                slot_->add_ref();
+                slot_->block();
+            }
         }
 
-        blocker& operator=(const blocker& other)
+        blocker& operator=(const blocker& other) noexcept
         {
             if (this != &other)
             {
-                if (impl_)
-                    --impl_->blocking;
-                impl_ = other.impl_;
-                if (impl_)
-                    ++impl_->blocking;
+                if (slot_)
+                {
+                    slot_->unblock();
+                    slot_->release();
+                }
+                slot_ = other.slot_;
+                if (slot_)
+                {
+                    slot_->add_ref();
+                    slot_->block();
+                }
             }
             return *this;
         }
 
-        blocker(blocker&& other) noexcept : impl_{std::move(other.impl_)} {}
+        blocker(blocker&& other) noexcept
+            : slot_{std::exchange(other.slot_, nullptr)}
+        {
+        }
 
         blocker& operator=(blocker&& other) noexcept
         {
@@ -141,58 +246,42 @@ public:
             return *this;
         }
 
-        bool blocking() const noexcept { return impl_ != nullptr; }
+        bool blocking() const noexcept { return slot_ != nullptr; }
 
         friend void swap(blocker& left, blocker& right) noexcept
         {
             using std::swap;
-            swap(left.impl_, right.impl_);
+            swap(left.slot_, right.slot_);
         }
 
     private:
-        std::shared_ptr<detail::connection_info> impl_;
+        detail::slot_state* slot_{};
     };
-
-    blocker get_blocker() { return {*this}; }
+    blocker get_blocker() noexcept { return {*this}; }
 
 public:
     friend void swap(connection& left, connection& right) noexcept
     {
         using std::swap;
-        swap(left.impl_, right.impl_);
+        swap(left.slot_, right.slot_);
     }
 
     friend bool operator==(const connection& left,
                            const connection& right) noexcept
     {
-        return left.impl_ == right.impl_;
+        return left.slot_ == right.slot_;
     }
 
     friend bool operator<(const connection& left,
                           const connection& right) noexcept
     {
-        return left.impl_ < right.impl_;
+        return left.slot_ < right.slot_;
     }
 
 private:
-    friend connection
-        make_connection(std::shared_ptr<detail::connection_info> ci) noexcept;
-    // Private constructor - use by concrete instances of signal class
-    connection(std::shared_ptr<detail::connection_info> c) noexcept
-        : impl_{std::move(c)}
-    {
-        assert(impl_);
-    }
-
-private:
-    std::shared_ptr<detail::connection_info> impl_;
+    detail::slot_state* slot_;
 };
 
-inline connection
-    make_connection(std::shared_ptr<detail::connection_info> ci) noexcept
-{
-    return connection(std::move(ci));
-}
 
 /*
  * RAII connection. Disconnects underlying connection upon destruction.
@@ -260,68 +349,15 @@ enum connect_position
     at_front
 };
 
-namespace detail {
-
-template <typename Ret>
-struct sink_invoker
-{
-    template <typename Sink, typename Slot, typename... Args>
-    static bool call(Sink&& sink, const Slot& slot, const Args&... args)
-    {
-        constexpr bool does_sink_return_void = std::is_same_v<
-            void, std::invoke_result_t<Sink, Ret>>;
-
-        auto&& return_value = slot(args...);
-
-        if constexpr (does_sink_return_void)
-            return std::forward<Sink>(sink)(return_value), false;
-        else
-            return !!std::forward<Sink>(sink)(return_value);
-    }
-};
-
-template <>
-struct sink_invoker<void>
-{
-    template <typename Sink, typename Slot, typename... Args>
-    static bool call(Sink&& sink, const Slot& slot, const Args&... args)
-    {
-        constexpr bool does_sink_return_void =
-            std::is_same_v<void, std::invoke_result_t<Sink>>;
-
-        slot(args...);
-
-        if constexpr (does_sink_return_void)
-            return std::forward<Sink>(sink)(), false;
-        else
-            return !!std::forward<Sink>(sink)();
-    }
-};
-} // namespace detail
-
 template <typename Signature>
 class signal;
 
-template <typename Ret, typename... Args>
-class signal<Ret(Args...)> : public detail::signal_base
+template <typename... Args>
+class signal<void(Args...)> : public detail::signal_base
 {
 public:
-    using signature_type = Ret(Args...);
-    using slot_type = std::function<Ret(Args...)>;
-    using extended_slot_type = std::function<Ret(connection&, Args...)>;
-    using signal_type = signal<Ret(Args...)>;
-    using return_type = Ret;
-    static const size_t arity = sizeof...(Args);
-
-    template <std::size_t N>
-    struct arg
-    {
-        static_assert(N < arity, "invalid arg index");
-        using type = std::tuple_element_t<N, std::tuple<Args...>>;
-    };
-
-    template <std::size_t N>
-    using arg_t = typename arg<N>::type;
+    using signature_type = void(Args...);
+    using slot_type = std::function<void(Args...)>;
 
 public:
     // Constructs empty, disconnected signal
@@ -332,108 +368,233 @@ public:
     signal& operator=(const signal&) = delete;
 
     signal(signal&& other) noexcept
-        : slots_{std::exchange(other.slots_, nullptr)},
-          next_id_{other.next_id_},
-          emits_{other.emits_}
     {
-        rebind();
+        {
+            std::lock_guard<std::mutex> lock{other.mutex_};
+            slots_ = std::exchange(other.slots_, nullptr);
+            tail_ = std::exchange(other.tail_, nullptr);
+            deferred_cleanup_ = other.deferred_cleanup_;
+            other.deferred_cleanup_ = false;
+        }
+        std::lock_guard<std::mutex> lock{mutex_};
+        rebind_locked();
     }
 
     signal& operator=(signal&& other) noexcept
     {
-        swap(*this, other);
+        if (this != &other)
+            swap(*this, other);
         return *this;
     }
 
-    connection connect_extended(extended_slot_type extended_slot,
-                                connect_position at = at_back)
-    {
-        if (!extended_slot)
-            return {};
-
-        auto connection_info =
-            std::make_shared<detail::connection_info>(this, ++next_id_);
-
-        // Create proxy slot that would add connection as a first argument
-        auto connection = make_connection(connection_info);
-
-        class proxy_slot
-        {
-        public:
-            explicit proxy_slot(const kl::connection& connection,
-                                extended_slot_type slot)
-                : connection_{connection}, slot_{std::move(slot)}
-            {
-            }
-
-            return_type operator()(Args&&... args)
-            {
-                return slot_(connection_, std::forward<Args>(args)...);
-            }
-
-        private:
-            kl::connection connection_;
-            extended_slot_type slot_;
-        };
-
-        insert_new_slot(
-            new signal::slot(connection_info,
-                             proxy_slot{connection, std::move(extended_slot)}),
-            at);
-        return connection;
-    }
-
-    // Connects signal object to given slot object.
     connection connect(slot_type slot, connect_position at = at_back)
     {
         if (!slot)
             return {};
-        auto connection_info =
-            std::make_shared<detail::connection_info>(this, ++next_id_);
-        insert_new_slot(new signal::slot(connection_info, std::move(slot)), at);
-        return make_connection(std::move(connection_info));
+        std::lock_guard<std::mutex> lock{mutex_};
+        auto slot_impl = new signal::slot(this, std::move(slot));
+        insert_new_slot_locked(slot_impl, at);
+        return connection{*slot_impl};
     }
 
-    connection operator+=(slot_type slot) { return connect(std::move(slot)); }
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...), T* instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                (instance->*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...) const, const T* instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                (instance->*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...), T& instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, &instance](Args&&... args) {
+                (instance.*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...) const, const T& instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, &instance](Args&&... args) {
+                (instance.*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...), std::shared_ptr<T> instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                ((*instance).*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...) const,
+                       std::shared_ptr<const T> instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                ((*instance).*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...), std::weak_ptr<T> instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                if (auto ptr = instance.lock())
+                    ((*ptr).*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename T, typename Ret, typename... Args2>
+    connection connect(Ret (T::*mem_func)(Args2...) const,
+                       std::weak_ptr<const T> instance,
+                       connect_position at = at_back)
+    {
+        return connect(
+            [mem_func, instance](Args&&... args) {
+                if (auto ptr = instance.lock())
+                    ((*ptr).*mem_func)(std::forward<Args>(args)...);
+            },
+            at);
+    }
+
+    template <typename Ret, typename... Args2>
+    connection connect(signal<Ret(Args2...)>& sig, connect_position at = at_back)
+    {
+        return connect(
+            [&sig](Args&&... args) { sig(std::forward<Args>(args)...); }, at);
+    }
+
+    connection operator+=(slot_type slot)
+    {
+        return connect(std::move(slot));
+    }
 
     // Emits signal
     void operator()(Args... args)
     {
-        call_each_slot([&](const slot& s) {
-            s(args...);
-            return false;
+        active_emissions_.fetch_add(1, std::memory_order_acq_rel);
+        KL_DEFER({
+            const auto prev = active_emissions_.fetch_sub(1, std::memory_order_acq_rel);
+            if (prev == 1)
+            {
+                std::lock_guard<std::mutex> lock{mutex_};
+                cleanup_invalidated_slots_locked();
+            }
         });
 
-        cleanup_invalidated_slots();
-    }
+        auto& emission_state = detail::get_tls_signal_info();
+        // Rollback tls_signal_info back to its pre-emission value
+        auto prev_emission_state = emission_state;
+        KL_DEFER(emission_state = prev_emission_state);
 
-    // Emits signal and sinks signal return values
-    template <typename Sink>
-    void operator()(Args... args, Sink&& sink)
-    {
-        call_each_slot([&](const slot& s) {
-            using invoker = detail::sink_invoker<return_type>;
-            return invoker::call(std::forward<Sink>(sink), s, args...);
-        });
+        emission_state.emission_stopped = false;
 
-        cleanup_invalidated_slots();
+        // We can't traverse the list without synchronization while other
+        // threads may connect/disconnect. Instead we:
+        //  - snapshot the tail ("last") once under lock
+        //  - traverse slot-by-slot, acquiring the lock only to read next
+        //  - hold a ref to each slot while invoking user code
+        slot* last = nullptr;
+        slot* current = nullptr;
+        {
+            std::lock_guard<std::mutex> lock{mutex_};
+            last = tail_;
+            if (last)
+                last->add_ref();
+            current = slots_;
+            if (current)
+                current->add_ref();
+        }
+        KL_DEFER(
+            if (last)
+                last->release();
+        );
+
+        while (current)
+        {
+            if (!current->blocked() && current->valid())
+            {
+                // Invoke the slot if it's valid (not disconnected) and not blocked
+                emission_state.current_slot = current;
+                current->target(args...);
+            }
+
+            const bool is_last = (current == last);
+
+            slot* next = nullptr;
+            if (!is_last && !emission_state.emission_stopped)
+            {
+                std::lock_guard<std::mutex> lock{mutex_};
+                next = current->next;
+                if (next)
+                    next->add_ref();
+            }
+
+            current->release();
+            current = next;
+
+            if (is_last || emission_state.emission_stopped)
+                break;
+        }
     }
 
     // Disconnects all slots bound to this signal
     void disconnect_all_slots() noexcept
     {
-        for (auto iter = slots_; iter; iter = iter->next)
+        std::lock_guard<std::mutex> lock{mutex_};
+        const bool can_remove = !emission_in_progress();
+        for (slot *iter = slots_, *prev = nullptr; iter;)
         {
             iter->invalidate();
-            emits_ |= should_cleanup;
+            if (can_remove)
+            {
+                iter = remove_slot_locked(*iter, prev);
+            }
+            else
+            {
+                deferred_cleanup_ = true;
+                prev = iter;
+                iter = iter->next;
+            }
         }
-
-        cleanup_invalidated_slots();
     }
 
     // Retrieves number of slots connected to this signal
     size_t num_slots() const noexcept
     {
+        std::lock_guard<std::mutex> lock{mutex_};
         size_t sum{0};
         for (auto iter = slots_; iter; iter = iter->next)
         {
@@ -448,193 +609,132 @@ public:
 
     friend void swap(signal& left, signal& right) noexcept
     {
+        if (&left == &right)
+            return;
+        std::scoped_lock lock{left.mutex_, right.mutex_};
         using std::swap;
-        swap(left.next_id_, right.next_id_);
         swap(left.slots_, right.slots_);
-        swap(left.emits_, right.emits_);
+        swap(left.tail_, right.tail_);
+        swap(left.deferred_cleanup_, right.deferred_cleanup_);
 
-        left.rebind();
-        right.rebind();
+        left.rebind_locked();
+        right.rebind_locked();
     }
 
 private:
-    void disconnect(int id) noexcept override
+    void disconnect(std::uintptr_t id) noexcept override
     {
-        for (auto iter = slots_; iter; iter = iter->next)
+        std::lock_guard<std::mutex> lock{mutex_};
+        const bool can_remove = !emission_in_progress();
+        for (slot *iter = slots_, *prev = nullptr; iter;
+             prev = iter, iter = iter->next)
         {
-            if (iter->connection_info().id != id)
+            if (iter->id() != id)
                 continue;
 
-            // We can't delete the node here since we could be in the middle
-            // of signal emission or we are called from extended slot. In
-            // that case it would lead to removal of connection (proxy slot
-            // keeps the copy) that is invoking this very function.
             iter->invalidate();
-            emits_ |= should_cleanup;
-            cleanup_invalidated_slots();
+            if (can_remove)
+            {
+                remove_slot_locked(*iter, prev);
+            }
+            else
+            {
+                // We'll try again after all emissions are finished
+                deferred_cleanup_ = true;
+            }
             return;
         }
     }
 
-    void rebind() noexcept
+    void rebind_locked() noexcept
     {
-        cleanup_invalidated_slots_impl();
+        cleanup_invalidated_slots_locked();
 
         // Rebind back-pointer to new signal
         for (auto iter = slots_; iter; iter = iter->next)
         {
-            assert(iter->connection_info().sender);
-            iter->connection_info().sender = this;
+            iter->rebind(this);
         }
     }
 
-    template <typename Func>
-    void call_each_slot(Func&& func)
+    void cleanup_invalidated_slots_locked() noexcept
     {
-        struct decrement_op
-        {
-            unsigned& value;
-            ~decrement_op() { --value; }
-        } op{++emits_};
+        if (!deferred_cleanup_)
+            return;
 
-        const auto highest_id = highest_connection_id();
-
-        for (auto iter = slots_;
-             iter && iter->connection_info().id <= highest_id;
-             iter = iter->next)
+        // Never physically remove slots while any emission is in-flight.
+        if (emission_in_progress())
         {
-            if (!iter->is_blocked() && iter->valid())
-            {
-                if (func(*iter))
-                    break;
-            }
+            deferred_cleanup_ = true;
+            return;
         }
-    }
-
-    void cleanup_invalidated_slots_impl()
-    {
-        assert(emits_ == 0 || emits_ == should_cleanup);
 
         for (slot *iter = slots_, *prev = nullptr; iter;)
         {
-            if (!iter->valid())
-            {
-                auto next = iter->next;
-                if (prev)
-                    prev->next = next;
-                if (slots_ == iter)
-                    slots_ = next;
-                delete iter;
-                iter = next;
-            }
-            else
+            if (iter->valid())
             {
                 prev = iter;
                 iter = iter->next;
             }
+            else
+            {
+                iter = remove_slot_locked(*iter, prev);
+            }
         }
-    }
-
-    void cleanup_invalidated_slots()
-    {
-        // We can free dead slots only when we're not in the middle of an
-        // emission and also there's anything to cleanup
-        if (emits_ == should_cleanup)
-        {
-            cleanup_invalidated_slots_impl();
-            emits_ = 0;
-        }
-    }
-
-    int highest_connection_id() const
-    {
-        int ret = -1;
-        for (auto iter = slots_; iter; iter = iter->next)
-        {
-            if (iter->valid() && iter->connection_info().id > ret)
-                ret = iter->connection_info().id;
-        }
-        return ret;
+        deferred_cleanup_ = false;
     }
 
 private:
-    class slot final
+    struct slot final : detail::slot_state
     {
-    public:
-        slot* next{nullptr};
-
-    public:
-        slot(std::shared_ptr<detail::connection_info> connection_info,
-             slot_type impl) noexcept
-            : connection_info_{std::move(connection_info)},
-              impl_{std::move(impl)}
-
+        slot(signal_base* parent, slot_type target) noexcept
+            : detail::slot_state{parent},
+              target{std::move(target)}
         {
         }
 
         slot(const slot&) = delete;
         slot& operator=(const slot&) = delete;
 
-        return_type operator()(const Args&... args) const
+        void invalidate() noexcept
         {
-            return impl_(args...);
+            rebind(nullptr);
         }
 
-        void invalidate() noexcept { connection_info().sender = nullptr; }
-
-        const detail::connection_info& connection_info() const noexcept
+        void rebind(signal_base* parent) noexcept
         {
-            return *connection_info_;
+            sender_.store(parent, std::memory_order_release);
         }
 
-        detail::connection_info& connection_info() noexcept
-        {
-            return *connection_info_;
-        }
-
-        bool valid() const noexcept
-        {
-            return connection_info().sender != nullptr;
-        }
-        bool is_blocked() const noexcept
-        {
-            return connection_info().blocking > 0;
-        }
-
-    private:
-        std::shared_ptr<detail::connection_info> connection_info_;
-        slot_type impl_;
+        slot* next{nullptr};
+        const slot_type target;
     };
 
-    slot* slots_{nullptr};
-    int next_id_{0};
-    // On most significant bit we store if there are any invalidated slots that
-    // need to be cleanup
-    unsigned emits_{0};
-    // If emits_ equals to should_cleanup we know there's no emission in place
-    // and there are invalidated slots
-    static constexpr unsigned should_cleanup = 0x80000000;
+    slot* slots_{nullptr}; // owning pointer
+    slot* tail_{nullptr};  // observer ptr
+    std::atomic<std::uint32_t> active_emissions_{0};
+    mutable std::mutex mutex_;
+    bool deferred_cleanup_{false};
 
 private:
-    void insert_new_slot(slot* new_slot, connect_position at) noexcept
+    bool emission_in_progress() const noexcept
+    {
+        return active_emissions_.load(std::memory_order_acquire) != 0;
+    }
+
+    void insert_new_slot_locked(slot* new_slot, connect_position at) noexcept
     {
         if (!slots_)
         {
             slots_ = new_slot;
+            tail_ = new_slot;
             return;
         }
 
         if (at == at_back)
         {
-            auto iter = slots_, prev = slots_;
-            while (iter)
-            {
-                prev = iter;
-                iter = iter->next;
-            }
-
-            iter = prev;
-            iter->next = new_slot;
+            tail_->next = new_slot;
+            tail_ = new_slot;
         }
         else
         {
@@ -642,68 +742,37 @@ private:
             slots_ = new_slot;
         }
     }
+
+    slot* remove_slot_locked(slot& to_remove, slot* prev) noexcept
+    {
+        assert(!emission_in_progress());
+        slot* next = to_remove.next;
+        if (prev)
+            prev->next = next;
+        else if (slots_ == &to_remove)
+            slots_ = next;
+        if (tail_ == &to_remove)
+            tail_ = prev ? prev : slots_;
+        to_remove.release();
+        return next;
+    }
 };
 
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T* instance)
-{
-    return {[mem_func, instance](Args&&... args) {
-        return (instance->*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
-                                      const T* instance)
-{
-    return {[mem_func, instance](Args&&... args) {
-        return (instance->*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...), T& instance)
-{
-    return {[mem_func, &instance](Args&&... args) {
-        return (instance.*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
-                                      const T& instance)
-{
-    return {[mem_func, &instance](Args&&... args) {
-        return (instance.*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
-                                      std::shared_ptr<T> instance)
-{
-    return {[mem_func, instance](Args&&... args) {
-        return ((*instance).*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-template <typename T, typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(Ret (T::*mem_func)(Args...) const,
-                                      std::weak_ptr<T> instance)
-{
-    return {[mem_func, instance](Args&&... args) {
-        if (auto ptr = instance.lock())
-            return ((*ptr).*mem_func)(std::forward<Args>(args)...);
-    }};
-}
-
-// Converts signal to slot type allowing to create signal-to-signal connections
-template <typename Ret, typename... Args>
-std::function<Ret(Args...)> make_slot(signal<Ret(Args...)>& sig)
-{
-    return {[&](Args&&... args) { return sig(std::forward<Args>(args)...); }};
-}
 } // namespace kl
+
+namespace kl::this_signal {
+
+inline void stop_emission() noexcept
+{
+    detail::get_tls_signal_info().emission_stopped = true;
+}
+
+inline connection current_connection() noexcept
+{
+    auto slot = detail::get_tls_signal_info().current_slot;
+    return slot ? connection{*slot} : connection{};
+}
+} // namespace kl::this_signal
 
 namespace std {
 
@@ -726,9 +795,3 @@ struct hash<kl::scoped_connection>
     }
 };
 } // namespace std
-
-// Handy macro for slot connecting inside a class
-#define KL_SLOT(mem_fn)                                                        \
-    [this](auto&&... args) {                                                   \
-        return this->mem_fn(std::forward<decltype(args)>(args)...);            \
-    }

@@ -4,11 +4,19 @@
 #include <catch2/catch_approx.hpp>
 
 #include <algorithm>
+#include <array>
+#include <atomic>
+#include <chrono>
+#include <cstdint>
+#include <atomic>
+#include <condition_variable>
 #include <functional>
 #include <memory>
-#include <optional>
+#include <mutex>
 #include <string>
+#include <thread>
 #include <utility>
+#include <thread>
 #include <vector>
 
 namespace test {
@@ -26,11 +34,11 @@ struct Baz
 };
 } // namespace test
 
-TEST_CASE("signal")
+TEST_CASE("signal - base functionality", "[signal]")
 {
     SECTION("empty signal")
     {
-        kl::signal<float(int)> s;
+        kl::signal<void(int)> s;
         REQUIRE(s.empty());
         REQUIRE(s.num_slots() == 0);
         s.disconnect_all_slots();
@@ -40,26 +48,22 @@ TEST_CASE("signal")
 
     SECTION("connect null function")
     {
-        kl::signal<float(int)> s;
+        kl::signal<void(int)> s;
         s.connect(nullptr);
-        REQUIRE(s.empty());
-        s.connect_extended(nullptr);
         REQUIRE(s.empty());
     }
 
     SECTION("connect lambda")
     {
         static const int arg = 2;
-        kl::signal<float(int)> s;
+        kl::signal<void(int)> s;
         s += [&](int a) {
-            REQUIRE(arg == a);
-            return a * 3.14f;
+            REQUIRE(arg == a);;
         };
         REQUIRE(!s.empty());
         REQUIRE(s.num_slots() == 1);
 
         s(arg);
-        s(arg, [&](float srv) { REQUIRE(arg * 3.14f == Catch::Approx(srv)); });
 
         s.disconnect_all_slots();
         REQUIRE(s.empty());
@@ -69,7 +73,7 @@ TEST_CASE("signal")
     SECTION("connect lambda twice")
     {
         static const int arg = 3;
-        kl::signal<float(int)> s;
+        kl::signal<void(int)> s;
 
         int counter = 0;
 
@@ -83,15 +87,7 @@ TEST_CASE("signal")
         REQUIRE(s.num_slots() == 2);
 
         s(arg);
-
-        int srvCounter = 0;
-        s(arg, [&](float srv) {
-            ++srvCounter;
-            REQUIRE(3.14f * arg == Catch::Approx(srv));
-        });
-
-        REQUIRE(counter == 2 * 2);
-        REQUIRE(srvCounter == 2);
+        REQUIRE(counter == 2);
 
         s.disconnect_all_slots();
         REQUIRE(s.empty());
@@ -114,14 +110,17 @@ TEST_CASE("signal")
     {
         test::Baz obj;
         kl::signal<void(int&)> s;
-        s += kl::make_slot(&test::Baz::bar, &obj);
-        s += kl::make_slot(&test::Baz::bar, const_cast<const test::Baz*>(&obj));
+        s.connect(&test::Baz::bar, &obj);
+        s.connect(&test::Baz::bar, const_cast<const test::Baz*>(&obj));
 
         test::Baz& ref = obj;
-        s += kl::make_slot(&test::Baz::bar, ref);
+        s.connect(&test::Baz::bar, ref);
 
         const test::Baz& cref = obj;
-        s += kl::make_slot(&test::Baz::bar, cref);
+        s.connect(&test::Baz::bar, cref);
+
+        auto shared_ob = std::make_shared<const test::Baz>();
+        s.connect(&test::Baz::bar, shared_ob);
 
         // use bind directly
         s += std::bind(static_cast<void (test::Baz::*)(int&)>(&test::Baz::bar),
@@ -131,19 +130,26 @@ TEST_CASE("signal")
             std::cref(obj), std::placeholders::_1);
         int z = 0;
         s(z);
-        REQUIRE(z == 6);
+        REQUIRE(z == 7);
     }
 
-    SECTION("make slot shared_ptr to signal")
+    SECTION("connect shared_ptr instance to a signal")
     {
         auto obj = std::make_shared<test::Baz>();
         kl::signal<void(int&)> s;
-        s += kl::make_slot(&test::Baz::bar, obj);
-        s += kl::make_slot(&test::Baz::bar, std::weak_ptr<test::Baz>(obj));
+        auto c = s.connect(&test::Baz::bar, obj);
+        s.connect(&test::Baz::bar, std::weak_ptr<test::Baz>(obj));
+        s.connect(&test::Baz::bar, std::weak_ptr{obj});
+        s.connect(&test::Baz::bar, std::weak_ptr<const test::Baz>{obj});
         CHECK(obj.use_count() == 2);
         int z = 0;
         s(z);
-        CHECK(z == 2);
+        CHECK(z == 4);
+
+        obj.reset();
+        c.disconnect();
+        s(z);
+        CHECK(z == 4);
     }
 
     SECTION("connect static member function")
@@ -209,34 +215,18 @@ TEST_CASE("signal")
         REQUIRE(shot);
     }
 
-    SECTION("sink for void and nonvoid return types")
-    {
-        kl::signal<void()> s0;
-        kl::signal<int()> s1;
-
-        s0 += [] {};
-        s1 += [] { return 99; };
-
-        s0();
-        s1();
-
-        int cnt{};
-        s0([&] { ++cnt; });
-        s1([](int v) { REQUIRE(v == 99); });
-        REQUIRE(cnt == 1);
-    }
-
-    SECTION("extended connect")
+    SECTION("current connection")
     {
         int counter = 0;
-        auto single_shot_slot = [&counter](kl::connection& conn,
-                                           const std::string&) {
+        auto single_shot_slot = [&counter](const std::string&) {
+            auto conn = kl::this_signal::current_connection();
+            REQUIRE(conn.connected());
             conn.disconnect();
             ++counter;
         };
 
         kl::signal<void(const std::string&)> s;
-        s.connect_extended(single_shot_slot);
+        s.connect(single_shot_slot);
 
         s("hello");
         s(" world\n"); // Wont be called
@@ -244,18 +234,48 @@ TEST_CASE("signal")
         REQUIRE(counter == 1);
     }
 
+    SECTION("current connection, recursive")
+    {
+        int counter = 0;
+        kl::signal<void()> s1;
+        kl::signal<void()> s2;
+        s1 += [&]() {
+            auto conn = kl::this_signal::current_connection();
+            REQUIRE(conn.connected());
+            ++counter;
+            s2();
+            CHECK(kl::this_signal::current_connection() == conn);
+        };
+        s2 += [&]() {
+            auto conn = kl::this_signal::current_connection();
+            REQUIRE(conn.connected());
+            conn.disconnect();
+            ++counter;
+        };
+
+        s1();
+        CHECK(counter == 2);
+        s1();
+        CHECK(counter == 3);
+    }
+
     SECTION("connect signal to signal")
     {
         kl::signal<void(int)> s;
         kl::signal<void(int)> t;
 
-        t += [](int i) { REQUIRE(i == 2); };
-        s += kl::make_slot(t);
+        bool done = false;
+        t += [&](int i) {
+            REQUIRE(i == 2);
+            done = true;
+        };
+        s.connect(t);
         s(2);
+        REQUIRE(done);
     }
 }
 
-TEST_CASE("connection")
+TEST_CASE("signal - connection", "[signal]")
 {
     SECTION("empty connection")
     {
@@ -391,7 +411,7 @@ TEST_CASE("connection")
     }
 }
 
-TEST_CASE("scoped_connection")
+TEST_CASE("signal - scoped_connection", "[signal]")
 {
     SECTION("empty")
     {
@@ -424,106 +444,206 @@ TEST_CASE("scoped_connection")
     }
 }
 
-namespace test {
-
-bool foo() { return false; }
-bool bar() { return true; }
-
-float product(float x, float y) { return x * y; }
-float quotient(float x, float y) { return x / y; }
-float sum(float x, float y) { return x + y; }
-float difference(float x, float y) { return x - y; }
-} // namespace test
-
-TEST_CASE("signal combiners")
+TEST_CASE("signal - stopping signal emission", "[signal]")
 {
-    // http://www.boost.org/doc/libs/1_60_0/doc/html/signals2/rationale.html
-    // We use push model - with lambdas and all it's not that bad
+    kl::signal<void()> s;
+    int i = 0;
 
-    kl::signal<float(float, float)> sig;
-    sig += &test::product;
-    sig += &test::quotient;
-    sig += &test::sum;
-    sig += &test::difference;
-
-    SECTION("optional last value")
+    SECTION("a")
     {
-        // The default combiner returns a std::optional containing the return
-        // value of the last slot in the slot list, in this case the
-        // difference function.
-        std::optional<float> srv;
-        sig(5, 3, [&](float v) { srv = v; });
-        REQUIRE(srv);
-        REQUIRE(*srv == 2);
+        s += [&] {
+            i += 10;
+            kl::this_signal::stop_emission();
+        };
+        s += [&] { i += 100; };
+        s += [&] { i += 1000; };
+        s();
+        CHECK(i == 10);
+        s();
+        CHECK(i == 20);
     }
 
-    SECTION("maximum")
+    SECTION("b")
     {
-        float srv{};
-        sig(5, 3, [&](float v) { srv = std::max(srv, v); });
-
-        // Outputs the maximum value returned by the connected slots, in this
-        // case 15 from the product function.
-        REQUIRE(srv == Catch::Approx(15.0f));
+        s += [&] { i += 10; };
+        s += [&] {
+            i += 100;
+            kl::this_signal::stop_emission();
+        };
+        s += [&] { i += 1000; };
+        s();
+        CHECK(i == 110);
+        s();
+        CHECK(i == 220);
     }
 
-    SECTION("aggregate values")
+    SECTION("b")
     {
-        std::vector<float> srv;
-        sig(5, 3, [&](float v) { srv.push_back(v); });
-
-        REQUIRE(srv.size() == 4);
-        REQUIRE(srv[0] == Catch::Approx(15.0f));
-        REQUIRE(srv[1] == Catch::Approx(1.666666667f));
-        REQUIRE(srv[2] == Catch::Approx(8.0f));
-        REQUIRE(srv[3] == Catch::Approx(2.0f));
+        s += [&] { i += 10; };
+        s += [&] { i += 100; };
+        s += [&] {
+            i += 1000;
+            kl::this_signal::stop_emission();
+        };
+        s();
+        CHECK(i == 1110);
+        s();
+        CHECK(i == 2220);
     }
 }
 
-TEST_CASE("stopping signal emission")
+TEST_CASE("signal - disconnect during signal emission", "[signal]")
 {
-    kl::signal<int()> signal;
-    signal += [] { return 10; };
-    signal += [] { return 100; };
-    signal += [] { return 1000; };
+    kl::signal<void()> s;
+    int i = 0;
 
-    SECTION("run all")
+    SECTION("disconnect current and middle")
     {
-        int cnt = 0;
-        signal([&](int) {
-            ++cnt;
-            return false;
-        });
-        REQUIRE(cnt == 3);
+        kl::connection c;
+        s += [&] { ++i; };
+        c = s += [&] {
+            i += 5;
+            c.disconnect();
+        };
+        s += [&] { ++i; };
+
+        s();
+        CHECK(i == 7);
+        CHECK(s.num_slots() == 2);
+
+        s();
+        CHECK(i == 9);
     }
 
-    SECTION("distribute request")
+    SECTION("disconnect current and first")
     {
-        int rv = 0;
-        signal([&](int ret) {
-            rv = ret;
-            if (ret > 50)
-                return true; // Dont bother calling next slot
-            return false;
-        });
-        REQUIRE(rv == 100); // 3rd slot not called
+        kl::connection c;
+        c = s += [&] {
+            i += 5;
+            c.disconnect();
+        };
+        s += [&] {
+            ++i;
+        };
+        s += [&] { ++i; };
+
+        s();
+        CHECK(i == 7);
+        CHECK(s.num_slots() == 2);
+
+        s();
+        CHECK(i == 9);
     }
 
-    SECTION("sink with void returning signal")
+    SECTION("disconnect last")
     {
-        int cnt = 0;
+        kl::connection c;
+        s += [&] { ++i; };
+        s += [&] {
+            ++i;
+            c.disconnect();
+        };
+        c = s += [&] { i += 10; };
+
+        s();
+        CHECK(i == 2);
+        CHECK(s.num_slots() == 2);
+
+        s();
+        CHECK(i == 4);
+    }
+}
+
+TEST_CASE("signal - signal thread safety (emit vs connect/disconnect)", "[signal]")
+{
+    SECTION("disconnect from another thread while slot is executing")
+    {
         kl::signal<void()> s;
-        s += [&] { cnt++; };
-        s += [&] { cnt++; };
-        s += [&] { cnt++; };
+        std::atomic<int> calls{0};
 
-        s([&] { return cnt >= 1; });
+        std::mutex m;
+        std::condition_variable cv;
+        bool entered = false;
+        bool proceed = false;
 
-        REQUIRE(cnt == 1);
+        kl::connection c = s.connect([&] {
+            calls.fetch_add(1, std::memory_order_relaxed);
+            std::unique_lock<std::mutex> lock{m};
+            entered = true;
+            cv.notify_one();
+            cv.wait(lock, [&] { return proceed; });
+        });
+
+        std::thread emitter{[&] { s(); }};
+
+        {
+            std::unique_lock<std::mutex> lock{m};
+            cv.wait(lock, [&] { return entered; });
+        }
+
+        std::thread disconnector{[&] { c.disconnect(); }};
+        disconnector.join();
+
+        {
+            std::lock_guard<std::mutex> lock{m};
+            proceed = true;
+        }
+        cv.notify_one();
+        emitter.join();
+
+        CHECK(calls.load(std::memory_order_relaxed) == 1);
+        CHECK(!c.connected());
+
+        s();
+        CHECK(calls.load(std::memory_order_relaxed) == 1);
+    }
+
+    SECTION("connect from another thread during emission is not called until next emission")
+    {
+        kl::signal<void()> s;
+        std::atomic<int> slot_a_calls{0};
+        std::atomic<int> slot_b_calls{0};
+
+        std::mutex m;
+        std::condition_variable cv;
+        bool entered = false;
+        bool proceed = false;
+
+        s.connect([&] {
+            slot_a_calls.fetch_add(1, std::memory_order_relaxed);
+            std::unique_lock<std::mutex> lock{m};
+            entered = true;
+            cv.notify_one();
+            cv.wait(lock, [&] { return proceed; });
+        });
+
+        std::thread emitter{[&] { s(); }};
+
+        {
+            std::unique_lock<std::mutex> lock{m};
+            cv.wait(lock, [&] { return entered; });
+        }
+
+        // Connect B while A is executing; B must not run in this emission.
+        s.connect([&] { slot_b_calls.fetch_add(1, std::memory_order_relaxed); });
+
+        {
+            std::lock_guard<std::mutex> lock{m};
+            proceed = true;
+        }
+        cv.notify_one();
+        emitter.join();
+
+        CHECK(slot_a_calls.load(std::memory_order_relaxed) == 1);
+        CHECK(slot_b_calls.load(std::memory_order_relaxed) == 0);
+
+        s();
+        CHECK(slot_a_calls.load(std::memory_order_relaxed) == 2);
+        CHECK(slot_b_calls.load(std::memory_order_relaxed) == 1);
     }
 }
 
-TEST_CASE("connect/disconnect during signal emission")
+TEST_CASE("signal - connect and disconnect during signal emission", "[signal]")
 {
     class Test
     {
@@ -533,7 +653,6 @@ TEST_CASE("connect/disconnect during signal emission")
             c0 = sig += [&] {
                 trace.push_back(0);
                 do_run();
-                return 0;
             };
 
             c1 = sig += [&] {
@@ -564,7 +683,7 @@ TEST_CASE("connect/disconnect during signal emission")
             c1.disconnect();
         }
 
-        kl::signal<int()> sig;
+        kl::signal<void()> sig;
         kl::connection c0;
         kl::connection c1;
         kl::connection c2;
@@ -581,7 +700,27 @@ TEST_CASE("connect/disconnect during signal emission")
             (std::vector<int>{0, 99, 2, 99, 0, 99, 2, 99, 4, 99, 4, 99}));
 }
 
-TEST_CASE("one-time slot connection with a next emission in a handler")
+TEST_CASE("signal - disconnect and recursively emit", "[signal]")
+{
+    kl::signal<void()> s;
+    kl::connection c1, c2;
+    int i = 0;
+    c1 = s += [&]() {
+        i += 3;
+        c1.disconnect();
+        s();
+    };
+    c2 = s += [&]() {
+        i += 5;
+        c2.disconnect();
+    };
+    s();
+    CHECK(i == 8);
+    s();
+    CHECK(i == 8);
+}
+
+TEST_CASE("signal - one-time slot connection with a next emission in a handler", "[signal]")
 {
     kl::signal<void()> s;
     kl::connection c;
@@ -637,7 +776,7 @@ TEST_CASE("one-time slot connection with a next emission in a handler")
     }
 }
 
-TEST_CASE("add slot to signal during emission")
+TEST_CASE("signal - add slot to signal during emission", "[signal]")
 {
     kl::signal<void()> s;
     kl::connection c;
@@ -682,98 +821,89 @@ TEST_CASE("add slot to signal during emission")
     }
 }
 
-TEST_CASE("by value vs by const ref")
+namespace {
+
+struct counter
+{
+    counter() = default;
+    counter(const counter&)
+    {
+        num_copies++;
+    }
+    counter& operator=(const counter&)
+    {
+        num_copies++;
+        return *this;
+    }
+    counter(counter&&)
+    {
+        num_moves++;
+    }
+    counter& operator=(counter&&)
+    {
+        num_moves++;
+        return *this;
+    }
+
+    static int num_copies;
+    static int num_moves;
+
+    static void reset()
+    {
+        num_copies = 0;
+        num_moves = 0;
+    }
+};
+int counter::num_copies{0};
+int counter::num_moves{0};
+
+} // namespace
+
+TEST_CASE("signal - by value vs by const ref", "[signal]")
 {
     using kl::signal;
 
     SECTION("exact match slot and signal signature")
     {
-        signal<void(std::vector<int>)> s0;
-        signal<void(const std::vector<int>&)> s1;
-
         // We should get exaclty one copy constructor and one move constructor
-        // for each slot invocation (+1 move for extended connection)
-        s0 += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
-        s0 += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
-        s0.connect_extended([](kl::connection, std::vector<int> vec) {
-            REQUIRE(vec.size() == 5);
-        });
-        s0.connect_extended([](kl::connection, std::vector<int> vec) {
-            REQUIRE(vec.size() == 5);
-        });
+        // for each slot invocation
+        signal<void(counter)> s0;
+        s0 += [](counter) {};
+        s0 += [](counter) {};
+
+        s0(counter{});
+
+        CHECK(counter::num_copies == 2);
+        CHECK(counter::num_moves == 2);
 
         // No copy/move ctor in this case
-        s1 += [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); };
-        s1 += [](const std::vector<int>& vec) { REQUIRE(vec.size() == 7); };
-        s1.connect_extended([](kl::connection, const std::vector<int>& vec) {
-            REQUIRE(vec.size() == 7);
-        });
-        s1.connect_extended([](kl::connection, const std::vector<int>& vec) {
-            REQUIRE(vec.size() == 7);
-        });
+        signal<void(const counter&)> s1;
+        s1 += [](const counter&) {};
+        s1 += [](const counter&) {};
 
-        s0(std::vector<int>{0, 1, 2, 3, 4}, [] {});
-        s0(std::vector<int>{0, 1, 2, 3, 4});
+        counter::reset();
+        counter c;
+        s1(c);
 
-        std::vector<int> vec{0, 1, 2, 3, 4, 5, 6};
-        s1(vec, [] {});
-        s1(vec);
+        CHECK(counter::num_copies == 0);
+        CHECK(counter::num_moves == 0);
     }
 
     SECTION("slot by value, signal by const-ref")
     {
         // We should get exaclty one copy constructor for each slot invocation
-        signal<void(const std::vector<int>&)> s;
+        signal<void(const counter&)> s;
 
-        s += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
-        s += [](std::vector<int> vec) { REQUIRE(vec.size() == 5); };
+        s += [](counter) {};
+        s += [](counter) {};
+        s(counter{});
 
-        s(std::vector<int>{0, 1, 2, 3, 4}, [] {});
-        s(std::vector<int>{0, 1, 2, 3, 4});
+        CHECK(counter::num_copies == 2);
+        CHECK(counter::num_moves == 0);
     }
 }
 
-TEST_CASE("make_slot and KL_SLOT macro inside class contructor")
-{
-    using kl::signal;
-
-    signal<void(int)> s;
-
-    class C
-    {
-    public:
-        C(signal<void(int)>& s)
-        {
-            s += kl::make_slot(&C::handler, this);
-            C& inst = *this;
-            s += kl::make_slot(&C::handler, inst);
-#if defined(KL_SLOT)
-            s += KL_SLOT(handler);
-#endif
-        }
-
-    private:
-        void handler(int i)
-        {
-            REQUIRE(i == 3);
-            ++cnt;
-        }
-
-    public:
-        int cnt = 0;
-    };
-
-    C c{s};
-    s(3);
-
-#if defined(KL_SLOT)
-    REQUIRE(c.cnt == 3);
-#else
-    REQUIRE(c.cnt == 2);
-#endif
-}
-
-TEST_CASE("disconnect all slots during emission")
+TEST_CASE("signal - disconnect all slots during emission", "[signal]")
 {
     kl::signal<void()> s;
     int i = 0;
@@ -809,5 +939,221 @@ TEST_CASE("disconnect all slots during emission")
 
         s();
         CHECK(i == 2);
+    }
+}
+
+TEST_CASE("signal - move signal during emission", "[signal]")
+{
+    kl::signal<void()> s, s2;
+    int i = 0;
+
+    s += [&] {
+        ++i;
+        using std::swap;
+        swap(s, s2);
+        s.disconnect_all_slots();
+    };
+    s += [&] { ++i; };
+
+    s();
+    CHECK(i == 2);
+    CHECK(s.num_slots() == 0);
+    CHECK(s2.num_slots() == 2);
+
+    s2();
+    CHECK(i == 3);
+    CHECK(s.num_slots() == 0);
+    CHECK(s2.num_slots() == 0);
+}
+
+namespace {
+
+std::atomic<std::int64_t> sum{0};
+
+void f(int i)
+{
+    sum += i;
+}
+void f1(int i)
+{
+    sum += i;
+}
+void f2(int i)
+{
+    sum += i;
+}
+void f3(int i)
+{
+    sum += i;
+}
+
+void emit_many(kl::signal<void(int)>& sig)
+{
+    for (int i = 0; i < 10000; ++i)
+        sig(1);
+}
+
+void connect_emit(kl::signal<void(int)>& sig)
+{
+    for (int i = 0; i < 100; ++i)
+    {
+        kl::scoped_connection c = sig.connect(f);
+        for (int j = 0; j < 100; ++j)
+            sig(1);
+    }
+}
+
+void connect_cross(kl::signal<void(int)>& s1, kl::signal<void(int)>& s2,
+                   std::atomic<int>& go)
+{
+    auto cross = s1.connect([&](int i) {
+        if (i & 1)
+            f(i);
+        else
+            s2(i + 1);
+    });
+
+    go++;
+    while (go != 3)
+        std::this_thread::yield();
+
+    for (int i = 0; i < 1000000; ++i)
+        s1(i);
+}
+
+} // namespace
+
+TEST_CASE("signal - multithreading", "[signal]")
+{
+    SECTION("threaded mix")
+    {
+        sum = 0;
+
+        kl::signal<void(int)> sig;
+
+        std::array<std::thread, 10> threads;
+        for (auto& t : threads)
+            t = std::thread(connect_emit, std::ref(sig));
+
+        for (auto& t : threads)
+            t.join();
+    }
+
+    SECTION("threaded emission")
+    {
+        sum = 0;
+
+        kl::signal<void(int)> sig;
+        sig.connect(f);
+
+        std::array<std::thread, 10> threads;
+        for (auto& t : threads)
+            t = std::thread(emit_many, std::ref(sig));
+
+        for (auto& t : threads)
+            t.join();
+
+        CHECK(sum == 100000l);
+    }
+
+    SECTION("cross connections")
+    {
+        sum = 0;
+
+        kl::signal<void(int)> sig1;
+        kl::signal<void(int)> sig2;
+
+        std::atomic<int> go{0};
+
+        std::thread t1(connect_cross, std::ref(sig1), std::ref(sig2),
+                       std::ref(go));
+        std::thread t2(connect_cross, std::ref(sig2), std::ref(sig1),
+                       std::ref(go));
+
+        while (go != 2)
+            std::this_thread::yield();
+        go++;
+
+        t1.join();
+        t2.join();
+
+        CHECK(sum == 1000000000000ll);
+    }
+
+    SECTION("threaded misc")
+    {
+        sum = 0;
+        kl::signal<void(int)> sig;
+        std::atomic<bool> run{true};
+
+        std::mutex connections_mutex;
+        std::vector<kl::connection> connections;
+        connections.reserve(4096);
+
+        auto emitter = [&] {
+            while (run)
+            {
+                sig(1);
+            }
+        };
+
+        auto conn = [&] {
+            while (run)
+            {
+                for (int i = 0; i < 10; ++i)
+                {
+                    auto c1 = sig.connect(f1);
+                    auto c2 = sig.connect(f2);
+                    auto c3 = sig.connect(f3);
+
+                    std::scoped_lock lock(connections_mutex);
+                    connections.push_back(std::move(c1));
+                    connections.push_back(std::move(c2));
+                    connections.push_back(std::move(c3));
+                    if (connections.size() > 8192)
+                    {
+                        connections.erase(connections.begin(),
+                                          connections.begin() +
+                                              (connections.size() - 4096));
+                    }
+                }
+            }
+        };
+
+        auto disconn = [&] {
+            while (run)
+            {
+                kl::connection c;
+                {
+                    std::scoped_lock lock(connections_mutex);
+                    if (connections.empty())
+                        continue;
+                    c = std::move(connections.back());
+                    connections.pop_back();
+                }
+                c.disconnect();
+            }
+        };
+
+        std::array<std::thread, 20> emitters;
+        std::array<std::thread, 20> conns;
+        std::array<std::thread, 20> disconns;
+
+        for (auto& t : conns)
+            t = std::thread(conn);
+        for (auto& t : emitters)
+            t = std::thread(emitter);
+        for (auto& t : disconns)
+            t = std::thread(disconn);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        run = false;
+
+        for (auto& t : emitters)
+            t.join();
+        for (auto& t : disconns)
+            t.join();
+        for (auto& t : conns)
+            t.join();
     }
 }

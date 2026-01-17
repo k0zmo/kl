@@ -158,6 +158,10 @@
             "inherits": [":linux", ":gcc", ":asan"]
         },
         {
+            "name": "gcc-tsan",
+            "inherits": [":linux", ":gcc", ":tsan"]
+        },
+        {
             "name": "gcc-ubsan",
             "inherits": [":linux", ":gcc", ":ubsan"]
         },

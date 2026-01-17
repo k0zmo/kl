@@ -1,16 +1,23 @@
 #include <kl/enum_reflector.hpp>
+#include <kl/reflect_enum.hpp>
 
 #include <boost/version.hpp>
+
 #if BOOST_VERSION >= 107900
 #  define KL_BENCH_BOOST_DESCRIBE
 #  include <boost/describe/enum.hpp>
+#  include <boost/describe/enumerators.hpp>
 #  include <boost/describe/enum_to_string.hpp>
 #endif
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
 
+#include <limits>
+#include <optional>
 #include <random>
+#include <string>
+#include <string_view>
 
 // clang-format off
 enum class abcd
@@ -57,8 +64,6 @@ static int count()
 
 TEST_CASE("enum reflector bench")
 {
-    using Catch::Benchmark::Chronometer;
-
     const auto c = count();
     std::string v = kl::reflect<abcd>().to_string(abcd(c - 1));
 

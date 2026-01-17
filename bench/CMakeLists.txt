@@ -1,5 +1,6 @@
 add_executable(kl-bench
     enum_reflector_bench.cpp
+    signal_bench.cpp
 )
 target_link_libraries(kl-bench PRIVATE kl::kl Catch2::Catch2WithMain)
 
