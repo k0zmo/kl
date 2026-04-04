@@ -1,5 +1,5 @@
 from conan import ConanFile
-from conan.tools.cmake import CMakeToolchain, CMakeDeps, CMake, cmake_layout
+from conan.tools.cmake import CMakeToolchain, CMakeConfigDeps, CMake, cmake_layout
 from conan.tools.build import check_min_cppstd
 
 class KlConan(ConanFile):
@@ -43,13 +43,13 @@ class KlConan(ConanFile):
             self.requires("yaml-cpp/0.7.0", transitive_headers=True)
 
     def build_requirements(self):
-        self.test_requires("catch2/3.2.1")
+        self.test_requires("catch2/3.7.1")
 
     def layout(self):
         cmake_layout(self)
 
     def generate(self):
-        deps = CMakeDeps(self)
+        deps = CMakeConfigDeps(self)
         deps.generate()
         tc = CMakeToolchain(self)
         tc.cache_variables["KL_FETCH_DEPENDENCIES"] = False

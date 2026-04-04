@@ -197,6 +197,11 @@
             "name": "vs2022",
             "inherits": [":windows", ":msvc", ":x64-arch-set"],
             "generator": "Visual Studio 17 2022"
+        },
+        {
+            "name": "vs2026",
+            "inherits": [":windows", ":msvc", ":x64-arch-set"],
+            "generator": "Visual Studio 18 2026"
         }
     ]
 }
