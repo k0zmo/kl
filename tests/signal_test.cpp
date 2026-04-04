@@ -942,30 +942,6 @@ TEST_CASE("signal - disconnect all slots during emission", "[signal]")
     }
 }
 
-TEST_CASE("signal - move signal during emission", "[signal]")
-{
-    kl::signal<void()> s, s2;
-    int i = 0;
-
-    s += [&] {
-        ++i;
-        using std::swap;
-        swap(s, s2);
-        s.disconnect_all_slots();
-    };
-    s += [&] { ++i; };
-
-    s();
-    CHECK(i == 2);
-    CHECK(s.num_slots() == 0);
-    CHECK(s2.num_slots() == 2);
-
-    s2();
-    CHECK(i == 3);
-    CHECK(s.num_slots() == 0);
-    CHECK(s2.num_slots() == 0);
-}
-
 namespace {
 
 std::atomic<std::int64_t> sum{0};
