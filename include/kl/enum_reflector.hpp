@@ -5,11 +5,12 @@
 #include "kl/range.hpp"
 #include "kl/utility.hpp"
 
+#include <array>
 #include <cstddef>
+#include <optional>
 #include <string_view>
 #include <type_traits>
-#include <array>
-#include <optional>
+#include <utility>
 
 namespace kl {
 
@@ -51,12 +52,9 @@ struct enum_reflector
     static constexpr std::optional<enum_type>
         from_string(std::string_view str) noexcept
     {
-        for (const auto& vn : reflect_enum(enum_<enum_type>))
-        {
-            if (str == vn.name)
-                return {vn.value};
-        }
-        return std::nullopt;
+        constexpr auto rng = reflect_enum(enum_<enum_type>);
+        return from_string_impl(str, rng,
+                               std::make_index_sequence<rng.size()>{});
     }
 
     static constexpr const char* to_string(
@@ -69,7 +67,7 @@ struct enum_reflector
         if constexpr (is_ordinary_enum())
         {
             const auto num_value = static_cast<std::size_t>(value);
-            return num_value < rng.size() ? (rng.begin() + num_value)->name
+            return num_value < rng.size() ? (rng.begin() + num_value)->name.data()
                                           : def;
         }
         else
@@ -77,7 +75,7 @@ struct enum_reflector
             for (const auto& vn : rng)
             {
                 if (vn.value == value)
-                    return vn.name;
+                    return vn.name.data();
             }
             return def;
         }
@@ -118,6 +116,21 @@ struct enum_reflector
     }
 
 private:
+    template <std::size_t... Is>
+    static constexpr std::optional<enum_type>
+        from_string_impl(std::string_view str,
+                         kl::enum_reflection_view<enum_type, sizeof...(Is)> rng,
+                         std::index_sequence<Is...>) noexcept
+    {
+        std::optional<enum_type> ret;
+        auto fun = [&](const auto& p) noexcept {
+            if (!ret && str == p.name)
+                ret = p.value;
+        };
+        (fun(rng.template get<Is>()), ...);
+        return ret;
+    }
+
     static constexpr auto values_impl() noexcept
     {
         constexpr auto rng = reflect_enum(enum_<enum_type>);
