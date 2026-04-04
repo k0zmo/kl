@@ -194,6 +194,20 @@
             "inherits": [":windows", ":msvc", ":x64-arch-external", ":asan"]
         },
         {
+            "name": "clang-windows-debug",
+            "inherits": [":windows", ":clang", ":x64-arch-external", ":debug"],
+            "cacheVariables": {
+                "CONAN_COMPILER_RUNTIME_VERSION": "v145"
+            }
+        },
+        {
+            "name": "clang-windows-release",
+            "inherits": [":windows", ":clang", ":x64-arch-external", ":release"],
+            "cacheVariables": {
+                "CONAN_COMPILER_RUNTIME_VERSION": "v145"
+            }
+        },
+        {
             "name": "vs2022",
             "inherits": [":windows", ":msvc", ":x64-arch-set"],
             "generator": "Visual Studio 17 2022"

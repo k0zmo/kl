@@ -221,7 +221,7 @@ function(detect_lib_cxx lib_cxx)
 endfunction()
 
 
-function(detect_compiler compiler compiler_version compiler_runtime compiler_runtime_type)
+function(detect_compiler compiler compiler_version compiler_runtime compiler_runtime_type compiler_runtime_version)
     if(DEFINED CMAKE_CXX_COMPILER_ID)
         set(_compiler ${CMAKE_CXX_COMPILER_ID})
         set(_compiler_version ${CMAKE_CXX_COMPILER_VERSION})
@@ -236,10 +236,8 @@ function(detect_compiler compiler compiler_version compiler_runtime compiler_run
     message(STATUS "CMake-Conan: CMake compiler=${_compiler}")
     message(STATUS "CMake-Conan: CMake compiler version=${_compiler_version}")
 
-    if(_compiler MATCHES MSVC)
-        set(_compiler "msvc")
-        string(SUBSTRING ${MSVC_VERSION} 0 3 _compiler_version)
-        # Configure compiler.runtime and compiler.runtime_type settings for MSVC
+    if(_compiler MATCHES MSVC OR (_compiler MATCHES "Clang" AND WIN32))
+        # Configure compiler.runtime and compiler.runtime_type settings for MSVC or Clang on Windows
         if(CMAKE_MSVC_RUNTIME_LIBRARY)
             set(_msvc_runtime_library ${CMAKE_MSVC_RUNTIME_LIBRARY})
         else()
@@ -275,8 +273,17 @@ function(detect_compiler compiler compiler_version compiler_runtime compiler_run
             message(STATUS "CMake-Conan: CMake compiler.runtime_type=${_compiler_runtime_type}")
         endif()
 
-        unset(_KNOWN_MSVC_RUNTIME_VALUES)
+        if(DEFINED CONAN_COMPILER_RUNTIME_VERSION)
+            set(_compiler_runtime_version ${CONAN_COMPILER_RUNTIME_VERSION})
+            message(STATUS "CMake-Conan: CMake compiler.runtime_version=${_compiler_runtime_version}")
+        endif()
 
+        unset(_KNOWN_MSVC_RUNTIME_VALUES)
+    endif()
+
+    if(_compiler MATCHES MSVC)
+        set(_compiler "msvc")
+        string(SUBSTRING ${MSVC_VERSION} 0 3 _compiler_version)
     elseif(_compiler MATCHES AppleClang)
         set(_compiler "apple-clang")
         string(REPLACE "." ";" VERSION_LIST ${_compiler_version})
@@ -304,6 +311,7 @@ function(detect_compiler compiler compiler_version compiler_runtime compiler_run
     set(${compiler_version} ${_compiler_version} PARENT_SCOPE)
     set(${compiler_runtime} ${_compiler_runtime} PARENT_SCOPE)
     set(${compiler_runtime_type} ${_compiler_runtime_type} PARENT_SCOPE)
+    set(${compiler_runtime_version} ${_compiler_runtime_version} PARENT_SCOPE)
 endfunction()
 
 
@@ -375,7 +383,7 @@ endmacro()
 function(detect_host_profile output_file)
     detect_os(os os_api_level os_sdk os_subsystem os_version)
     detect_arch(arch)
-    detect_compiler(compiler compiler_version compiler_runtime compiler_runtime_type)
+    detect_compiler(compiler compiler_version compiler_runtime compiler_runtime_type compiler_runtime_version)
     detect_cxx_standard(${compiler} compiler_cppstd)
     detect_lib_cxx(compiler_libcxx)
     detect_build_type(build_type)
@@ -411,6 +419,9 @@ function(detect_host_profile output_file)
     endif()
     if(compiler_runtime_type)
         string(APPEND profile compiler.runtime_type=${compiler_runtime_type} "\n")
+    endif()
+    if(compiler_runtime_version)
+        string(APPEND profile compiler.runtime_version=${compiler_runtime_version} "\n")
     endif()
     if(compiler_cppstd)
         string(APPEND profile compiler.cppstd=${compiler_cppstd} "\n")

@@ -47,11 +47,16 @@ set(CXX_FLAGS_MSAN
     -fno-omit-frame-pointer
     -DNDEBUG
 )
-set(linker_flags_no_sanitizer
-    -Wl,--exclude-libs=ALL
-    -Wl,--as-needed
-    -Wl,-z,defs
-)
+if(NOT WIN32)
+    set(linker_flags_no_sanitizer
+        -Wl,--exclude-libs=ALL
+        -Wl,--as-needed
+        -Wl,-z,defs
+    )
+else()
+    # Linking with lld-link on Windows
+    set(linker_flags_no_sanitizer)
+endif()
 set(LINKER_FLAGS)
 set(LINKER_FLAGS_DEBUG ${linker_flags_no_sanitizer}
     # Consider adding -Wl,--gdb-index (requires gold, lld or mold)
