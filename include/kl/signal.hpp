@@ -586,16 +586,6 @@ public:
      */
     void operator()(Args... args)
     {
-        active_emissions_.fetch_add(1, std::memory_order_acq_rel);
-        KL_DEFER({
-            const auto prev = active_emissions_.fetch_sub(1, std::memory_order_acq_rel);
-            if (prev == 1)
-            {
-                std::lock_guard<std::mutex> lock{mutex_};
-                cleanup_invalidated_slots_locked();
-            }
-        });
-
         auto& emission_state = detail::get_tls_signal_info();
         // Rollback tls_signal_info back to its pre-emission value
         auto prev_emission_state = emission_state;
@@ -605,6 +595,7 @@ public:
 
         // We can't traverse the list without synchronization while other
         // threads may connect/disconnect. Instead we:
+        //  - increment the active emission count under lock
         //  - snapshot the tail ("last") once under lock
         //  - traverse slot-by-slot, acquiring the lock only to read next
         //  - hold a ref to each slot while invoking user code
@@ -612,6 +603,7 @@ public:
         slot* current = nullptr;
         {
             std::lock_guard<std::mutex> lock{mutex_};
+            ++active_emissions_;
             last = tail_;
             if (last)
                 last->add_ref();
@@ -619,10 +611,15 @@ public:
             if (current)
                 current->add_ref();
         }
-        KL_DEFER(
+        KL_DEFER({
             if (last)
                 last->release();
-        );
+
+            std::lock_guard<std::mutex> lock{mutex_};
+            const auto prev = active_emissions_--;
+            if (prev == 1)
+                cleanup_invalidated_slots_locked();
+        });
 
         while (current)
         {
@@ -816,14 +813,14 @@ private:
 
     slot* slots_{nullptr}; // owning pointer
     slot* tail_{nullptr};  // observer ptr
-    std::atomic<std::uint32_t> active_emissions_{0};
+    std::uint32_t active_emissions_{0};
     mutable std::mutex mutex_;
     bool deferred_cleanup_{false};
 
 private:
     bool emission_in_progress() const noexcept
     {
-        return active_emissions_.load(std::memory_order_acquire) != 0;
+        return active_emissions_ != 0;
     }
 
     void insert_new_slot_locked(slot* new_slot, connect_position at) noexcept
