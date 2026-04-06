@@ -83,7 +83,7 @@ endif()
 
 if(kl_install_rules)
     include(CMakePackageConfigHelpers)
-    configure_package_config_file(klConfig.cmake.in
+    configure_package_config_file(cmake/klConfig.cmake.in
         klConfig.cmake
         INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/kl
         NO_SET_AND_CHECK_MACRO

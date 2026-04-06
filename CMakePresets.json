@@ -208,6 +208,14 @@
             }
         },
         {
+            "name": "clang-windows-asan",
+            "inherits": [":windows", ":clang", ":x64-arch-external", ":asan"],
+            "cacheVariables": {
+                "CONAN_COMPILER_RUNTIME_VERSION": "v145",
+                "CMAKE_MSVC_RUNTIME_LIBRARY": "MultiThreaded"
+            }
+        },
+        {
             "name": "vs2022",
             "inherits": [":windows", ":msvc", ":x64-arch-set"],
             "generator": "Visual Studio 17 2022"

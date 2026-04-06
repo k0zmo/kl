@@ -342,11 +342,10 @@ catch (...)
 {
     return "dynamic exception type: <unknown-exception>\n";
 }
-
-#if defined(_MSC_VER)
-#  define KL_FUNCTION_NAME __FUNCSIG__
-#elif defined(__GNUG__)
+#if defined(__clang__) || defined(__GNUG__)
 #  define KL_FUNCTION_NAME __PRETTY_FUNCTION__
+#elif defined(_MSC_VER)
+#  define KL_FUNCTION_NAME __FUNCSIG__
 #else
 #  define KL_FUNCTION_NAME __func__
 #endif
