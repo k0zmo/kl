@@ -878,6 +878,7 @@ TEST_CASE("yaml dump")
         CHECK(yaml::dump(std::string{"qwe"}) == "qwe");
         CHECK(yaml::dump(13.22).substr(0, 5) == "13.22");
         CHECK(yaml::dump(ordinary_enum::oe_one) == "0");
+        CHECK(yaml::dump(ordinary_enum_reflectable::oe_one_ref) == "oe_one_ref");
     }
 
     SECTION("inner_t")
@@ -887,8 +888,7 @@ TEST_CASE("yaml dump")
 
     SECTION("Manual")
     {
-        CHECK(yaml::dump(Manual{}) ==
-              "Ar: 1337\nAd: 3.145926\nB: 416\nC: 2.71828");
+        CHECK(yaml::dump(Manual{}) == "Ar: 1337\nAd: 3.145926\nB: 416\nC: 2.71828");
     }
 
     SECTION("different types and 'modes' for enums")
@@ -912,8 +912,7 @@ TEST_CASE("yaml dump")
 
     SECTION("enum_set")
     {
-        auto f = kl::enum_set{device_type::cpu} | device_type::gpu |
-                 device_type::accelerator;
+        auto f = kl::enum_set{device_type::cpu} | device_type::gpu | device_type::accelerator;
         auto res = yaml::dump(f);
         CHECK(res == "- cpu\n- gpu\n- accelerator");
 
@@ -1012,12 +1011,10 @@ inner:
         auto y3 = yaml::dump(std::deque<inner_t>{inner_t{}});
         CHECK(y3 == "- r: 1337\n  d: 3.145926");
 
-        auto y4 =
-            yaml::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
+        auto y4 = yaml::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
         CHECK(y4 == "inner1:\n  r: 1337\n  d: 3.145926");
 
-        auto y5 = yaml::dump(
-            std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
+        auto y5 = yaml::dump(std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
         CHECK(y5 == "inner2:\n  r: 1337\n  d: 3.145926");
     }
 }
@@ -1206,7 +1203,7 @@ struct zxc
             .extract("c", z.c)
             .extract("d", z.d);
         // Same as:
-        //   kl::yaml::expect_map(value);
+        //   check that value is a map;
         //   kl::yaml::deserialize(z.a, kl::yaml::at(value, "a"));
         //   kl::yaml::deserialize(z.b, kl::yaml::at(value, "b"));
         //   kl::yaml::deserialize(z.c, kl::yaml::at(value, "c"));
