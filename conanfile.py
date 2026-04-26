@@ -36,14 +36,14 @@ class KlConan(ConanFile):
 
     def requirements(self):
         self.requires("ms-gsl/4.2.0", transitive_headers=True)
-        self.requires("boost/1.86.0", transitive_headers=True)
+        self.requires("boost/1.90.0", transitive_headers=True)
         if self.options.with_json:
-            self.requires("rapidjson/cci.20220822", transitive_headers=True)
+            self.requires("rapidjson/cci.20250205", transitive_headers=True)
         if self.options.with_yaml:
-            self.requires("yaml-cpp/0.7.0", transitive_headers=True)
+            self.requires("yaml-cpp/0.9.0", transitive_headers=True)
 
     def build_requirements(self):
-        self.test_requires("catch2/3.7.1")
+        self.test_requires("catch2/3.14.0")
 
     def layout(self):
         cmake_layout(self)

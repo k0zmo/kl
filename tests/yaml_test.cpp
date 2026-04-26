@@ -882,13 +882,13 @@ TEST_CASE("yaml dump")
 
     SECTION("inner_t")
     {
-        CHECK(yaml::dump(inner_t{}) == "r: 1337\nd: 3.1459259999999998");
+        CHECK(yaml::dump(inner_t{}) == "r: 1337\nd: 3.145926");
     }
 
     SECTION("Manual")
     {
         CHECK(yaml::dump(Manual{}) ==
-              "Ar: 1337\nAd: 3.1459259999999998\nB: 416\nC: 2.71828");
+              "Ar: 1337\nAd: 3.145926\nB: 416\nC: 2.71828");
     }
 
     SECTION("different types and 'modes' for enums")
@@ -926,7 +926,7 @@ TEST_CASE("yaml dump")
     {
         auto t = std::make_tuple(13, 3.14, colour_space::lab, true);
         auto res = yaml::dump(t);
-        CHECK(res == "- 13\n- 3.1400000000000001\n- lab\n- true");
+        CHECK(res == "- 13\n- 3.14\n- lab\n- true");
     }
 
     SECTION("skip serializing optional fields")
@@ -969,7 +969,7 @@ TEST_CASE("yaml dump")
 t: true
 f: false
 i: 123
-pi: 3.14159989
+pi: 3.1416
 a:
   - 1
   - 2
@@ -986,14 +986,14 @@ ad:
 space: lab
 tup:
   - 1
-  - 3.1400001049041748
+  - 3.140000104904175
   - QWE
 map:
   1: hls
   2: rgb
 inner:
   r: 1337
-  d: 3.1459259999999998)");
+  d: 3.145926)");
     }
 
     SECTION("unsigned: check value greater than 0x7FFFFFFU")
@@ -1004,21 +1004,21 @@ inner:
     SECTION("std containers")
     {
         auto y1 = yaml::dump(std::vector<inner_t>{inner_t{}});
-        CHECK(y1 == "- r: 1337\n  d: 3.1459259999999998");
+        CHECK(y1 == "- r: 1337\n  d: 3.145926");
 
         auto y2 = yaml::dump(std::list<inner_t>{inner_t{}});
-        CHECK(y2 == "- r: 1337\n  d: 3.1459259999999998");
+        CHECK(y2 == "- r: 1337\n  d: 3.145926");
 
         auto y3 = yaml::dump(std::deque<inner_t>{inner_t{}});
-        CHECK(y3 == "- r: 1337\n  d: 3.1459259999999998");
+        CHECK(y3 == "- r: 1337\n  d: 3.145926");
 
         auto y4 =
             yaml::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
-        CHECK(y4 == "inner1:\n  r: 1337\n  d: 3.1459259999999998");
+        CHECK(y4 == "inner1:\n  r: 1337\n  d: 3.145926");
 
         auto y5 = yaml::dump(
             std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
-        CHECK(y5 == "inner2:\n  r: 1337\n  d: 3.1459259999999998");
+        CHECK(y5 == "inner2:\n  r: 1337\n  d: 3.145926");
     }
 }
 

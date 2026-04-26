@@ -11,12 +11,12 @@ FetchContent_Declare(rapidjson
     URL_HASH SHA256=4f44adc689e7c08e9eb197276600e58c501624b54102cba06267814e2a4f66eb
 )
 FetchContent_Declare(yamlcpp
-    URL https://github.com/jbeder/yaml-cpp/archive/yaml-cpp-0.7.0.zip
-    URL_HASH SHA256=4d5e664a7fb2d7445fc548cc8c0e1aa7b1a496540eb382d137e2cc263e6d3ef5
+    URL https://github.com/jbeder/yaml-cpp/archive/yaml-cpp-0.9.0.zip
+    URL_HASH SHA256=1c22709eb1fcde200c87ef4e878ce2c9477cc05eae84ebf1f72ec5b356468fee
 )
 FetchContent_Declare(Catch2
-    URL https://github.com/catchorg/Catch2/archive/v3.6.0.zip
-    URL_HASH SHA256=aa0ebf551ffbf098ec1e253b5fee234c30b4ee54a31b1be63cb1a7735d3cf391
+    URL https://github.com/catchorg/Catch2/archive/v3.14.0.zip
+    URL_HASH SHA256=33c9dfd4de6979fe127d5c43eb883818994f723938ce5aec0945410c8d6ebea2
 )
 
 FetchContent_GetProperties(GSL)
@@ -42,6 +42,7 @@ if(KL_ENABLE_YAML)
         FetchContent_Populate(yamlcpp)
 
         add_library(yaml-cpp)
+        add_library(yaml-cpp::yaml-cpp ALIAS yaml-cpp)
         file(GLOB_RECURSE sources
             "${yamlcpp_SOURCE_DIR}/src/*.cpp"
             "${yamlcpp_SOURCE_DIR}/src/*.h"
@@ -49,8 +50,8 @@ if(KL_ENABLE_YAML)
         target_sources(yaml-cpp PRIVATE ${sources})
         target_include_directories(yaml-cpp PUBLIC ${yamlcpp_SOURCE_DIR}/include)
         target_compile_features(yaml-cpp PUBLIC cxx_std_11)
-        if(BUILD_SHARED_LIBS)
-            target_compile_definitions(yaml-cpp INTERFACE YAML_CPP_DLL)
+        if(NOT BUILD_SHARED_LIBS)
+            target_compile_definitions(yaml-cpp PUBLIC YAML_CPP_STATIC_DEFINE)
         endif()
         if(MSVC)
             target_compile_options(yaml-cpp PRIVATE
