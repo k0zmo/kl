@@ -2,7 +2,10 @@
 #include "kl/enum_reflector.hpp"
 #include "kl/reflect_enum.hpp"
 
+#include <rapidjson/document.h>
+
 #include <iterator>
+#include <string>
 
 namespace rapidjson {
 
@@ -28,6 +31,8 @@ void deserialize_error::add(const char* message)
 
 deserialize_error::~deserialize_error() noexcept = default;
 parse_error::~parse_error() noexcept = default;
+
+namespace detail {
 
 void expect_integral(const rapidjson::Value& value)
 {
@@ -82,4 +87,5 @@ void expect_array(const rapidjson::Value& value)
     throw deserialize_error{"type must be an array but is a " +
                             detail::type_name(value)};
 }
+} // namespace detail
 } // namespace kl::json

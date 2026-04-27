@@ -142,6 +142,10 @@ inline const YAML::Node& get_null_value()
     static const auto null_value = YAML::Node{};
     return null_value;
 }
+
+void expect_scalar(const YAML::Node& value);
+void expect_sequence(const YAML::Node& value);
+void expect_map(const YAML::Node& value);
 } // namespace detail
 
 // Safely gets the YAML value from the YAML sequence. If provided index is
@@ -159,10 +163,6 @@ inline YAML::Node at(const YAML::Node& map, const Key& member_name)
     auto query = map[member_name];
     return query ? query : detail::get_null_value();
 }
-
-void expect_scalar(const YAML::Node& value);
-void expect_sequence(const YAML::Node& value);
-void expect_map(const YAML::Node& value);
 
 namespace detail {
 
@@ -229,7 +229,7 @@ class map_extractor
 public:
     explicit map_extractor(const YAML::Node& node) : node_{node}
     {
-        yaml::expect_map(node_);
+        detail::expect_map(node_);
     }
 
     template <typename T, typename Key>
@@ -258,7 +258,7 @@ class sequence_extractor
 public:
     explicit sequence_extractor(const YAML::Node& node) : node_{node}
     {
-        yaml::expect_sequence(node_);
+        detail::expect_sequence(node_);
     }
 
     template <typename T>
@@ -512,14 +512,15 @@ struct yaml_tree_backend
     using value_type = YAML::Node;
     using deserialize_error = yaml::deserialize_error;
 
-    static value_type make_map() { return value_type{YAML::NodeType::Map}; }
+    static value_type make_map()
+    {
+        return value_type{YAML::NodeType::Map};
+    }
 
     static value_type make_sequence()
     {
         return value_type{YAML::NodeType::Sequence};
     }
-
-    static value_type make_null() { return value_type{}; }
 
     template <typename Key, typename Context>
     static void add_field(value_type& out, const Key& key, value_type value,
@@ -541,22 +542,19 @@ struct yaml_tree_backend
     }
 
     template <typename T>
-    static T deserialize(const value_type& value)
-    {
-        return yaml::deserialize<T>(value);
-    }
-
-    template <typename T>
     static void deserialize(T& out, const value_type& value)
     {
         yaml::deserialize(out, value);
     }
 
-    static void expect_map(const value_type& value) { yaml::expect_map(value); }
+    static void expect_map(const value_type& value)
+    {
+        detail::expect_map(value);
+    }
 
     static void expect_sequence(const value_type& value)
     {
-        yaml::expect_sequence(value);
+        detail::expect_sequence(value);
     }
 
     static bool is_map(const value_type& value) { return value.IsMap(); }
@@ -587,11 +585,6 @@ struct yaml_tree_backend
             visitor(item);
     }
 
-    static std::string field_name(const value_type& value)
-    {
-        return value.Scalar();
-    }
-
     template <typename Key>
     static value_type at_field(const value_type& value, const Key& name)
     {
@@ -603,10 +596,6 @@ struct yaml_tree_backend
         return yaml::at(value, index);
     }
 
-    static const char* sequence_name() { return "sequence"; }
-
-    static const char* map_name() { return "map"; }
-
     static std::string type_name(const value_type& value)
     {
         return detail::type_name(value);
@@ -614,7 +603,7 @@ struct yaml_tree_backend
 
     static std::string scalar_text(const value_type& value)
     {
-        yaml::expect_scalar(value);
+        detail::expect_scalar(value);
         return value.Scalar();
     }
 
@@ -686,7 +675,7 @@ YAML::Node to_yaml(const std::optional<T>& opt, Context& ctx)
 template <typename T>
 T from_scalar_yaml(const YAML::Node& value)
 {
-    yaml::expect_scalar(value);
+    detail::expect_scalar(value);
 
     try
     {
@@ -706,7 +695,7 @@ void from_yaml(Arithmetic& out, const YAML::Node& value)
 
 inline void from_yaml(std::string& out, const YAML::Node& value)
 {
-    yaml::expect_scalar(value);
+    detail::expect_scalar(value);
     out = value.Scalar();
 }
 
@@ -717,7 +706,7 @@ inline void from_yaml(std::string_view& out, const YAML::Node& value)
     // writing user-defined `from_yaml` which only need a string_view to do
     // further conversion or when one can guarantee `value` will outlive the
     // returned string_view. Nevertheless, use with caution.
-    yaml::expect_scalar(value);
+    detail::expect_scalar(value);
     out = value.Scalar();
 }
 

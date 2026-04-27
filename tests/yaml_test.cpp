@@ -1206,7 +1206,7 @@ struct zxc
             .extract("c", z.c)
             .extract("d", z.d);
         // Same as:
-        //   kl::yaml::expect_map(value);
+        //   check that value is a map;
         //   kl::yaml::deserialize(z.a, kl::yaml::at(value, "a"));
         //   kl::yaml::deserialize(z.b, kl::yaml::at(value, "b"));
         //   kl::yaml::deserialize(z.c, kl::yaml::at(value, "c"));

@@ -201,7 +201,7 @@ typename Backend::value_type serialize_optional(const std::optional<T>& opt,
 {
     if (opt)
         return Backend::serialize(*opt, ctx);
-    return Backend::make_null();
+    return typename Backend::value_type{};
 }
 
 template <typename Backend, typename Map>
@@ -214,15 +214,16 @@ void deserialize_map(Map& out, const typename Backend::value_type& value)
     Backend::for_each_field(value, [&out](const auto& key, const auto& field) {
         try
         {
-            out.emplace(
-                Backend::template deserialize<typename Map::key_type>(key),
-                Backend::template deserialize<typename Map::mapped_type>(
-                    field));
+            typename Map::key_type key_value{};
+            Backend::deserialize(key_value, key);
+            typename Map::mapped_type mapped_value{};
+            Backend::deserialize(mapped_value, field);
+            out.emplace(std::move(key_value), std::move(mapped_value));
         }
         catch (typename Backend::deserialize_error& ex)
         {
             std::string msg =
-                "error when deserializing field " + Backend::field_name(key);
+                "error when deserializing field " + Backend::scalar_text(key);
             ex.add(msg.c_str());
             throw;
         }
@@ -242,8 +243,9 @@ void deserialize_range(GrowableRange& out,
     Backend::for_each_element(value, [&out](const auto& item) {
         try
         {
-            out.push_back(Backend::template deserialize<
-                          typename GrowableRange::value_type>(item));
+            typename GrowableRange::value_type element{};
+            Backend::deserialize(element, item);
+            out.push_back(std::move(element));
         }
         catch (typename Backend::deserialize_error& ex)
         {
@@ -281,8 +283,7 @@ try
         if (Backend::size(value) > ctti::num_fields<Reflectable>())
         {
             throw typename Backend::deserialize_error{
-                std::string(Backend::sequence_name()) +
-                " size is greater than declared struct's field count"};
+                "sequence size is greater than declared struct's field count"};
         }
 
         ctti::reflect(out, [&value, index = 0U](auto& field, auto) mutable {
@@ -303,8 +304,8 @@ try
     else
     {
         throw typename Backend::deserialize_error{
-            std::string("type must be a ") + Backend::sequence_name() + " or " +
-            Backend::map_name() + " but is a " + Backend::type_name(value)};
+            "type must be a sequence or map but is a " +
+            Backend::type_name(value)};
     }
 }
 catch (typename Backend::deserialize_error& ex)
@@ -344,7 +345,8 @@ void deserialize_enum_set(enum_set<Enum>& out,
     out = {};
 
     Backend::for_each_element(value, [&out](const auto& item) {
-        const auto e = Backend::template deserialize<Enum>(item);
+        Enum e{};
+        Backend::deserialize(e, item);
         out |= e;
     });
 }
@@ -373,7 +375,9 @@ void deserialize_optional(std::optional<T>& out,
 {
     if (Backend::is_null(value))
         return out.reset();
-    out = Backend::template deserialize<T>(value);
+    T element{};
+    Backend::deserialize(element, value);
+    out = std::move(element);
 }
 
 } // namespace tree

@@ -29,6 +29,8 @@ void deserialize_error::add(const char* message)
 deserialize_error::~deserialize_error() noexcept = default;
 parse_error::~parse_error() noexcept = default;
 
+namespace detail {
+
 void expect_scalar(const YAML::Node& value)
 {
     if (value.IsScalar())
@@ -55,4 +57,5 @@ void expect_map(const YAML::Node& value)
     throw deserialize_error{"type must be a map but is a " +
                             detail::type_name(value)};
 }
+} // namespace detail
 } // namespace kl::yaml

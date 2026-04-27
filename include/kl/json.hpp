@@ -187,6 +187,13 @@ inline const rapidjson::Value& get_null_value()
     static const auto null_value = rapidjson::Value{};
     return null_value;
 }
+
+void expect_integral(const rapidjson::Value& value);
+void expect_number(const rapidjson::Value& value);
+void expect_boolean(const rapidjson::Value& value);
+void expect_string(const rapidjson::Value& value);
+void expect_object(const rapidjson::Value& value);
+void expect_array(const rapidjson::Value& value);
 } // namespace detail
 
 // Safely gets the JSON value from the JSON array. If provided index is
@@ -205,13 +212,6 @@ inline const rapidjson::Value& at(rapidjson::Value::ConstObject obj,
     const auto it = obj.FindMember(member_name);
     return it != obj.end() ? it->value : detail::get_null_value();
 }
-
-void expect_integral(const rapidjson::Value& value);
-void expect_number(const rapidjson::Value& value);
-void expect_boolean(const rapidjson::Value& value);
-void expect_string(const rapidjson::Value& value);
-void expect_object(const rapidjson::Value& value);
-void expect_array(const rapidjson::Value& value);
 
 namespace detail {
 
@@ -312,7 +312,7 @@ class object_extractor
 public:
     explicit object_extractor(const rapidjson::Value& value) : value_{value}
     {
-        json::expect_object(value_);
+        detail::expect_object(value_);
     }
 
     template <typename T>
@@ -341,7 +341,7 @@ class array_extractor
 public:
     explicit array_extractor(const rapidjson::Value& value) : value_{value}
     {
-        json::expect_array(value_);
+        detail::expect_array(value_);
     }
 
     template <typename T>
@@ -648,14 +648,34 @@ struct json_tree_backend
     using value_type = rapidjson::Value;
     using deserialize_error = json::deserialize_error;
 
-    static value_type make_map() { return value_type{rapidjson::kObjectType}; }
-
-    static value_type make_sequence()
+    template <typename T, typename Context>
+    static value_type serialize(const T& value, Context& ctx)
     {
-        return value_type{rapidjson::kArrayType};
+        return json::serialize(value, ctx);
     }
 
-    static value_type make_null() { return value_type{}; }
+    template <typename T>
+    static void deserialize(T& out, const value_type& value)
+    {
+        json::deserialize(out, value);
+    }
+
+    // Map stuff
+
+    static value_type make_map()
+    {
+        return value_type{rapidjson::kObjectType};
+    }
+
+    static void expect_map(const value_type& value)
+    {
+        detail::expect_object(value);
+    }
+
+    static bool is_map(const value_type& value)
+    {
+        return value.IsObject();
+    }
 
     template <typename Key, typename Context>
     static void add_field(value_type& out, const Key& key, value_type value,
@@ -665,48 +685,6 @@ struct json_tree_backend
                       ctx.allocator());
     }
 
-    template <typename Context>
-    static void add_element(value_type& out, value_type value, Context& ctx)
-    {
-        out.PushBack(std::move(value), ctx.allocator());
-    }
-
-    template <typename T, typename Context>
-    static value_type serialize(const T& value, Context& ctx)
-    {
-        return json::serialize(value, ctx);
-    }
-
-    template <typename T>
-    static T deserialize(const value_type& value)
-    {
-        return json::deserialize<T>(value);
-    }
-
-    template <typename T>
-    static void deserialize(T& out, const value_type& value)
-    {
-        json::deserialize(out, value);
-    }
-
-    static void expect_map(const value_type& value)
-    {
-        json::expect_object(value);
-    }
-
-    static void expect_sequence(const value_type& value)
-    {
-        json::expect_array(value);
-    }
-
-    static bool is_map(const value_type& value) { return value.IsObject(); }
-
-    static bool is_sequence(const value_type& value) { return value.IsArray(); }
-
-    static bool is_null(const value_type& value) { return value.IsNull(); }
-
-    static std::size_t size(const value_type& value) { return value.Size(); }
-
     template <typename Visitor>
     static void for_each_field(const value_type& value, Visitor&& visitor)
     {
@@ -714,16 +692,46 @@ struct json_tree_backend
             visitor(obj.name, obj.value);
     }
 
+    // Sequence stuff
+
+    static value_type make_sequence()
+    {
+        return value_type{rapidjson::kArrayType};
+    }
+
+    static void expect_sequence(const value_type& value)
+    {
+        detail::expect_array(value);
+    }
+
+    template <typename Context>
+    static void add_element(value_type& out, value_type value, Context& ctx)
+    {
+        out.PushBack(std::move(value), ctx.allocator());
+    }
+
+    static bool is_sequence(const value_type& value)
+    {
+        return value.IsArray();
+    }
+
+    // Rest of the stuff
+
+    static bool is_null(const value_type& value)
+    {
+        return value.IsNull();
+    }
+
+    static std::size_t size(const value_type& value)
+    {
+        return value.Size();
+    }
+
     template <typename Visitor>
     static void for_each_element(const value_type& value, Visitor&& visitor)
     {
         for (const auto& item : value.GetArray())
             visitor(item);
-    }
-
-    static std::string field_name(const value_type& value)
-    {
-        return json::deserialize<std::string>(value);
     }
 
     static const value_type& at_field(const value_type& value, const char* name)
@@ -738,10 +746,6 @@ struct json_tree_backend
                         static_cast<rapidjson::SizeType>(index));
     }
 
-    static const char* sequence_name() { return "array"; }
-
-    static const char* map_name() { return "object"; }
-
     static std::string type_name(const value_type& value)
     {
         return detail::type_name(value);
@@ -749,7 +753,7 @@ struct json_tree_backend
 
     static std::string scalar_text(const value_type& value)
     {
-        json::expect_string(value);
+        detail::expect_string(value);
         return json::deserialize<std::string>(value);
     }
 
@@ -757,7 +761,7 @@ struct json_tree_backend
     static void deserialize_unreflectable_enum(Enum& out,
                                                const value_type& value)
     {
-        json::expect_number(value);
+        detail::expect_number(value);
         out = static_cast<Enum>(value.GetInt());
     }
 };
@@ -838,7 +842,7 @@ Target narrow(Source src)
 template <typename Integral, enable_if<std::is_integral<Integral>> = true>
 void from_json(Integral& out, const rapidjson::Value& value)
 {
-    json::expect_integral(value);
+    detail::expect_integral(value);
     // int8, int16 and int32
     if constexpr (std::is_signed_v<Integral> && sizeof(Integral) < 8)
     {
@@ -881,19 +885,19 @@ void from_json(Integral& out, const rapidjson::Value& value)
 template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
 void from_json(Floating& out, const rapidjson::Value& value)
 {
-    json::expect_number(value);
+    detail::expect_number(value);
     out = static_cast<Floating>(value.GetDouble());
 }
 
 inline void from_json(bool& out, const rapidjson::Value& value)
 {
-    json::expect_boolean(value);
+    detail::expect_boolean(value);
     out = value.GetBool();
 }
 
 inline void from_json(std::string& out, const rapidjson::Value& value)
 {
-    json::expect_string(value);
+    detail::expect_string(value);
     out = {value.GetString(),
            static_cast<std::size_t>(value.GetStringLength())};
 }
@@ -905,7 +909,7 @@ inline void from_json(std::string_view& out, const rapidjson::Value& value)
     // user-defined `from_json` which only need a string_view to do further
     // conversion or when one can guarantee `value` will outlive the returned
     // string_view. Nevertheless, use with caution.
-    json::expect_string(value);
+    detail::expect_string(value);
     out = {value.GetString(),
            static_cast<std::size_t>(value.GetStringLength())};
 }

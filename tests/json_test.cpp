@@ -603,7 +603,7 @@ TEST_CASE("json")
         auto j = R"([3,4.0,"QWE"])"_json;
         REQUIRE_THROWS_WITH(
             json::deserialize<inner_t>(j),
-            "array size is greater than declared struct's field count\n"
+            "sequence size is greater than declared struct's field count\n"
             "error when deserializing type " +
                 kl::ctti::name<inner_t>());
 
@@ -1177,7 +1177,7 @@ struct zxc
             .extract("c", z.c)
             .extract("d", z.d);
         // Same as:
-        //   kl::json::expect_object(value);
+        //   check that value is an object;
         //   const auto obj = value.GetObject();
         //   kl::json::deserialize(z.a, kl::json::at(obj, "a"));
         //   kl::json::deserialize(z.b, kl::json::at(obj, "b"));
