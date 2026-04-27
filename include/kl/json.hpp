@@ -491,6 +491,14 @@ void encode_key(const char* key, Context& ctx)
 
 struct json_stream_backend
 {
+    template <typename T, typename Context>
+    static void dump(const T& value, Context& ctx)
+    {
+        json::dump(value, ctx);
+    }
+
+    // Map stuff
+
     template <typename Context>
     static void begin_map(Context& ctx)
     {
@@ -509,6 +517,8 @@ struct json_stream_backend
         encode_key(key, ctx);
     }
 
+    // Sequence stuff
+
     template <typename Context>
     static void begin_sequence(Context& ctx)
     {
@@ -521,11 +531,7 @@ struct json_stream_backend
         ctx.writer().EndArray();
     }
 
-    template <typename T, typename Context>
-    static void dump(const T& value, Context& ctx)
-    {
-        json::dump(value, ctx);
-    }
+    // Rest of the stuff
 
     template <typename Context>
     static void write_null(Context& ctx)
@@ -537,52 +543,45 @@ struct json_stream_backend
 template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
 void encode(const Map& map, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_map<json_stream_backend>(map,
-                                                                         ctx);
+    ::kl::detail::serialization::stream::encode_map<json_stream_backend>(map, ctx);
 }
 
 template <typename Range, typename Context,
           enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
 void encode(const Range& rng, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_range<json_stream_backend>(rng,
-                                                                           ctx);
+    ::kl::detail::serialization::stream::encode_range<json_stream_backend>(rng, ctx);
 }
 
 template <typename Reflectable, typename Context,
           enable_if<is_reflectable<Reflectable>> = true>
 void encode(const Reflectable& refl, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_reflectable<
-        json_stream_backend>(refl, ctx);
+    ::kl::detail::serialization::stream::encode_reflectable<json_stream_backend>(refl, ctx);
 }
 
 template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
 void encode(Enum e, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_enum<json_stream_backend>(e,
-                                                                          ctx);
+    ::kl::detail::serialization::stream::encode_enum<json_stream_backend>(e, ctx);
 }
 
 template <typename Enum, typename Context>
 void encode(const enum_set<Enum>& set, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_enum_set<json_stream_backend>(
-        set, ctx);
+    ::kl::detail::serialization::stream::encode_enum_set<json_stream_backend>(set, ctx);
 }
 
 template <typename... Ts, typename Context>
 void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_tuple<json_stream_backend>(
-        tuple, ctx);
+    ::kl::detail::serialization::stream::encode_tuple<json_stream_backend>(tuple, ctx);
 }
 
 template <typename T, typename Context>
 void encode(const std::optional<T>& opt, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_optional<json_stream_backend>(
-        opt, ctx);
+    ::kl::detail::serialization::stream::encode_optional<json_stream_backend>(opt, ctx);
 }
 
 // to_json implementation
@@ -662,27 +661,14 @@ struct json_tree_backend
 
     // Map stuff
 
-    static value_type make_map()
-    {
-        return value_type{rapidjson::kObjectType};
-    }
-
-    static void expect_map(const value_type& value)
-    {
-        detail::expect_object(value);
-    }
-
-    static bool is_map(const value_type& value)
-    {
-        return value.IsObject();
-    }
+    static value_type make_map() { return value_type{rapidjson::kObjectType}; }
+    static void expect_map(const value_type& value) { detail::expect_object(value); }
+    static bool is_map(const value_type& value) { return value.IsObject(); }
 
     template <typename Key, typename Context>
-    static void add_field(value_type& out, const Key& key, value_type value,
-                          Context& ctx)
+    static void add_field(value_type& out, const Key& key, value_type value, Context& ctx)
     {
-        out.AddMember(rapidjson::StringRef(key), std::move(value),
-                      ctx.allocator());
+        out.AddMember(rapidjson::StringRef(key), std::move(value), ctx.allocator());
     }
 
     template <typename Visitor>
@@ -694,37 +680,14 @@ struct json_tree_backend
 
     // Sequence stuff
 
-    static value_type make_sequence()
-    {
-        return value_type{rapidjson::kArrayType};
-    }
-
-    static void expect_sequence(const value_type& value)
-    {
-        detail::expect_array(value);
-    }
+    static value_type make_sequence() { return value_type{rapidjson::kArrayType}; }
+    static void expect_sequence(const value_type& value) { detail::expect_array(value); }
+    static bool is_sequence(const value_type& value) { return value.IsArray(); }
 
     template <typename Context>
     static void add_element(value_type& out, value_type value, Context& ctx)
     {
         out.PushBack(std::move(value), ctx.allocator());
-    }
-
-    static bool is_sequence(const value_type& value)
-    {
-        return value.IsArray();
-    }
-
-    // Rest of the stuff
-
-    static bool is_null(const value_type& value)
-    {
-        return value.IsNull();
-    }
-
-    static std::size_t size(const value_type& value)
-    {
-        return value.Size();
     }
 
     template <typename Visitor>
@@ -734,36 +697,22 @@ struct json_tree_backend
             visitor(item);
     }
 
+    // Rest of the stuff
+
+    static bool is_null(const value_type& value) { return value.IsNull(); }
+    static std::size_t size(const value_type& value) { return value.Size(); }
+
     static const value_type& at_field(const value_type& value, const char* name)
     {
         return json::at(value.GetObject(), name);
     }
 
-    static const value_type& at_index(const value_type& value,
-                                      std::size_t index)
+    static const value_type& at_index(const value_type& value, std::size_t index)
     {
-        return json::at(value.GetArray(),
-                        static_cast<rapidjson::SizeType>(index));
+        return json::at(value.GetArray(), static_cast<rapidjson::SizeType>(index));
     }
 
-    static std::string type_name(const value_type& value)
-    {
-        return detail::type_name(value);
-    }
-
-    static std::string scalar_text(const value_type& value)
-    {
-        detail::expect_string(value);
-        return json::deserialize<std::string>(value);
-    }
-
-    template <typename Enum>
-    static void deserialize_unreflectable_enum(Enum& out,
-                                               const value_type& value)
-    {
-        detail::expect_number(value);
-        out = static_cast<Enum>(value.GetInt());
-    }
+    static std::string type_name(const value_type& value) { return detail::type_name(value); }
 };
 
 // For all T's that quacks like a std::map
@@ -772,8 +721,7 @@ template <typename Map, typename Context,
                     is_map_alike<Map>> = true>
 rapidjson::Value to_json(const Map& map, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_map<json_tree_backend>(
-        map, ctx);
+    return ::kl::detail::serialization::tree::serialize_map<json_tree_backend>(map, ctx);
 }
 
 // For all T's that quacks like a range
@@ -782,8 +730,7 @@ template <typename Range, typename Context,
                     std::negation<is_map_alike<Range>>, is_range<Range>> = true>
 rapidjson::Value to_json(const Range& rng, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_range<
-        json_tree_backend>(rng, ctx);
+    return ::kl::detail::serialization::tree::serialize_range<json_tree_backend>(rng, ctx);
 }
 
 // For all T's for which there's a type_info defined
@@ -791,36 +738,31 @@ template <typename Reflectable, typename Context,
           enable_if<is_reflectable<Reflectable>> = true>
 rapidjson::Value to_json(const Reflectable& refl, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_reflectable<
-        json_tree_backend>(refl, ctx);
+    return ::kl::detail::serialization::tree::serialize_reflectable<json_tree_backend>(refl, ctx);
 }
 
 template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
 rapidjson::Value to_json(Enum e, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_enum<json_tree_backend>(
-        e, ctx);
+    return ::kl::detail::serialization::tree::serialize_enum<json_tree_backend>(e, ctx);
 }
 
 template <typename Enum, typename Context>
 rapidjson::Value to_json(const enum_set<Enum>& set, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_enum_set<
-        json_tree_backend>(set, ctx);
+    return ::kl::detail::serialization::tree::serialize_enum_set<json_tree_backend>(set, ctx);
 }
 
 template <typename... Ts, typename Context>
 rapidjson::Value to_json(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_tuple<
-        json_tree_backend>(tuple, ctx);
+    return ::kl::detail::serialization::tree::serialize_tuple<json_tree_backend>(tuple, ctx);
 }
 
 template <typename T, typename Context>
 rapidjson::Value to_json(const std::optional<T>& opt, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_optional<
-        json_tree_backend>(opt, ctx);
+    return ::kl::detail::serialization::tree::serialize_optional<json_tree_backend>(opt, ctx);
 }
 
 // from_json implementation
@@ -922,8 +864,7 @@ inline void from_json(view& out, const rapidjson::Value& value)
 template <typename Map, enable_if<is_map_alike<Map>> = true>
 void from_json(Map& out, const rapidjson::Value& value)
 {
-    ::kl::detail::serialization::tree::deserialize_map<json_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_map<json_tree_backend>(out, value);
 }
 
 template <typename GrowableRange,
@@ -931,43 +872,37 @@ template <typename GrowableRange,
                     is_growable_range<GrowableRange>> = true>
 void from_json(GrowableRange& out, const rapidjson::Value& value)
 {
-    ::kl::detail::serialization::tree::deserialize_range<json_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_range<json_tree_backend>(out, value);
 }
 
 template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
 void from_json(Reflectable& out, const rapidjson::Value& value)
 {
-    ::kl::detail::serialization::tree::deserialize_reflectable<
-        json_tree_backend>(out, value);
+    ::kl::detail::serialization::tree::deserialize_reflectable<json_tree_backend>(out, value);
 }
 
 template <typename Enum, enable_if<std::is_enum<Enum>> = true>
 void from_json(Enum& out, const rapidjson::Value& value)
 {
-    ::kl::detail::serialization::tree::deserialize_enum<json_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_enum<json_tree_backend>(out, value);
 }
 
 template <typename Enum>
 void from_json(enum_set<Enum>& out, const rapidjson::Value& value)
 {
-    ::kl::detail::serialization::tree::deserialize_enum_set<json_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_enum_set<json_tree_backend>(out, value);
 }
 
 template <typename... Ts>
 void from_json(std::tuple<Ts...>& out, const rapidjson::Value& value)
 {
-    ::kl::detail::serialization::tree::deserialize_tuple<json_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_tuple<json_tree_backend>(out, value);
 }
 
 template <typename T>
 void from_json(std::optional<T>& out, const rapidjson::Value& value)
 {
-    ::kl::detail::serialization::tree::deserialize_optional<json_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_optional<json_tree_backend>(out, value);
 }
 
 template <typename T, typename Context>

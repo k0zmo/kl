@@ -365,6 +365,14 @@ void encode(const std::string& str, Context& ctx)
 
 struct yaml_stream_backend
 {
+    template <typename T, typename Context>
+    static void dump(const T& value, Context& ctx)
+    {
+        yaml::dump(value, ctx);
+    }
+
+    // Map stuff
+
     template <typename Context>
     static void begin_map(Context& ctx)
     {
@@ -385,6 +393,8 @@ struct yaml_stream_backend
         ctx.emitter() << YAML::Value;
     }
 
+    // Sequence stuff
+
     template <typename Context>
     static void begin_sequence(Context& ctx)
     {
@@ -397,11 +407,7 @@ struct yaml_stream_backend
         ctx.emitter() << YAML::EndSeq;
     }
 
-    template <typename T, typename Context>
-    static void dump(const T& value, Context& ctx)
-    {
-        yaml::dump(value, ctx);
-    }
+    // Rest of the stuff
 
     template <typename Context>
     static void write_null(Context& ctx)
@@ -413,52 +419,45 @@ struct yaml_stream_backend
 template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
 void encode(const Map& map, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_map<yaml_stream_backend>(map,
-                                                                         ctx);
+    ::kl::detail::serialization::stream::encode_map<yaml_stream_backend>(map, ctx);
 }
 
 template <typename Range, typename Context,
           enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
 void encode(const Range& rng, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_range<yaml_stream_backend>(rng,
-                                                                           ctx);
+    ::kl::detail::serialization::stream::encode_range<yaml_stream_backend>(rng, ctx);
 }
 
 template <typename Reflectable, typename Context,
           enable_if<is_reflectable<Reflectable>> = true>
 void encode(const Reflectable& refl, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_reflectable<
-        yaml_stream_backend>(refl, ctx);
+    ::kl::detail::serialization::stream::encode_reflectable<yaml_stream_backend>(refl, ctx);
 }
 
 template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
 void encode(const Enum& e, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_enum<yaml_stream_backend>(e,
-                                                                          ctx);
+    ::kl::detail::serialization::stream::encode_enum<yaml_stream_backend>(e, ctx);
 }
 
 template <typename Enum, typename Context>
 void encode(const enum_set<Enum>& set, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_enum_set<yaml_stream_backend>(
-        set, ctx);
+    ::kl::detail::serialization::stream::encode_enum_set<yaml_stream_backend>(set, ctx);
 }
 
 template <typename... Ts, typename Context>
 void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_tuple<yaml_stream_backend>(
-        tuple, ctx);
+    ::kl::detail::serialization::stream::encode_tuple<yaml_stream_backend>(tuple, ctx);
 }
 
 template <typename T, typename Context>
 void encode(const std::optional<T>& opt, Context& ctx)
 {
-    ::kl::detail::serialization::stream::encode_optional<yaml_stream_backend>(
-        opt, ctx);
+    ::kl::detail::serialization::stream::encode_optional<yaml_stream_backend>(opt, ctx);
 }
 
 // to_yaml implementation
@@ -512,29 +511,6 @@ struct yaml_tree_backend
     using value_type = YAML::Node;
     using deserialize_error = yaml::deserialize_error;
 
-    static value_type make_map()
-    {
-        return value_type{YAML::NodeType::Map};
-    }
-
-    static value_type make_sequence()
-    {
-        return value_type{YAML::NodeType::Sequence};
-    }
-
-    template <typename Key, typename Context>
-    static void add_field(value_type& out, const Key& key, value_type value,
-                          Context&)
-    {
-        out[key] = std::move(value);
-    }
-
-    template <typename Context>
-    static void add_element(value_type& out, value_type value, Context&)
-    {
-        out.push_back(std::move(value));
-    }
-
     template <typename T, typename Context>
     static value_type serialize(const T& value, Context& ctx)
     {
@@ -547,29 +523,18 @@ struct yaml_tree_backend
         yaml::deserialize(out, value);
     }
 
-    static void expect_map(const value_type& value)
-    {
-        detail::expect_map(value);
-    }
+    // Map stuff
 
-    static void expect_sequence(const value_type& value)
-    {
-        detail::expect_sequence(value);
-    }
-
+    static value_type make_map() { return value_type{YAML::NodeType::Map}; }
+    static void expect_map(const value_type& value) { detail::expect_map(value); }
     static bool is_map(const value_type& value) { return value.IsMap(); }
 
-    static bool is_sequence(const value_type& value)
+    template <typename Key, typename Context>
+    static void add_field(value_type& out, const Key& key, value_type value,
+                          Context&)
     {
-        return value.IsSequence();
+        out[key] = std::move(value);
     }
-
-    static bool is_null(const value_type& value)
-    {
-        return !value || value.IsNull();
-    }
-
-    static std::size_t size(const value_type& value) { return value.size(); }
 
     template <typename Visitor>
     static void for_each_field(const value_type& value, Visitor&& visitor)
@@ -578,12 +543,29 @@ struct yaml_tree_backend
             visitor(obj.first, obj.second);
     }
 
+    // Sequence stuff
+
+    static value_type make_sequence() { return value_type{YAML::NodeType::Sequence}; }
+    static void expect_sequence(const value_type& value) { detail::expect_sequence(value); }
+    static bool is_sequence(const value_type& value) { return value.IsSequence(); }
+
+    template <typename Context>
+    static void add_element(value_type& out, value_type value, Context&)
+    {
+        out.push_back(std::move(value));
+    }
+
     template <typename Visitor>
     static void for_each_element(const value_type& value, Visitor&& visitor)
     {
         for (const auto& item : value)
             visitor(item);
     }
+
+    // Rest of the stuff
+
+    static bool is_null(const value_type& value) { return !value || value.IsNull(); }
+    static std::size_t size(const value_type& value) { return value.size(); }
 
     template <typename Key>
     static value_type at_field(const value_type& value, const Key& name)
@@ -600,28 +582,13 @@ struct yaml_tree_backend
     {
         return detail::type_name(value);
     }
-
-    static std::string scalar_text(const value_type& value)
-    {
-        detail::expect_scalar(value);
-        return value.Scalar();
-    }
-
-    template <typename Enum>
-    static void deserialize_unreflectable_enum(Enum& out,
-                                               const value_type& value)
-    {
-        using underlying_type = std::underlying_type_t<Enum>;
-        out = static_cast<Enum>(yaml::deserialize<underlying_type>(value));
-    }
 };
 
 // For all T's that quacks like a std::map
 template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
 YAML::Node to_yaml(const Map& map, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_map<yaml_tree_backend>(
-        map, ctx);
+    return ::kl::detail::serialization::tree::serialize_map<yaml_tree_backend>(map, ctx);
 }
 
 // For all T's that quacks like a range
@@ -629,8 +596,7 @@ template <typename Range, typename Context,
           enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
 YAML::Node to_yaml(const Range& rng, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_range<
-        yaml_tree_backend>(rng, ctx);
+    return ::kl::detail::serialization::tree::serialize_range<yaml_tree_backend>(rng, ctx);
 }
 
 // For all T's for which there's a type_info defined
@@ -638,36 +604,31 @@ template <typename Reflectable, typename Context,
           enable_if<is_reflectable<Reflectable>> = true>
 YAML::Node to_yaml(const Reflectable& refl, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_reflectable<
-        yaml_tree_backend>(refl, ctx);
+    return ::kl::detail::serialization::tree::serialize_reflectable<yaml_tree_backend>(refl, ctx);
 }
 
 template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
 YAML::Node to_yaml(Enum e, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_enum<yaml_tree_backend>(
-        e, ctx);
+    return ::kl::detail::serialization::tree::serialize_enum<yaml_tree_backend>(e, ctx);
 }
 
 template <typename Enum, typename Context>
 YAML::Node to_yaml(const enum_set<Enum>& set, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_enum_set<
-        yaml_tree_backend>(set, ctx);
+    return ::kl::detail::serialization::tree::serialize_enum_set<yaml_tree_backend>(set, ctx);
 }
 
 template <typename... Ts, typename Context>
 YAML::Node to_yaml(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_tuple<
-        yaml_tree_backend>(tuple, ctx);
+    return ::kl::detail::serialization::tree::serialize_tuple<yaml_tree_backend>(tuple, ctx);
 }
 
 template <typename T, typename Context>
 YAML::Node to_yaml(const std::optional<T>& opt, Context& ctx)
 {
-    return ::kl::detail::serialization::tree::serialize_optional<
-        yaml_tree_backend>(opt, ctx);
+    return ::kl::detail::serialization::tree::serialize_optional<yaml_tree_backend>(opt, ctx);
 }
 
 // from_yaml implementation
@@ -718,8 +679,7 @@ inline void from_yaml(view& out, const YAML::Node& value)
 template <typename Map, enable_if<is_map_alike<Map>> = true>
 void from_yaml(Map& out, const YAML::Node& value)
 {
-    ::kl::detail::serialization::tree::deserialize_map<yaml_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_map<yaml_tree_backend>(out, value);
 }
 
 template <typename GrowableRange,
@@ -727,43 +687,37 @@ template <typename GrowableRange,
                     is_range<GrowableRange>> = true>
 void from_yaml(GrowableRange& out, const YAML::Node& value)
 {
-    ::kl::detail::serialization::tree::deserialize_range<yaml_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_range<yaml_tree_backend>(out, value);
 }
 
 template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
 void from_yaml(Reflectable& out, const YAML::Node& value)
 {
-    ::kl::detail::serialization::tree::deserialize_reflectable<
-        yaml_tree_backend>(out, value);
+    ::kl::detail::serialization::tree::deserialize_reflectable<yaml_tree_backend>(out, value);
 }
 
 template <typename Enum, enable_if<std::is_enum<Enum>> = true>
 void from_yaml(Enum& out, const YAML::Node& value)
 {
-    ::kl::detail::serialization::tree::deserialize_enum<yaml_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_enum<yaml_tree_backend>(out, value);
 }
 
 template <typename Enum>
 void from_yaml(enum_set<Enum>& out, const YAML::Node& value)
 {
-    ::kl::detail::serialization::tree::deserialize_enum_set<yaml_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_enum_set<yaml_tree_backend>(out, value);
 }
 
 template <typename... Ts>
 void from_yaml(std::tuple<Ts...>& out, const YAML::Node& value)
 {
-    ::kl::detail::serialization::tree::deserialize_tuple<yaml_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_tuple<yaml_tree_backend>(out, value);
 }
 
 template <typename T>
 void from_yaml(std::optional<T>& out, const YAML::Node& value)
 {
-    ::kl::detail::serialization::tree::deserialize_optional<yaml_tree_backend>(
-        out, value);
+    ::kl::detail::serialization::tree::deserialize_optional<yaml_tree_backend>(out, value);
 }
 
 template <typename T, typename Context>

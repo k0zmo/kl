@@ -222,8 +222,10 @@ void deserialize_map(Map& out, const typename Backend::value_type& value)
         }
         catch (typename Backend::deserialize_error& ex)
         {
+            std::string field_name;
+            Backend::deserialize(field_name, key);
             std::string msg =
-                "error when deserializing field " + Backend::scalar_text(key);
+                "error when deserializing field " + field_name;
             ex.add(msg.c_str());
             throw;
         }
@@ -321,7 +323,8 @@ void deserialize_enum(Enum& out, const typename Backend::value_type& value)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
     {
-        const auto text = Backend::scalar_text(value);
+        std::string text;
+        Backend::deserialize(text, value);
         if (auto enum_value = kl::from_string<Enum>(text))
         {
             out = *enum_value;
@@ -333,7 +336,9 @@ void deserialize_enum(Enum& out, const typename Backend::value_type& value)
     }
     else
     {
-        Backend::deserialize_unreflectable_enum(out, value);
+        std::underlying_type_t<Enum> underlying_value{};
+        Backend::deserialize(underlying_value, value);
+        out = static_cast<Enum>(underlying_value);
     }
 }
 

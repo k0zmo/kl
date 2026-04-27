@@ -310,7 +310,7 @@ TEST_CASE("json")
 
         j = R"({"e0": 0, "e1": true, "e2": "oe_one_ref", "e3": "one"})"_json;
         REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
-                            "type must be a number but is a kTrueType\n"
+                            "type must be an integral but is a kTrueType\n"
                             "error when deserializing field e1\n"
                             "error when deserializing type " +
                                 kl::ctti::name<enums>());
