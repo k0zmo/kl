@@ -878,6 +878,7 @@ TEST_CASE("yaml dump")
         CHECK(yaml::dump(std::string{"qwe"}) == "qwe");
         CHECK(yaml::dump(13.22).substr(0, 5) == "13.22");
         CHECK(yaml::dump(ordinary_enum::oe_one) == "0");
+        CHECK(yaml::dump(ordinary_enum_reflectable::oe_one_ref) == "oe_one_ref");
     }
 
     SECTION("inner_t")

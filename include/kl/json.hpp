@@ -489,12 +489,32 @@ void encode_key(const char* key, Context& ctx)
     ctx.writer().Key(key);
 }
 
+template <typename T, typename Context>
+auto native_encode(const T& value, Context& ctx) -> decltype(encode(value, ctx), void())
+{
+    encode(value, ctx);
+}
+
 struct json_stream_backend
 {
     template <typename T, typename Context>
     static void dump(const T& value, Context& ctx)
     {
         json::dump(value, ctx);
+    }
+
+    template <typename T, typename Context>
+    static auto encode(const T& value, Context& ctx)
+        -> decltype(native_encode(value, ctx), void())
+    {
+        native_encode(value, ctx);
+    }
+
+    template <typename T, typename Context>
+    static auto serializer_encode(const T& value, Context& ctx)
+        -> decltype(json::serializer<T>::encode(value, ctx), void())
+    {
+        json::serializer<T>::encode(value, ctx);
     }
 
     // Map stuff
@@ -530,59 +550,7 @@ struct json_stream_backend
     {
         ctx.writer().EndArray();
     }
-
-    // Rest of the stuff
-
-    template <typename Context>
-    static void write_null(Context& ctx)
-    {
-        ctx.writer().Null();
-    }
 };
-
-template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
-void encode(const Map& map, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_map<json_stream_backend>(map, ctx);
-}
-
-template <typename Range, typename Context,
-          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
-void encode(const Range& rng, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_range<json_stream_backend>(rng, ctx);
-}
-
-template <typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
-void encode(const Reflectable& refl, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_reflectable<json_stream_backend>(refl, ctx);
-}
-
-template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
-void encode(Enum e, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_enum<json_stream_backend>(e, ctx);
-}
-
-template <typename Enum, typename Context>
-void encode(const enum_set<Enum>& set, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_enum_set<json_stream_backend>(set, ctx);
-}
-
-template <typename... Ts, typename Context>
-void encode(const std::tuple<Ts...>& tuple, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_tuple<json_stream_backend>(tuple, ctx);
-}
-
-template <typename T, typename Context>
-void encode(const std::optional<T>& opt, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_optional<json_stream_backend>(opt, ctx);
-}
 
 // to_json implementation
 
@@ -906,28 +874,6 @@ void from_json(std::optional<T>& out, const rapidjson::Value& value)
 }
 
 template <typename T, typename Context>
-void dump(const T&, Context&, priority_tag<0>)
-{
-    static_assert(always_false_v<T>,
-                  "Cannot dump an instance of type T - no viable "
-                  "definition of encode provided");
-}
-
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(encode(obj, ctx), void())
-{
-    encode(obj, ctx);
-}
-
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(json::serializer<T>::encode(obj, ctx), void())
-{
-    json::serializer<T>::encode(obj, ctx);
-}
-
-template <typename T, typename Context>
 rapidjson::Value serialize(const T&, Context&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
@@ -988,7 +934,8 @@ std::string dump(const T& obj)
 template <typename T, typename Context>
 void dump(const T& obj, Context& ctx)
 {
-    detail::dump(obj, ctx, priority_tag<2>{});
+    ::kl::detail::serialization::stream::dump<detail::json_stream_backend>(
+        obj, ctx, priority_tag<4>{});
 }
 
 // Top-level functions

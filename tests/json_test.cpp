@@ -894,6 +894,7 @@ TEST_CASE("json dump")
         CHECK(json::dump(std::string{"qwe"}) == "\"qwe\"");
         CHECK(json::dump(13.11) == "13.11");
         CHECK(json::dump(ordinary_enum::oe_one) == "0");
+        CHECK(json::dump(ordinary_enum_reflectable::oe_one_ref) == "\"oe_one_ref\"");
         CHECK(json::dump(std::string_view{"qwe"}) == "\"qwe\"");
     }
 

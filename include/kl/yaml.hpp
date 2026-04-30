@@ -363,12 +363,39 @@ void encode(const std::string& str, Context& ctx)
     ctx.emitter() << str;
 }
 
+template <typename T, typename Context>
+auto native_encode(const T& value, Context& ctx) -> decltype(encode(value, ctx), void())
+{
+    encode(value, ctx);
+}
+
 struct yaml_stream_backend
 {
     template <typename T, typename Context>
     static void dump(const T& value, Context& ctx)
     {
         yaml::dump(value, ctx);
+    }
+
+    template <typename T, typename Context>
+    static auto encode(const T& value, Context& ctx)
+        -> decltype(native_encode(value, ctx), void())
+    {
+        native_encode(value, ctx);
+    }
+
+    template <typename T, typename Context>
+    static auto serializer_encode(const T& value, Context& ctx)
+        -> decltype(yaml::serializer<T>::encode(value, ctx), void())
+    {
+        yaml::serializer<T>::encode(value, ctx);
+    }
+
+    template <typename T, typename Context>
+    static auto fallback_encode(const T& value, Context& ctx)
+        -> decltype(ctx.emitter() << value, void())
+    {
+        ctx.emitter() << value;
     }
 
     // Map stuff
@@ -406,59 +433,7 @@ struct yaml_stream_backend
     {
         ctx.emitter() << YAML::EndSeq;
     }
-
-    // Rest of the stuff
-
-    template <typename Context>
-    static void write_null(Context& ctx)
-    {
-        ctx.emitter() << YAML::Null;
-    }
 };
-
-template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
-void encode(const Map& map, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_map<yaml_stream_backend>(map, ctx);
-}
-
-template <typename Range, typename Context,
-          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
-void encode(const Range& rng, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_range<yaml_stream_backend>(rng, ctx);
-}
-
-template <typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
-void encode(const Reflectable& refl, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_reflectable<yaml_stream_backend>(refl, ctx);
-}
-
-template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
-void encode(const Enum& e, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_enum<yaml_stream_backend>(e, ctx);
-}
-
-template <typename Enum, typename Context>
-void encode(const enum_set<Enum>& set, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_enum_set<yaml_stream_backend>(set, ctx);
-}
-
-template <typename... Ts, typename Context>
-void encode(const std::tuple<Ts...>& tuple, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_tuple<yaml_stream_backend>(tuple, ctx);
-}
-
-template <typename T, typename Context>
-void encode(const std::optional<T>& opt, Context& ctx)
-{
-    ::kl::detail::serialization::stream::encode_optional<yaml_stream_backend>(opt, ctx);
-}
 
 // to_yaml implementation
 
@@ -721,35 +696,6 @@ void from_yaml(std::optional<T>& out, const YAML::Node& value)
 }
 
 template <typename T, typename Context>
-void dump(const T&, Context&, priority_tag<0>)
-{
-    static_assert(always_false_v<T>,
-                  "Cannot dump an instance of type T - no viable "
-                  "definition of encode provided");
-}
-
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(ctx.emitter() << obj, void())
-{
-    ctx.emitter() << obj;
-}
-
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(encode(obj, ctx), void())
-{
-    encode(obj, ctx);
-}
-
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<3>)
-    -> decltype(yaml::serializer<T>::encode(obj, ctx), void())
-{
-    yaml::serializer<T>::encode(obj, ctx);
-}
-
-template <typename T, typename Context>
 YAML::Node serialize(const T&, Context&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
@@ -808,7 +754,8 @@ std::string dump(const T& obj)
 template <typename T, typename Context>
 void dump(const T& obj, Context& ctx)
 {
-    detail::dump(obj, ctx, priority_tag<3>{});
+    ::kl::detail::serialization::stream::dump<detail::yaml_stream_backend>(
+        obj, ctx, priority_tag<4>{});
 }
 
 template <typename T>

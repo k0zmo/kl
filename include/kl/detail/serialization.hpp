@@ -17,8 +17,9 @@ namespace kl::detail::serialization {
 
 namespace stream {
 
-template <typename Backend, typename Map, typename Context>
-void encode_map(const Map& map, Context& ctx)
+template <typename Backend, typename Map, typename Context,
+          enable_if<is_map_alike<Map>> = true>
+void encode(const Map& map, Context& ctx)
 {
     static_assert(std::is_constructible_v<std::string, typename Map::key_type>,
                   "std::string must be constructible from the Map's key type");
@@ -35,8 +36,9 @@ void encode_map(const Map& map, Context& ctx)
     Backend::end_map(ctx);
 }
 
-template <typename Backend, typename Range, typename Context>
-void encode_range(const Range& rng, Context& ctx)
+template <typename Backend, typename Range, typename Context,
+          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
+void encode(const Range& rng, Context& ctx)
 {
     Backend::begin_sequence(ctx);
     for (const auto& value : rng)
@@ -44,8 +46,9 @@ void encode_range(const Range& rng, Context& ctx)
     Backend::end_sequence(ctx);
 }
 
-template <typename Backend, typename Reflectable, typename Context>
-void encode_reflectable(const Reflectable& refl, Context& ctx)
+template <typename Backend, typename Reflectable, typename Context,
+          enable_if<is_reflectable<Reflectable>> = true>
+void encode(const Reflectable& refl, Context& ctx)
 {
     Backend::begin_map(ctx);
     ctti::reflect(refl, [&ctx](auto& field, auto name) {
@@ -58,8 +61,9 @@ void encode_reflectable(const Reflectable& refl, Context& ctx)
     Backend::end_map(ctx);
 }
 
-template <typename Backend, typename Enum, typename Context>
-void encode_enum(Enum e, Context& ctx)
+template <typename Backend, typename Enum, typename Context,
+          enable_if<std::is_enum<Enum>> = true>
+void encode(Enum e, Context& ctx)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
         Backend::dump(kl::to_string(e), ctx);
@@ -68,7 +72,7 @@ void encode_enum(Enum e, Context& ctx)
 }
 
 template <typename Backend, typename Enum, typename Context>
-void encode_enum_set(const enum_set<Enum>& set, Context& ctx)
+void encode(const enum_set<Enum>& set, Context& ctx)
 {
     static_assert(is_enum_reflectable_v<Enum>,
                   "Only sets of reflectable enums are supported");
@@ -82,29 +86,69 @@ void encode_enum_set(const enum_set<Enum>& set, Context& ctx)
     Backend::end_sequence(ctx);
 }
 
+namespace impl {
+
 template <typename Backend, typename Tuple, typename Context, std::size_t... Is>
-void encode_tuple_impl(const Tuple& tuple, Context& ctx,
-                       std::index_sequence<Is...>)
+void encode_tuple(const Tuple& tuple, Context& ctx,
+                  std::index_sequence<Is...>)
 {
     Backend::begin_sequence(ctx);
     (Backend::dump(std::get<Is>(tuple), ctx), ...);
     Backend::end_sequence(ctx);
 }
 
+} // namespace impl
+
 template <typename Backend, typename... Ts, typename Context>
-void encode_tuple(const std::tuple<Ts...>& tuple, Context& ctx)
+void encode(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    encode_tuple_impl<Backend>(tuple, ctx,
-                               std::make_index_sequence<sizeof...(Ts)>{});
+    impl::encode_tuple<Backend>(tuple, ctx,
+                                std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename Backend, typename T, typename Context>
-void encode_optional(const std::optional<T>& opt, Context& ctx)
+void encode(const std::optional<T>& opt, Context& ctx)
 {
     if (!opt)
-        Backend::write_null(ctx);
+        Backend::dump(nullptr, ctx);
     else
         Backend::dump(*opt, ctx);
+}
+
+template <typename Backend, typename T, typename Context>
+void dump(const T&, Context&, priority_tag<0>)
+{
+    static_assert(always_false_v<T>,
+                  "Cannot dump an instance of type T - no viable "
+                  "definition of encode provided");
+}
+
+template <typename Backend, typename T, typename Context>
+auto dump(const T& obj, Context& ctx, priority_tag<1>)
+    -> decltype(Backend::fallback_encode(obj, ctx), void())
+{
+    Backend::fallback_encode(obj, ctx);
+}
+
+template <typename Backend, typename T, typename Context>
+auto dump(const T& obj, Context& ctx, priority_tag<2>)
+    -> decltype(encode<Backend>(obj, ctx), void())
+{
+    encode<Backend>(obj, ctx);
+}
+
+template <typename Backend, typename T, typename Context>
+auto dump(const T& obj, Context& ctx, priority_tag<3>)
+    -> decltype(Backend::encode(obj, ctx), void())
+{
+    Backend::encode(obj, ctx);
+}
+
+template <typename Backend, typename T, typename Context>
+auto dump(const T& obj, Context& ctx, priority_tag<4>)
+    -> decltype(Backend::template serializer_encode<T>(obj, ctx), void())
+{
+    Backend::template serializer_encode<T>(obj, ctx);
 }
 
 } // namespace stream
