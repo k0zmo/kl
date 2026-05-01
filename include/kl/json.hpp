@@ -530,63 +530,6 @@ void dump_adl(std::basic_string_view<typename Context::writer_type::Ch> str, Con
     ctx.writer().String(str.data(), static_cast<rapidjson::SizeType>(str.length()));
 }
 
-// to_json implementation
-
-// Checks if we can construct a Json object with given T
-template <typename T>
-using is_json_constructible =
-    std::bool_constant<std::is_constructible_v<rapidjson::Value, T> &&
-                       // We want reflectable unscoped enum to handle ourselves
-                       !std::is_enum_v<T>>;
-
-// For all T's that we can directly create rapidjson::Value value from
-template <typename JsonConstructible, typename Context,
-          enable_if<is_json_constructible<JsonConstructible>> = true>
-rapidjson::Value to_json(const JsonConstructible& value, Context& ctx)
-{
-    (void)ctx;
-    return rapidjson::Value{value};
-}
-
-template <typename Context>
-rapidjson::Value to_json(view v, Context& ctx)
-{
-    return rapidjson::Value{v.value(), ctx.allocator()};
-}
-
-template <typename Context>
-rapidjson::Value to_json(std::nullptr_t, Context&)
-{
-    return rapidjson::Value{};
-}
-
-template <typename Ch, typename Context>
-rapidjson::Value to_json(const std::basic_string<Ch>& str, Context& ctx)
-{
-    return rapidjson::Value{str, ctx.allocator()};
-}
-
-template <typename Ch, typename Context>
-rapidjson::Value to_json(std::basic_string_view<Ch> str, Context& ctx)
-{
-    return rapidjson::Value{str.data(), static_cast<rapidjson::SizeType>(str.length()),
-                            ctx.allocator()};
-}
-
-template <typename Context>
-rapidjson::Value to_json(const char* str, Context& ctx)
-{
-    return rapidjson::Value{str, ctx.allocator()};
-}
-
-// For string literals
-template <std::size_t N, typename Context>
-rapidjson::Value to_json(char (&str)[N], Context&)
-{
-    // No need for allocator
-    return rapidjson::Value{str, N - 1};
-}
-
 struct json_tree_backend
 {
     using value_type = rapidjson::Value;
@@ -660,54 +603,69 @@ struct json_tree_backend
     static std::string type_name(const value_type& value) { return detail::type_name(value); }
 };
 
-// For all T's that quacks like a std::map
-template <typename Map, typename Context,
-          enable_if<std::negation<is_json_constructible<Map>>,
-                    is_map_alike<Map>> = true>
-rapidjson::Value to_json(const Map& map, Context& ctx)
-{
-    return serialization::detail::serialize_map<json_tree_backend>(map, ctx);
-}
-
-// For all T's that quacks like a range
-template <typename Range, typename Context,
-          enable_if<std::negation<is_json_constructible<Range>>,
-                    std::negation<is_map_alike<Range>>, is_range<Range>> = true>
-rapidjson::Value to_json(const Range& rng, Context& ctx)
-{
-    return serialization::detail::serialize_range<json_tree_backend>(rng, ctx);
-}
-
-// For all T's for which there's a type_info defined
-template <typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
-rapidjson::Value to_json(const Reflectable& refl, Context& ctx)
-{
-    return serialization::detail::serialize_reflectable<json_tree_backend>(refl, ctx);
-}
-
-template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
-rapidjson::Value to_json(Enum e, Context& ctx)
-{
-    return serialization::detail::serialize_enum<json_tree_backend>(e, ctx);
-}
-
-template <typename Enum, typename Context>
-rapidjson::Value to_json(const enum_set<Enum>& set, Context& ctx)
-{
-    return serialization::detail::serialize_enum_set<json_tree_backend>(set, ctx);
-}
-
-template <typename... Ts, typename Context>
-rapidjson::Value to_json(const std::tuple<Ts...>& tuple, Context& ctx)
-{
-    return serialization::detail::serialize_tuple<json_tree_backend>(tuple, ctx);
-}
-
+// serialize_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
 template <typename T, typename Context>
-rapidjson::Value to_json(const std::optional<T>& opt, Context& ctx)
+auto serialize_adl(const T& value, Context& ctx)
+    -> decltype(serialization::detail::serialize_adl<json_tree_backend>(value, ctx))
 {
-    return serialization::detail::serialize_optional<json_tree_backend>(opt, ctx);
+    return serialization::detail::serialize_adl<json_tree_backend>(value, ctx);
+}
+
+// serialize_adl implementations for simple types
+
+// Checks if we can construct a Json object with given T
+template <typename T>
+using is_json_constructible =
+    std::bool_constant<std::is_constructible_v<rapidjson::Value, T> &&
+                       // We want reflectable unscoped enum to handle ourselves
+                       !std::is_enum_v<T>>;
+
+// For all T's that we can directly create rapidjson::Value value from
+template <typename JsonConstructible, typename Context,
+          enable_if<is_json_constructible<JsonConstructible>> = true>
+rapidjson::Value serialize_adl(const JsonConstructible& value, Context& ctx)
+{
+    (void)ctx;
+    return rapidjson::Value{value};
+}
+
+template <typename Context>
+rapidjson::Value serialize_adl(view v, Context& ctx)
+{
+    return rapidjson::Value{v.value(), ctx.allocator()};
+}
+
+template <typename Context>
+rapidjson::Value serialize_adl(std::nullptr_t, Context&)
+{
+    return rapidjson::Value{};
+}
+
+template <typename Ch, typename Context>
+rapidjson::Value serialize_adl(const std::basic_string<Ch>& str, Context& ctx)
+{
+    return rapidjson::Value{str, ctx.allocator()};
+}
+
+template <typename Ch, typename Context>
+rapidjson::Value serialize_adl(std::basic_string_view<Ch> str, Context& ctx)
+{
+    return rapidjson::Value{str.data(), static_cast<rapidjson::SizeType>(str.length()),
+                            ctx.allocator()};
+}
+
+template <typename Context>
+rapidjson::Value serialize_adl(const char* str, Context& ctx)
+{
+    return rapidjson::Value{str, ctx.allocator()};
+}
+
+// For string literals
+template <std::size_t N, typename Context>
+rapidjson::Value serialize_adl(char (&str)[N], Context&)
+{
+    // No need for allocator
+    return rapidjson::Value{str, N - 1};
 }
 
 // from_json implementation
@@ -877,22 +835,22 @@ rapidjson::Value serialize(const T&, Context&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
                   "Cannot serialize an instance of type T - no viable "
-                  "definition of to_json provided");
+                  "definition of serialize_adl provided");
     return {}; // Keeps compiler happy
 }
 
 template <typename T, typename Context>
 auto serialize(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(to_json(obj, ctx))
+    -> decltype(serialize_adl(obj, ctx))
 {
-    return to_json(obj, ctx);
+    return serialize_adl(obj, ctx);
 }
 
 template <typename T, typename Context>
 auto serialize(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(json::serializer<T>::to_json(obj, ctx))
+    -> decltype(json::serializer<T>::serialize(obj, ctx))
 {
-    return json::serializer<T>::to_json(obj, ctx);
+    return json::serializer<T>::serialize(obj, ctx);
 }
 
 template <typename T>

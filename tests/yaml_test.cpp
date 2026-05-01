@@ -742,7 +742,7 @@ template <>
 struct serializer<std::chrono::seconds>
 {
     template <typename Context>
-    static YAML::Node to_yaml(const std::chrono::seconds& t, Context& ctx)
+    static YAML::Node serialize(const std::chrono::seconds& t, Context& ctx)
     {
         return yaml::serialize(t.count(), ctx);
     }
@@ -770,7 +770,7 @@ TEST_CASE("yaml - extended")
 }
 
 template <typename Context>
-YAML::Node to_yaml(global_struct, Context& ctx)
+YAML::Node serialize_adl(global_struct, Context& ctx)
 {
     return kl::yaml::serialize("global_struct", ctx);
 }
@@ -785,7 +785,7 @@ void from_yaml(global_struct& out, const YAML::Node& value)
 namespace my {
 
 template <typename Context>
-YAML::Node to_yaml(none_t, Context&)
+YAML::Node serialize_adl(none_t, Context&)
 {
     return YAML::Node{};
 }
@@ -798,7 +798,7 @@ void from_yaml(none_t& out, const YAML::Node& value)
 // Defining such function with specializaton would not be possible as there's no
 // way to partially specialize a function template.
 template <typename T, typename Context>
-YAML::Node to_yaml(const value_wrapper<T>& t, Context& ctx)
+YAML::Node serialize_adl(const value_wrapper<T>& t, Context& ctx)
 {
     return kl::yaml::serialize(t.value, ctx);
 }
@@ -1179,7 +1179,7 @@ struct zxc
     std::vector<int> d;
 
     template <typename Context>
-    friend YAML::Node to_yaml(const zxc& z, Context& ctx)
+    friend YAML::Node serialize_adl(const zxc& z, Context& ctx)
     {
         return kl::yaml::to_map(ctx)
             .add("a", z.a)

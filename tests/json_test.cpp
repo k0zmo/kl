@@ -757,7 +757,7 @@ template <>
 struct serializer<std::chrono::seconds>
 {
     template <typename Context>
-    static rapidjson::Value to_json(const std::chrono::seconds& t, Context& ctx)
+    static rapidjson::Value serialize(const std::chrono::seconds& t, Context& ctx)
     {
         return json::serialize(t.count(), ctx);
     }
@@ -786,7 +786,7 @@ TEST_CASE("json - extended")
 }
 
 template <typename Context>
-rapidjson::Value to_json(global_struct, Context& ctx)
+rapidjson::Value serialize_adl(global_struct, Context& ctx)
 {
     return kl::json::serialize("global_struct", ctx);
 }
@@ -801,7 +801,7 @@ void from_json(global_struct& out, const rapidjson::Value& value)
 namespace my {
 
 template <typename Context>
-rapidjson::Value to_json(none_t, Context&)
+rapidjson::Value serialize_adl(none_t, Context&)
 {
     return rapidjson::Value{};
 }
@@ -814,7 +814,7 @@ void from_json(none_t& out, const rapidjson::Value& value)
 // Defining such function with specializaton would not be possible as there's no
 // way to partially specialize a function template.
 template <typename T, typename Context>
-rapidjson::Value to_json(const value_wrapper<T>& t, Context& ctx)
+rapidjson::Value serialize_adl(const value_wrapper<T>& t, Context& ctx)
 {
     return kl::json::serialize(t.value, ctx);
 }
@@ -1146,7 +1146,7 @@ struct zxc
     std::vector<int> d;
 
     template <typename Context>
-    friend rapidjson::Value to_json(const zxc& z, Context& ctx)
+    friend rapidjson::Value serialize_adl(const zxc& z, Context& ctx)
     {
         return kl::json::to_object(ctx)
             .add("a", z.a)
@@ -1189,7 +1189,7 @@ struct zxc_dynamic_names
     std::vector<int> d;
 
     template <typename Context>
-    friend rapidjson::Value to_json(const zxc_dynamic_names& z, Context& ctx)
+    friend rapidjson::Value serialize_adl(const zxc_dynamic_names& z, Context& ctx)
     {
         std::string names{"abcd long string to subdue SSO optimization"};
         return kl::json::to_object(ctx)
