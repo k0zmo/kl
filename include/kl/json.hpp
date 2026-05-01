@@ -1,9 +1,6 @@
 #pragma once
 
-#include "kl/detail/concepts.hpp"
 #include "kl/detail/serialization.hpp"
-#include "kl/ctti.hpp"
-#include "kl/enum_set.hpp"
 #include "kl/json_fwd.hpp"
 #include "kl/utility.hpp"
 
@@ -25,7 +22,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -393,10 +389,6 @@ namespace detail {
 
 std::string type_name(const rapidjson::Value& value);
 
-using ::kl::detail::is_growable_range;
-using ::kl::detail::is_map_alike;
-using ::kl::detail::is_range;
-
 struct json_stream_backend
 {
     // Trampoline from the kl::serialization back to json "world"
@@ -668,12 +660,17 @@ rapidjson::Value serialize_adl(char (&str)[N], Context&)
     return rapidjson::Value{str, N - 1};
 }
 
-// from_json implementation
+// deserialize_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
+template <typename T>
+auto deserialize_adl(T& out, const rapidjson::Value& value)
+    -> decltype(serialization::detail::deserialize_adl<json_tree_backend>(out, value), void())
+{
+    serialization::detail::deserialize_adl<json_tree_backend>(out, value);
+}
 
 [[noreturn]] inline void throw_lossy_conversion()
 {
-    throw deserialize_error{
-        "value cannot be losslessly stored in the variable"};
+    throw deserialize_error{"value cannot be losslessly stored in the variable"};
 }
 
 template <typename Target, typename Source>
@@ -685,7 +682,7 @@ Target narrow(Source src)
 }
 
 template <typename Integral, enable_if<std::is_integral<Integral>> = true>
-void from_json(Integral& out, const rapidjson::Value& value)
+void deserialize_adl(Integral& out, const rapidjson::Value& value)
 {
     detail::expect_integral(value);
     // int8, int16 and int32
@@ -728,92 +725,45 @@ void from_json(Integral& out, const rapidjson::Value& value)
 }
 
 template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
-void from_json(Floating& out, const rapidjson::Value& value)
+void deserialize_adl(Floating& out, const rapidjson::Value& value)
 {
     detail::expect_number(value);
     out = static_cast<Floating>(value.GetDouble());
 }
 
-inline void from_json(bool& out, const rapidjson::Value& value)
+inline void deserialize_adl(bool& out, const rapidjson::Value& value)
 {
     detail::expect_boolean(value);
     out = value.GetBool();
 }
 
-inline void from_json(std::string& out, const rapidjson::Value& value)
+inline void deserialize_adl(std::string& out, const rapidjson::Value& value)
 {
     detail::expect_string(value);
-    out = {value.GetString(),
-           static_cast<std::size_t>(value.GetStringLength())};
+    out = {value.GetString(), static_cast<std::size_t>(value.GetStringLength())};
 }
 
-inline void from_json(std::string_view& out, const rapidjson::Value& value)
+inline void deserialize_adl(std::string_view& out, const rapidjson::Value& value)
 {
     // This variant is unsafe because the lifetime of underlying string is tied
     // to the lifetime of the JSON's value. It may come in handy when writing
-    // user-defined `from_json` which only need a string_view to do further
+    // user-defined `deserialize_adl` which only need a string_view to do further
     // conversion or when one can guarantee `value` will outlive the returned
     // string_view. Nevertheless, use with caution.
     detail::expect_string(value);
-    out = {value.GetString(),
-           static_cast<std::size_t>(value.GetStringLength())};
+    out = {value.GetString(), static_cast<std::size_t>(value.GetStringLength())};
 }
 
-inline void from_json(view& out, const rapidjson::Value& value)
+inline void deserialize_adl(view& out, const rapidjson::Value& value)
 {
     out = view{value};
-}
-
-template <typename Map, enable_if<is_map_alike<Map>> = true>
-void from_json(Map& out, const rapidjson::Value& value)
-{
-    serialization::detail::deserialize_map<json_tree_backend>(out, value);
-}
-
-template <typename GrowableRange,
-          enable_if<std::negation<is_map_alike<GrowableRange>>,
-                    is_growable_range<GrowableRange>> = true>
-void from_json(GrowableRange& out, const rapidjson::Value& value)
-{
-    serialization::detail::deserialize_range<json_tree_backend>(out, value);
-}
-
-template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
-void from_json(Reflectable& out, const rapidjson::Value& value)
-{
-    serialization::detail::deserialize_reflectable<json_tree_backend>(out, value);
-}
-
-template <typename Enum, enable_if<std::is_enum<Enum>> = true>
-void from_json(Enum& out, const rapidjson::Value& value)
-{
-    serialization::detail::deserialize_enum<json_tree_backend>(out, value);
-}
-
-template <typename Enum>
-void from_json(enum_set<Enum>& out, const rapidjson::Value& value)
-{
-    serialization::detail::deserialize_enum_set<json_tree_backend>(out, value);
-}
-
-template <typename... Ts>
-void from_json(std::tuple<Ts...>& out, const rapidjson::Value& value)
-{
-    serialization::detail::deserialize_tuple<json_tree_backend>(out, value);
-}
-
-template <typename T>
-void from_json(std::optional<T>& out, const rapidjson::Value& value)
-{
-    serialization::detail::deserialize_optional<json_tree_backend>(out, value);
 }
 
 template <typename T, typename Context>
 void dump(const T&, Context&, priority_tag<0>)
 {
-    static_assert(always_false_v<T>,
-                  "Cannot dump an instance of type T - no viable "
-                  "definition of dump_adl provided");
+    static_assert(always_false_v<T>, "Cannot dump an instance of type T - no viable "
+                                     "definition of dump_adl provided");
 }
 
 template <typename T, typename Context>
@@ -833,9 +783,8 @@ auto dump(const T& obj, Context& ctx, priority_tag<2>)
 template <typename T, typename Context>
 rapidjson::Value serialize(const T&, Context&, priority_tag<0>)
 {
-    static_assert(always_false_v<T>,
-                  "Cannot serialize an instance of type T - no viable "
-                  "definition of serialize_adl provided");
+    static_assert(always_false_v<T>, "Cannot serialize an instance of type T - no viable "
+                                     "definition of serialize_adl provided");
     return {}; // Keeps compiler happy
 }
 
@@ -856,23 +805,22 @@ auto serialize(const T& obj, Context& ctx, priority_tag<2>)
 template <typename T>
 void deserialize(T&, const rapidjson::Value&, priority_tag<0>)
 {
-    static_assert(always_false_v<T>,
-                  "Cannot deserialize an instance of type T - no viable "
-                  "definition of from_json provided");
+    static_assert(always_false_v<T>, "Cannot deserialize an instance of type T - no viable "
+                                     "definition of deserialize_adl provided");
 }
 
 template <typename T>
 auto deserialize(T& out, const rapidjson::Value& value, priority_tag<1>)
-    -> decltype(from_json(out, value), void())
+    -> decltype(deserialize_adl(out, value), void())
 {
-    from_json(out, value);
+    deserialize_adl(out, value);
 }
 
 template <typename T>
 auto deserialize(T& out, const rapidjson::Value& value, priority_tag<2>)
-    -> decltype(json::serializer<T>::from_json(out, value), void())
+    -> decltype(json::serializer<T>::deserialize(out, value), void())
 {
-    json::serializer<T>::from_json(out, value);
+    json::serializer<T>::deserialize(out, value);
 }
 } // namespace detail
 

@@ -1,9 +1,6 @@
 #pragma once
 
-#include "kl/detail/concepts.hpp"
 #include "kl/detail/serialization.hpp"
-#include "kl/ctti.hpp"
-#include "kl/enum_set.hpp"
 #include "kl/utility.hpp"
 #include "kl/yaml_fwd.hpp"
 
@@ -14,7 +11,6 @@
 #include <optional>
 #include <string>
 #include <string_view>
-#include <tuple>
 #include <type_traits>
 #include <utility>
 
@@ -317,9 +313,6 @@ namespace detail {
 
 std::string type_name(const YAML::Node& value);
 
-using ::kl::detail::is_map_alike;
-using ::kl::detail::is_range;
-
 struct yaml_stream_backend
 {
     template <typename T, typename Context>
@@ -541,16 +534,24 @@ YAML::Node serialize_adl(const char* str, Context&)
     return YAML::Node{str};
 }
 
-// from_yaml implementation
-
+// deserialize_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
 template <typename T>
-T from_scalar_yaml(const YAML::Node& value)
+auto deserialize_adl(T& out, const YAML::Node& value)
+    -> decltype(serialization::detail::deserialize_adl<yaml_tree_backend>(out, value), void())
+{
+    serialization::detail::deserialize_adl<yaml_tree_backend>(out, value);
+}
+
+// deserialize_adl implementations for simple types
+
+template <typename Arithmetic, enable_if<std::is_arithmetic<Arithmetic>> = true>
+void deserialize_adl(Arithmetic& out, const YAML::Node& value)
 {
     detail::expect_scalar(value);
 
     try
     {
-        return value.as<T>();
+        out = value.template as<Arithmetic>();
     }
     catch (const YAML::BadConversion& ex)
     {
@@ -558,84 +559,33 @@ T from_scalar_yaml(const YAML::Node& value)
     }
 }
 
-template <typename Arithmetic, enable_if<std::is_arithmetic<Arithmetic>> = true>
-void from_yaml(Arithmetic& out, const YAML::Node& value)
-{
-    out = from_scalar_yaml<Arithmetic>(value);
-}
-
-inline void from_yaml(std::string& out, const YAML::Node& value)
+inline void deserialize_adl(std::string& out, const YAML::Node& value)
 {
     detail::expect_scalar(value);
     out = value.Scalar();
 }
 
-inline void from_yaml(std::string_view& out, const YAML::Node& value)
+inline void deserialize_adl(std::string_view& out, const YAML::Node& value)
 {
     // This variant is unsafe because the lifetime of underlying string is tied
     // to the lifetime of the YAML's scalar value. It may come in handy when
-    // writing user-defined `from_yaml` which only need a string_view to do
+    // writing user-defined `deserialize_adl` which only need a string_view to do
     // further conversion or when one can guarantee `value` will outlive the
     // returned string_view. Nevertheless, use with caution.
     detail::expect_scalar(value);
     out = value.Scalar();
 }
 
-inline void from_yaml(view& out, const YAML::Node& value)
+inline void deserialize_adl(view& out, const YAML::Node& value)
 {
     out = view{value};
-}
-
-template <typename Map, enable_if<is_map_alike<Map>> = true>
-void from_yaml(Map& out, const YAML::Node& value)
-{
-    serialization::detail::deserialize_map<yaml_tree_backend>(out, value);
-}
-
-template <typename GrowableRange,
-          enable_if<std::negation<is_map_alike<GrowableRange>>,
-                    is_range<GrowableRange>> = true>
-void from_yaml(GrowableRange& out, const YAML::Node& value)
-{
-    serialization::detail::deserialize_range<yaml_tree_backend>(out, value);
-}
-
-template <typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
-void from_yaml(Reflectable& out, const YAML::Node& value)
-{
-    serialization::detail::deserialize_reflectable<yaml_tree_backend>(out, value);
-}
-
-template <typename Enum, enable_if<std::is_enum<Enum>> = true>
-void from_yaml(Enum& out, const YAML::Node& value)
-{
-    serialization::detail::deserialize_enum<yaml_tree_backend>(out, value);
-}
-
-template <typename Enum>
-void from_yaml(enum_set<Enum>& out, const YAML::Node& value)
-{
-    serialization::detail::deserialize_enum_set<yaml_tree_backend>(out, value);
-}
-
-template <typename... Ts>
-void from_yaml(std::tuple<Ts...>& out, const YAML::Node& value)
-{
-    serialization::detail::deserialize_tuple<yaml_tree_backend>(out, value);
-}
-
-template <typename T>
-void from_yaml(std::optional<T>& out, const YAML::Node& value)
-{
-    serialization::detail::deserialize_optional<yaml_tree_backend>(out, value);
 }
 
 template <typename T, typename Context>
 void dump(const T&, Context&, priority_tag<0>)
 {
-    static_assert(always_false_v<T>,
-                  "Cannot dump an instance of type T - no viable "
-                  "definition of dump_adl provided");
+    static_assert(always_false_v<T>, "Cannot dump an instance of type T - no viable "
+                                     "definition of dump_adl provided");
 }
 
 template <typename T, typename Context>
@@ -662,9 +612,8 @@ auto dump(const T& obj, Context& ctx, priority_tag<3>)
 template <typename T, typename Context>
 YAML::Node serialize(const T&, Context&, priority_tag<0>)
 {
-    static_assert(always_false_v<T>,
-                  "Cannot serialize an instance of type T - no viable "
-                  "definition of serialize_adl provided");
+    static_assert(always_false_v<T>, "Cannot serialize an instance of type T - no viable "
+                                     "definition of serialize_adl provided");
     return {}; // Keeps compiler happy
 }
 
@@ -685,23 +634,22 @@ auto serialize(const T& obj, Context& ctx, priority_tag<2>)
 template <typename T>
 void deserialize(T&, const YAML::Node&, priority_tag<0>)
 {
-    static_assert(always_false_v<T>,
-                  "Cannot deserialize an instance of type T - no viable "
-                  "definition of from_yaml provided");
+    static_assert(always_false_v<T>, "Cannot deserialize an instance of type T - no viable "
+                                     "definition of deserialize_adl provided");
 }
 
 template <typename T>
 auto deserialize(T& out, const YAML::Node& value, priority_tag<1>)
-    -> decltype(from_yaml(out, value), void())
+    -> decltype(deserialize_adl(out, value), void())
 {
-    from_yaml(out, value);
+    deserialize_adl(out, value);
 }
 
 template <typename T>
 auto deserialize(T& out, const YAML::Node& value, priority_tag<2>)
-    -> decltype(yaml::serializer<T>::from_yaml(out, value), void())
+    -> decltype(yaml::serializer<T>::deserialize(out, value), void())
 {
-    yaml::serializer<T>::from_yaml(out, value);
+    yaml::serializer<T>::deserialize(out, value);
 }
 } // namespace detail
 
@@ -745,8 +693,7 @@ void deserialize(T& out, const YAML::Node& value)
 template <typename T>
 T deserialize(const YAML::Node& value)
 {
-    static_assert(std::is_default_constructible_v<T>,
-                  "T must be default constructible");
+    static_assert(std::is_default_constructible_v<T>, "T must be default constructible");
 
     T out;
     yaml::deserialize(out, value);

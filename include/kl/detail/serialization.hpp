@@ -210,8 +210,8 @@ typename Backend::value_type serialize_adl(const std::optional<T>& opt, Context&
 
 // deserialize_adl implementation
 
-template <typename Backend, typename Map>
-void deserialize_map(Map& out, const typename Backend::value_type& value)
+template <typename Backend, typename Map, enable_if<::kl::detail::is_map_alike<Map>> = true>
+void deserialize_adl(Map& out, const typename Backend::value_type& value)
 {
     Backend::expect_map(value);
 
@@ -230,17 +230,17 @@ void deserialize_map(Map& out, const typename Backend::value_type& value)
         {
             std::string field_name;
             Backend::deserialize(field_name, key);
-            std::string msg =
-                "error when deserializing field " + field_name;
+            std::string msg = "error when deserializing field " + field_name;
             ex.add(msg.c_str());
             throw;
         }
     });
 }
 
-template <typename Backend, typename GrowableRange>
-void deserialize_range(GrowableRange& out,
-                       const typename Backend::value_type& value)
+template <typename Backend, typename GrowableRange,
+          enable_if<std::negation<::kl::detail::is_map_alike<GrowableRange>>,
+                    ::kl::detail::is_growable_range<GrowableRange>> = true>
+void deserialize_adl(GrowableRange& out, const typename Backend::value_type& value)
 {
     Backend::expect_sequence(value);
 
@@ -257,17 +257,15 @@ void deserialize_range(GrowableRange& out,
         }
         catch (typename Backend::deserialize_error& ex)
         {
-            std::string msg = "error when deserializing element " +
-                              std::to_string(out.size());
+            std::string msg = "error when deserializing element " + std::to_string(out.size());
             ex.add(msg.c_str());
             throw;
         }
     });
 }
 
-template <typename Backend, typename Reflectable>
-void deserialize_reflectable(Reflectable& out,
-                             const typename Backend::value_type& value)
+template <typename Backend, typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
+void deserialize_adl(Reflectable& out, const typename Backend::value_type& value)
 try
 {
     if (Backend::is_map(value))
@@ -279,8 +277,7 @@ try
             }
             catch (typename Backend::deserialize_error& ex)
             {
-                std::string msg =
-                    "error when deserializing field " + std::string(name);
+                std::string msg = "error when deserializing field " + std::string(name);
                 ex.add(msg.c_str());
                 throw;
             }
@@ -302,8 +299,7 @@ try
             }
             catch (typename Backend::deserialize_error& ex)
             {
-                std::string msg =
-                    "error when deserializing element " + std::to_string(index);
+                std::string msg = "error when deserializing element " + std::to_string(index);
                 ex.add(msg.c_str());
                 throw;
             }
@@ -311,21 +307,19 @@ try
     }
     else
     {
-        throw typename Backend::deserialize_error{
-            "type must be a sequence or map but is a " +
-            Backend::type_name(value)};
+        throw typename Backend::deserialize_error{"type must be a sequence or map but is a " +
+                                                  Backend::type_name(value)};
     }
 }
 catch (typename Backend::deserialize_error& ex)
 {
-    std::string msg = "error when deserializing type " +
-                      std::string(ctti::name<Reflectable>());
+    std::string msg = "error when deserializing type " + std::string(ctti::name<Reflectable>());
     ex.add(msg.c_str());
     throw;
 }
 
-template <typename Backend, typename Enum>
-void deserialize_enum(Enum& out, const typename Backend::value_type& value)
+template <typename Backend, typename Enum, enable_if<std::is_enum<Enum>> = true>
+void deserialize_adl(Enum& out, const typename Backend::value_type& value)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
     {
@@ -337,8 +331,7 @@ void deserialize_enum(Enum& out, const typename Backend::value_type& value)
             return;
         }
 
-        throw
-            typename Backend::deserialize_error{"invalid enum value: " + text};
+        throw typename Backend::deserialize_error{"invalid enum value: " + text};
     }
     else
     {
@@ -349,8 +342,7 @@ void deserialize_enum(Enum& out, const typename Backend::value_type& value)
 }
 
 template <typename Backend, typename Enum>
-void deserialize_enum_set(enum_set<Enum>& out,
-                          const typename Backend::value_type& value)
+void deserialize_adl(enum_set<Enum>& out, const typename Backend::value_type& value)
 {
     Backend::expect_sequence(value);
     out = {};
@@ -362,27 +354,26 @@ void deserialize_enum_set(enum_set<Enum>& out,
     });
 }
 
+namespace impl {
+
 template <typename Backend, typename Tuple, std::size_t... Is>
-void deserialize_tuple_impl(Tuple& out,
-                            const typename Backend::value_type& value,
-                            std::index_sequence<Is...>)
+void deserialize_tuple(Tuple& out, const typename Backend::value_type& value,
+                       std::index_sequence<Is...>)
 {
-    (Backend::deserialize(std::get<Is>(out), Backend::at_index(value, Is)),
-     ...);
+    (Backend::deserialize(std::get<Is>(out), Backend::at_index(value, Is)), ...);
 }
 
+} // namespace impl
+
 template <typename Backend, typename... Ts>
-void deserialize_tuple(std::tuple<Ts...>& out,
-                       const typename Backend::value_type& value)
+void deserialize_adl(std::tuple<Ts...>& out, const typename Backend::value_type& value)
 {
     Backend::expect_sequence(value);
-    deserialize_tuple_impl<Backend>(out, value,
-                                    std::make_index_sequence<sizeof...(Ts)>{});
+    impl::deserialize_tuple<Backend>(out, value, std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename Backend, typename T>
-void deserialize_optional(std::optional<T>& out,
-                          const typename Backend::value_type& value)
+void deserialize_adl(std::optional<T>& out, const typename Backend::value_type& value)
 {
     if (Backend::is_null(value))
         return out.reset();
