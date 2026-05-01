@@ -56,8 +56,7 @@ TEST_CASE("yaml")
         CHECK(yaml::deserialize<unsigned>("33"_yaml) == 33U);
         CHECK(yaml::deserialize<bool>("true"_yaml));
         CHECK(yaml::deserialize<double>("13.11"_yaml) == Catch::Approx{13.11});
-        CHECK(yaml::deserialize<ordinary_enum>("0"_yaml) ==
-              ordinary_enum::oe_one);
+        CHECK(yaml::deserialize<ordinary_enum>("0"_yaml) == ordinary_enum::oe_one);
     }
 
     SECTION("parse error")
@@ -94,8 +93,7 @@ TEST_CASE("yaml")
 
     SECTION("deserialize inner_t - empty yaml")
     {
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>({}),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>({}), yaml::deserialize_error);
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>({}),
                             "type must be a sequence or map but is a Null\n"
                             "error when deserializing type " +
@@ -105,13 +103,11 @@ TEST_CASE("yaml")
     SECTION("deserialize inner_t - missing one field")
     {
         auto y = "d: 1.0"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y),
-                            "type must be a scalar but is a Null\n"
-                            "error when deserializing field r\n"
-                            "error when deserializing type " +
-                                kl::ctti::name<inner_t>());
+        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y), "type must be a scalar but is a Null\n"
+                                                           "error when deserializing field r\n"
+                                                           "error when deserializing type " +
+                                                               kl::ctti::name<inner_t>());
     }
 
     SECTION("deserialize inner_t - one additional field")
@@ -133,21 +129,17 @@ TEST_CASE("yaml")
     SECTION("deserialize Manual - missing one field")
     {
         auto y = "Ad: 1.0\nB: 22\nC: 6.777"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y),
-                            "type must be a scalar but is a Null\n"
-                            "error when deserializing field Ar\n"
-                            "error when deserializing type " +
-                                kl::ctti::name<Manual>());
+        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y), "type must be a scalar but is a Null\n"
+                                                          "error when deserializing field Ar\n"
+                                                          "error when deserializing type " +
+                                                              kl::ctti::name<Manual>());
         y = "Ad: 1.0\nAr: 2\nC: 6.777"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y),
-                            "type must be a scalar but is a Null\n"
-                            "error when deserializing field B\n"
-                            "error when deserializing type " +
-                                kl::ctti::name<Manual>());
+        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y), "type must be a scalar but is a Null\n"
+                                                          "error when deserializing field B\n"
+                                                          "error when deserializing type " +
+                                                              kl::ctti::name<Manual>());
     }
 
     SECTION("deserialize Manual")
@@ -411,8 +403,7 @@ TEST_CASE("yaml")
         REQUIRE(y["tup"].IsSequence());
         REQUIRE(y["tup"].size() == 3);
         REQUIRE(y["tup"].as<YAML::Node>()[0].as<int>() == 1);
-        REQUIRE(y["tup"].as<YAML::Node>()[1].as<double>() ==
-                Catch::Approx{3.14f});
+        REQUIRE(y["tup"].as<YAML::Node>()[1].as<double>() == Catch::Approx{3.14f});
         REQUIRE(y["tup"].as<YAML::Node>()[2].as<std::string>() == "QWE");
 
         REQUIRE(y["map"].IsMap());
@@ -747,7 +738,7 @@ struct serializer<std::chrono::seconds>
         return yaml::serialize(t.count(), ctx);
     }
 
-    static void from_yaml(std::chrono::seconds& out, const YAML::Node& value)
+    static void deserialize(std::chrono::seconds& out, const YAML::Node& value)
     {
         out = std::chrono::seconds{yaml::deserialize<long long>(value)};
     }
@@ -775,7 +766,7 @@ YAML::Node serialize_adl(global_struct, Context& ctx)
     return kl::yaml::serialize("global_struct", ctx);
 }
 
-void from_yaml(global_struct& out, const YAML::Node& value)
+void deserialize_adl(global_struct& out, const YAML::Node& value)
 {
     if (value.Scalar() != "global_struct")
         throw kl::yaml::deserialize_error{""};
@@ -790,7 +781,7 @@ YAML::Node serialize_adl(none_t, Context&)
     return YAML::Node{};
 }
 
-void from_yaml(none_t& out, const YAML::Node& value)
+void deserialize_adl(none_t& out, const YAML::Node& value)
 {
     out = value.IsNull() ? none_t{} : throw kl::yaml::deserialize_error{""};
 }
@@ -804,7 +795,7 @@ YAML::Node serialize_adl(const value_wrapper<T>& t, Context& ctx)
 }
 
 template <typename T>
-void from_yaml(value_wrapper<T>& out, const YAML::Node& value)
+void deserialize_adl(value_wrapper<T>& out, const YAML::Node& value)
 {
     out = value_wrapper<T>{kl::yaml::deserialize<T>(value)};
 }
@@ -1195,7 +1186,7 @@ struct zxc
         //   return ret;
     }
 
-    friend void from_yaml(zxc& z, const YAML::Node& value)
+    friend void deserialize_adl(zxc& z, const YAML::Node& value)
     {
         kl::yaml::from_map(value)
             .extract("a", z.a)

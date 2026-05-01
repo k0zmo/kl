@@ -762,8 +762,7 @@ struct serializer<std::chrono::seconds>
         return json::serialize(t.count(), ctx);
     }
 
-    static void from_json(std::chrono::seconds& out,
-                          const rapidjson::Value& value)
+    static void deserialize(std::chrono::seconds& out, const rapidjson::Value& value)
     {
         out = std::chrono::seconds{json::deserialize<long long>(value)};
     }
@@ -791,7 +790,7 @@ rapidjson::Value serialize_adl(global_struct, Context& ctx)
     return kl::json::serialize("global_struct", ctx);
 }
 
-void from_json(global_struct& out, const rapidjson::Value& value)
+void deserialize_adl(global_struct& out, const rapidjson::Value& value)
 {
     if (value != "global_struct")
         throw kl::json::deserialize_error{""};
@@ -806,7 +805,7 @@ rapidjson::Value serialize_adl(none_t, Context&)
     return rapidjson::Value{};
 }
 
-void from_json(none_t& out, const rapidjson::Value& value)
+void deserialize_adl(none_t& out, const rapidjson::Value& value)
 {
     out = value.IsNull() ? none_t{} : throw kl::json::deserialize_error{""};
 }
@@ -820,7 +819,7 @@ rapidjson::Value serialize_adl(const value_wrapper<T>& t, Context& ctx)
 }
 
 template <typename T>
-void from_json(value_wrapper<T>& out, const rapidjson::Value& value)
+void deserialize_adl(value_wrapper<T>& out, const rapidjson::Value& value)
 {
     out = value_wrapper<T>{kl::json::deserialize<T>(value)};
 }
@@ -1162,7 +1161,7 @@ struct zxc
         //   return ret;
     }
 
-    friend void from_json(zxc& z, const rapidjson::Value& value)
+    friend void deserialize_adl(zxc& z, const rapidjson::Value& value)
     {
         kl::json::from_object(value)
             .extract("a", z.a)
