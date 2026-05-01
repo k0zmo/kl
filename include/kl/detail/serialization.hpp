@@ -115,10 +115,11 @@ void dump_adl(const std::optional<T>& opt, Context& ctx)
         Backend::dump(*opt, ctx);
 }
 
-// serialize implementation
+// serialize_adl implementation
 
-template <typename Backend, typename Map, typename Context>
-typename Backend::value_type serialize_map(const Map& map, Context& ctx)
+template <typename Backend, typename Map, typename Context,
+          enable_if<::kl::detail::is_map_alike<Map>> = true>
+typename Backend::value_type serialize_adl(const Map& map, Context& ctx)
 {
     static_assert(std::is_constructible_v<std::string, typename Map::key_type>,
                   "std::string must be constructible from the Map's key type");
@@ -132,8 +133,10 @@ typename Backend::value_type serialize_map(const Map& map, Context& ctx)
     return out;
 }
 
-template <typename Backend, typename Range, typename Context>
-typename Backend::value_type serialize_range(const Range& rng, Context& ctx)
+template <typename Backend, typename Range, typename Context,
+          enable_if<std::negation<::kl::detail::is_map_alike<Range>>,
+                    ::kl::detail::is_range<Range>> = true>
+typename Backend::value_type serialize_adl(const Range& rng, Context& ctx)
 {
     auto out = Backend::make_sequence();
     for (const auto& value : rng)
@@ -141,9 +144,9 @@ typename Backend::value_type serialize_range(const Range& rng, Context& ctx)
     return out;
 }
 
-template <typename Backend, typename Reflectable, typename Context>
-typename Backend::value_type serialize_reflectable(const Reflectable& refl,
-                                                   Context& ctx)
+template <typename Backend, typename Reflectable, typename Context,
+          enable_if<is_reflectable<Reflectable>> = true>
+typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx)
 {
     auto out = Backend::make_map();
     ctti::reflect(refl, [&out, &ctx](auto& field, auto name) {
@@ -153,8 +156,8 @@ typename Backend::value_type serialize_reflectable(const Reflectable& refl,
     return out;
 }
 
-template <typename Backend, typename Enum, typename Context>
-typename Backend::value_type serialize_enum(Enum e, Context& ctx)
+template <typename Backend, typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
+typename Backend::value_type serialize_adl(Enum e, Context& ctx)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
         return Backend::serialize(kl::to_string(e), ctx);
@@ -163,19 +166,16 @@ typename Backend::value_type serialize_enum(Enum e, Context& ctx)
 }
 
 template <typename Backend, typename Enum, typename Context>
-typename Backend::value_type serialize_enum_set(const enum_set<Enum>& set,
-                                                Context& ctx)
+typename Backend::value_type serialize_adl(const enum_set<Enum>& set, Context& ctx)
 {
-    static_assert(is_enum_reflectable_v<Enum>,
-                  "Only sets of reflectable enums are supported");
+    static_assert(is_enum_reflectable_v<Enum>, "Only sets of reflectable enums are supported");
 
     auto out = Backend::make_sequence();
     for (const auto possible_value : reflect<Enum>().values())
     {
         if (set.test(possible_value))
         {
-            Backend::add_element(out, Backend::serialize(possible_value, ctx),
-                                 ctx);
+            Backend::add_element(out, Backend::serialize(possible_value, ctx), ctx);
         }
     }
     return out;
@@ -184,34 +184,31 @@ typename Backend::value_type serialize_enum_set(const enum_set<Enum>& set,
 namespace impl {
 
 template <typename Backend, typename Tuple, typename Context, std::size_t... Is>
-typename Backend::value_type serialize_tuple_impl(const Tuple& tuple,
-                                                  Context& ctx,
-                                                  std::index_sequence<Is...>)
+typename Backend::value_type serialize_tuple(const Tuple& tuple, Context& ctx,
+                                             std::index_sequence<Is...>)
 {
     auto out = Backend::make_sequence();
-    (Backend::add_element(out, Backend::serialize(std::get<Is>(tuple), ctx),
-                          ctx),
-     ...);
+    (Backend::add_element(out, Backend::serialize(std::get<Is>(tuple), ctx), ctx), ...);
     return out;
 }
 
 } // namespace impl
 
 template <typename Backend, typename... Ts, typename Context>
-typename Backend::value_type serialize_tuple(const std::tuple<Ts...>& tuple, Context& ctx)
+typename Backend::value_type serialize_adl(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    return impl::serialize_tuple_impl<Backend>(tuple, ctx,
-                                               std::make_index_sequence<sizeof...(Ts)>{});
+    return impl::serialize_tuple<Backend>(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename Backend, typename T, typename Context>
-typename Backend::value_type serialize_optional(const std::optional<T>& opt,
-                                                Context& ctx)
+typename Backend::value_type serialize_adl(const std::optional<T>& opt, Context& ctx)
 {
     if (opt)
         return Backend::serialize(*opt, ctx);
     return typename Backend::value_type{};
 }
+
+// deserialize_adl implementation
 
 template <typename Backend, typename Map>
 void deserialize_map(Map& out, const typename Backend::value_type& value)

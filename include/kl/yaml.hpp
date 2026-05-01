@@ -411,52 +411,6 @@ void dump_adl(const std::string& str, Context& ctx)
     ctx.emitter() << str;
 }
 
-// to_yaml implementation
-
-// For all arithmetic types
-template <typename Arithmetic, typename Context,
-          enable_if<std::is_arithmetic<Arithmetic>> = true>
-YAML::Node to_yaml(Arithmetic value, Context&)
-{
-    return YAML::Node{value};
-}
-
-template <typename Context>
-YAML::Node to_yaml(unsigned char value, Context&)
-{
-    return YAML::Node{+value};
-}
-
-template <typename Context>
-YAML::Node to_yaml(signed char value, Context&)
-{
-    return YAML::Node{+value};
-}
-
-template <typename Context>
-YAML::Node to_yaml(view v, Context&)
-{
-    return v.value();
-}
-
-template <typename Context>
-YAML::Node to_yaml(std::nullptr_t, Context&)
-{
-    return YAML::Node{};
-}
-
-template <typename Context>
-YAML::Node to_yaml(const std::string& str, Context&)
-{
-    return YAML::Node{str};
-}
-
-template <typename Context>
-YAML::Node to_yaml(const char* str, Context&)
-{
-    return YAML::Node{str};
-}
-
 struct yaml_tree_backend
 {
     using value_type = YAML::Node;
@@ -535,51 +489,56 @@ struct yaml_tree_backend
     }
 };
 
-// For all T's that quacks like a std::map
-template <typename Map, typename Context, enable_if<is_map_alike<Map>> = true>
-YAML::Node to_yaml(const Map& map, Context& ctx)
-{
-    return serialization::detail::serialize_map<yaml_tree_backend>(map, ctx);
-}
-
-// For all T's that quacks like a range
-template <typename Range, typename Context,
-          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
-YAML::Node to_yaml(const Range& rng, Context& ctx)
-{
-    return serialization::detail::serialize_range<yaml_tree_backend>(rng, ctx);
-}
-
-// For all T's for which there's a type_info defined
-template <typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
-YAML::Node to_yaml(const Reflectable& refl, Context& ctx)
-{
-    return serialization::detail::serialize_reflectable<yaml_tree_backend>(refl, ctx);
-}
-
-template <typename Enum, typename Context, enable_if<std::is_enum<Enum>> = true>
-YAML::Node to_yaml(Enum e, Context& ctx)
-{
-    return serialization::detail::serialize_enum<yaml_tree_backend>(e, ctx);
-}
-
-template <typename Enum, typename Context>
-YAML::Node to_yaml(const enum_set<Enum>& set, Context& ctx)
-{
-    return serialization::detail::serialize_enum_set<yaml_tree_backend>(set, ctx);
-}
-
-template <typename... Ts, typename Context>
-YAML::Node to_yaml(const std::tuple<Ts...>& tuple, Context& ctx)
-{
-    return serialization::detail::serialize_tuple<yaml_tree_backend>(tuple, ctx);
-}
-
+// serialize_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
 template <typename T, typename Context>
-YAML::Node to_yaml(const std::optional<T>& opt, Context& ctx)
+auto serialize_adl(const T& value, Context& ctx)
+    -> decltype(serialization::detail::serialize_adl<yaml_tree_backend>(value, ctx))
 {
-    return serialization::detail::serialize_optional<yaml_tree_backend>(opt, ctx);
+    return serialization::detail::serialize_adl<yaml_tree_backend>(value, ctx);
+}
+
+// serialize_adl implementations for simple types
+
+template <typename Arithmetic, typename Context, enable_if<std::is_arithmetic<Arithmetic>> = true>
+YAML::Node serialize_adl(Arithmetic value, Context&)
+{
+    return YAML::Node{value};
+}
+
+template <typename Context>
+YAML::Node serialize_adl(unsigned char value, Context&)
+{
+    return YAML::Node{+value};
+}
+
+template <typename Context>
+YAML::Node serialize_adl(signed char value, Context&)
+{
+    return YAML::Node{+value};
+}
+
+template <typename Context>
+YAML::Node serialize_adl(view v, Context&)
+{
+    return v.value();
+}
+
+template <typename Context>
+YAML::Node serialize_adl(std::nullptr_t, Context&)
+{
+    return YAML::Node{};
+}
+
+template <typename Context>
+YAML::Node serialize_adl(const std::string& str, Context&)
+{
+    return YAML::Node{str};
+}
+
+template <typename Context>
+YAML::Node serialize_adl(const char* str, Context&)
+{
+    return YAML::Node{str};
 }
 
 // from_yaml implementation
@@ -705,22 +664,22 @@ YAML::Node serialize(const T&, Context&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
                   "Cannot serialize an instance of type T - no viable "
-                  "definition of to_yaml provided");
+                  "definition of serialize_adl provided");
     return {}; // Keeps compiler happy
 }
 
 template <typename T, typename Context>
 auto serialize(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(to_yaml(obj, ctx))
+    -> decltype(serialize_adl(obj, ctx))
 {
-    return to_yaml(obj, ctx);
+    return serialize_adl(obj, ctx);
 }
 
 template <typename T, typename Context>
 auto serialize(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(yaml::serializer<T>::to_yaml(obj, ctx))
+    -> decltype(yaml::serializer<T>::serialize(obj, ctx))
 {
-    return yaml::serializer<T>::to_yaml(obj, ctx);
+    return yaml::serializer<T>::serialize(obj, ctx);
 }
 
 template <typename T>
