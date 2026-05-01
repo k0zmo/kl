@@ -397,8 +397,6 @@ using ::kl::detail::is_growable_range;
 using ::kl::detail::is_map_alike;
 using ::kl::detail::is_range;
 
-// encode implementation
-
 struct json_stream_backend
 {
     // Trampoline from the kl::serialization back to json "world"
@@ -425,7 +423,7 @@ struct json_stream_backend
     template <typename Key, typename Context>
     static void write_key(const Key& key, Context& ctx)
     {
-        encode_key(key, ctx);
+        write_key_impl(key, ctx);
     }
 
     // Sequence stuff
@@ -444,90 +442,92 @@ struct json_stream_backend
 
 private:
     template <typename Key, typename Context>
-    static void encode_key(const Key& key, Context& ctx)
+    static void write_key_impl(const Key& key, Context& ctx)
     {
         ctx.writer().Key(key.c_str(), static_cast<rapidjson::SizeType>(key.size()));
     }
 
     template <typename Context>
-    static void encode_key(const char* key, Context& ctx)
+    static void write_key_impl(const char* key, Context& ctx)
     {
         ctx.writer().Key(key);
     }
 };
 
+// dump_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
+template <typename T, typename Context>
+auto dump_adl(const T& value, Context& ctx)
+    -> decltype(serialization::detail::dump_adl<json_stream_backend>(value, ctx), void())
+{
+    serialization::detail::dump_adl<json_stream_backend>(value, ctx);
+}
+
+// dump_adl implementations for simple types
+
 template <typename Context>
-void encode(view v, Context& ctx)
+void dump_adl(view v, Context& ctx)
 {
     v.value().Accept(ctx.writer());
 }
 
 template <typename Context>
-void encode(std::nullptr_t, Context& ctx)
+void dump_adl(std::nullptr_t, Context& ctx)
 {
     ctx.writer().Null();
 }
 
 template <typename Context>
-void encode(bool b, Context& ctx)
+void dump_adl(bool b, Context& ctx)
 {
     ctx.writer().Bool(b);
 }
 
 template <typename Context>
-void encode(int i, Context& ctx)
+void dump_adl(int i, Context& ctx)
 {
     ctx.writer().Int(i);
 }
 
 template <typename Context>
-void encode(unsigned int u, Context& ctx)
+void dump_adl(unsigned int u, Context& ctx)
 {
     ctx.writer().Uint(u);
 }
 
 template <typename Context>
-void encode(std::int64_t i64, Context& ctx)
+void dump_adl(std::int64_t i64, Context& ctx)
 {
     ctx.writer().Int64(i64);
 }
 
 template <typename Context>
-void encode(std::uint64_t u64, Context& ctx)
+void dump_adl(std::uint64_t u64, Context& ctx)
 {
     ctx.writer().Uint64(u64);
 }
 
 template <typename Context>
-void encode(double d, Context& ctx)
+void dump_adl(double d, Context& ctx)
 {
     ctx.writer().Double(d);
 }
 
 template <typename Context>
-void encode(const typename Context::writer_type::Ch* str, Context& ctx)
+void dump_adl(const typename Context::writer_type::Ch* str, Context& ctx)
 {
     ctx.writer().String(str);
 }
 
 template <typename Context>
-void encode(const std::basic_string<typename Context::writer_type::Ch>& str, Context& ctx)
+void dump_adl(const std::basic_string<typename Context::writer_type::Ch>& str, Context& ctx)
 {
     ctx.writer().String(str);
 }
 
 template <typename Context>
-void encode(std::basic_string_view<typename Context::writer_type::Ch> str, Context& ctx)
+void dump_adl(std::basic_string_view<typename Context::writer_type::Ch> str, Context& ctx)
 {
     ctx.writer().String(str.data(), static_cast<rapidjson::SizeType>(str.length()));
-}
-
-// encode implementation for more complex types (like sequence, map, reflectable structs and enums)
-template <typename T, typename Context>
-auto encode(const T& value, Context& ctx)
-    -> decltype(serialization::detail::encode<json_stream_backend>(value, ctx), void())
-{
-    serialization::detail::encode<json_stream_backend>(value, ctx);
 }
 
 // to_json implementation
@@ -855,21 +855,21 @@ void dump(const T&, Context&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
                   "Cannot dump an instance of type T - no viable "
-                  "definition of encode provided");
+                  "definition of dump_adl provided");
 }
 
 template <typename T, typename Context>
 auto dump(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(encode(obj, ctx), void())
+    -> decltype(dump_adl(obj, ctx), void())
 {
-    encode(obj, ctx);
+    dump_adl(obj, ctx);
 }
 
 template <typename T, typename Context>
 auto dump(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(json::serializer<T>::encode(obj, ctx), void())
+    -> decltype(json::serializer<T>::dump(obj, ctx), void())
 {
-    json::serializer<T>::encode(obj, ctx);
+    json::serializer<T>::dump(obj, ctx);
 }
 
 template <typename T, typename Context>

@@ -769,7 +769,7 @@ struct serializer<std::chrono::seconds>
     }
 
     template <typename Context>
-    static void encode(const std::chrono::seconds& s, Context& ctx)
+    static void dump(const std::chrono::seconds& s, Context& ctx)
     {
         json::dump(s.count(), ctx);
     }
@@ -1051,7 +1051,7 @@ TEST_CASE("json dump - extended")
 }
 
 template <typename Context>
-void encode(global_struct, Context& ctx)
+void dump_adl(global_struct, Context& ctx)
 {
     kl::json::dump("global_struct", ctx);
 }
@@ -1059,13 +1059,13 @@ void encode(global_struct, Context& ctx)
 namespace my {
 
 template <typename Context>
-void encode(none_t, Context& ctx)
+void dump_adl(none_t, Context& ctx)
 {
     kl::json::dump(nullptr, ctx);
 }
 
 template <typename T, typename Context>
-void encode(const value_wrapper<T>& t, Context& ctx)
+void dump_adl(const value_wrapper<T>& t, Context& ctx)
 {
     kl::json::dump(t.value, ctx);
 }
