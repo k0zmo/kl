@@ -905,28 +905,23 @@ TEST_CASE("json dump")
 
     SECTION("Manual")
     {
-        CHECK(json::dump(Manual{}) ==
-              R"({"Ar":1337,"Ad":3.1459259999999998,"B":416,"C":2.71828})");
+        CHECK(json::dump(Manual{}) == R"({"Ar":1337,"Ad":3.1459259999999998,"B":416,"C":2.71828})");
     }
 
     SECTION("different types and 'modes' for enums")
     {
-        CHECK(json::dump(enums{}) ==
-              R"({"e0":0,"e1":0,"e2":"oe_one_ref","e3":"one"})");
+        CHECK(json::dump(enums{}) == R"({"e0":0,"e1":0,"e2":"oe_one_ref","e3":"one"})");
     }
 
     SECTION("test unsigned types")
     {
         auto res = json::dump(unsigned_test{});
-        CHECK(
-            res ==
-            R"({"u8":128,"u16":32768,"u32":4294967295,"u64":18446744073709551615})");
+        CHECK(res == R"({"u8":128,"u16":32768,"u32":4294967295,"u64":18446744073709551615})");
     }
 
     SECTION("enum_set")
     {
-        auto f = kl::enum_set{device_type::cpu} | device_type::gpu |
-                 device_type::accelerator;
+        auto f = kl::enum_set{device_type::cpu} | device_type::gpu | device_type::accelerator;
         auto res = json::dump(f);
         CHECK(res == R"(["cpu","gpu","accelerator"])");
 
@@ -980,12 +975,11 @@ TEST_CASE("json dump")
     SECTION("complex structure with std/boost containers")
     {
         auto res = json::dump(test_t{});
-        CHECK(
-            res ==
-            R"({"hello":"world","t":true,"f":false,"i":123,)"
-            R"("pi":3.1415998935699463,"a":[1,2,3,4],"ad":[[1,2],[3,4,5]],)"
-            R"("space":"lab","tup":[1,3.140000104904175,"QWE"],"map":{"1":"hls","2":"rgb"},)"
-            R"("inner":{"r":1337,"d":3.1459259999999998}})");
+        CHECK(res ==
+              R"({"hello":"world","t":true,"f":false,"i":123,)"
+              R"("pi":3.1415998935699463,"a":[1,2,3,4],"ad":[[1,2],[3,4,5]],)"
+              R"("space":"lab","tup":[1,3.140000104904175,"QWE"],"map":{"1":"hls","2":"rgb"},)"
+              R"("inner":{"r":1337,"d":3.1459259999999998}})");
     }
 
     SECTION("unsigned: check value greater than 0x7FFFFFFU")
@@ -1004,12 +998,10 @@ TEST_CASE("json dump")
         auto j3 = json::dump(std::deque<inner_t>{inner_t{}});
         CHECK(j3 == R"([{"r":1337,"d":3.1459259999999998}])");
 
-        auto j4 =
-            json::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
+        auto j4 = json::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
         CHECK(j4 == R"({"inner1":{"r":1337,"d":3.1459259999999998}})");
 
-        auto j5 = json::dump(
-            std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
+        auto j5 = json::dump(std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
         CHECK(j5 == R"({"inner2":{"r":1337,"d":3.1459259999999998}})");
     }
 }

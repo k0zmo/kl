@@ -13,12 +13,12 @@
 #include <type_traits>
 #include <utility>
 
-namespace kl::detail::serialization {
+namespace kl::serialization::detail {
 
-namespace stream {
+// encode implementation
 
 template <typename Backend, typename Map, typename Context,
-          enable_if<is_map_alike<Map>> = true>
+          enable_if<::kl::detail::is_map_alike<Map>> = true>
 void encode(const Map& map, Context& ctx)
 {
     static_assert(std::is_constructible_v<std::string, typename Map::key_type>,
@@ -37,7 +37,8 @@ void encode(const Map& map, Context& ctx)
 }
 
 template <typename Backend, typename Range, typename Context,
-          enable_if<std::negation<is_map_alike<Range>>, is_range<Range>> = true>
+          enable_if<std::negation<::kl::detail::is_map_alike<Range>>,
+                    ::kl::detail::is_range<Range>> = true>
 void encode(const Range& rng, Context& ctx)
 {
     Backend::begin_sequence(ctx);
@@ -115,45 +116,7 @@ void encode(const std::optional<T>& opt, Context& ctx)
         Backend::dump(*opt, ctx);
 }
 
-template <typename Backend, typename T, typename Context>
-void dump(const T&, Context&, priority_tag<0>)
-{
-    static_assert(always_false_v<T>,
-                  "Cannot dump an instance of type T - no viable "
-                  "definition of encode provided");
-}
-
-template <typename Backend, typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(Backend::fallback_encode(obj, ctx), void())
-{
-    Backend::fallback_encode(obj, ctx);
-}
-
-template <typename Backend, typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(encode<Backend>(obj, ctx), void())
-{
-    encode<Backend>(obj, ctx);
-}
-
-template <typename Backend, typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<3>)
-    -> decltype(Backend::encode(obj, ctx), void())
-{
-    Backend::encode(obj, ctx);
-}
-
-template <typename Backend, typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<4>)
-    -> decltype(Backend::template serializer_encode<T>(obj, ctx), void())
-{
-    Backend::template serializer_encode<T>(obj, ctx);
-}
-
-} // namespace stream
-
-namespace tree {
+// serialize implementation
 
 template <typename Backend, typename Map, typename Context>
 typename Backend::value_type serialize_map(const Map& map, Context& ctx)
@@ -219,6 +182,8 @@ typename Backend::value_type serialize_enum_set(const enum_set<Enum>& set,
     return out;
 }
 
+namespace impl {
+
 template <typename Backend, typename Tuple, typename Context, std::size_t... Is>
 typename Backend::value_type serialize_tuple_impl(const Tuple& tuple,
                                                   Context& ctx,
@@ -231,12 +196,13 @@ typename Backend::value_type serialize_tuple_impl(const Tuple& tuple,
     return out;
 }
 
+} // namespace impl
+
 template <typename Backend, typename... Ts, typename Context>
-typename Backend::value_type serialize_tuple(const std::tuple<Ts...>& tuple,
-                                             Context& ctx)
+typename Backend::value_type serialize_tuple(const std::tuple<Ts...>& tuple, Context& ctx)
 {
-    return serialize_tuple_impl<Backend>(
-        tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
+    return impl::serialize_tuple_impl<Backend>(tuple, ctx,
+                                               std::make_index_sequence<sizeof...(Ts)>{});
 }
 
 template <typename Backend, typename T, typename Context>
@@ -429,5 +395,4 @@ void deserialize_optional(std::optional<T>& out,
     out = std::move(element);
 }
 
-} // namespace tree
-} // namespace kl::detail::serialization
+} // namespace kl::serialization::detail
