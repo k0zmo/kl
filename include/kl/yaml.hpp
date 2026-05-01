@@ -320,8 +320,6 @@ std::string type_name(const YAML::Node& value);
 using ::kl::detail::is_map_alike;
 using ::kl::detail::is_range;
 
-// encode implementation
-
 struct yaml_stream_backend
 {
     template <typename T, typename Context>
@@ -367,50 +365,50 @@ struct yaml_stream_backend
     }
 };
 
+// dump_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
+template <typename T, typename Context>
+auto dump_adl(const T& value, Context& ctx)
+    -> decltype(serialization::detail::dump_adl<yaml_stream_backend>(value, ctx), void())
+{
+    serialization::detail::dump_adl<yaml_stream_backend>(value, ctx);
+}
+
 // Two overloads below fixes encoding uint8_t as a double-quoted
 // hexadecimal value (128 => "\x80\")
 template <typename Context>
-void encode(unsigned char v, Context& ctx)
+void dump_adl(unsigned char v, Context& ctx)
 {
     ctx.emitter() << +v;
 }
 
 template <typename Context>
-void encode(signed char v, Context& ctx)
+void dump_adl(signed char v, Context& ctx)
 {
     ctx.emitter() << +v;
 }
 
 template <typename Context>
-void encode(const view& v, Context& ctx)
+void dump_adl(const view& v, Context& ctx)
 {
     ctx.emitter() << v.value();
 }
 
 template <typename Context>
-void encode(std::nullptr_t, Context& ctx)
+void dump_adl(std::nullptr_t, Context& ctx)
 {
     ctx.emitter() << YAML::Null;
 }
 
 template <typename Context>
-void encode(const std::string& str, Context& ctx)
+void dump_adl(const std::string& str, Context& ctx)
 {
-    // We repeat encode() for std::string even though yaml-cpp has a native
-    // support for it. This is because encode() has higher priority than dump()
-    // for supported types and our encode for "range alike" catches this case
+    // We repeat dump_adl() for std::string even though yaml-cpp has a native
+    // support for it. This is because dump_adl() has higher priority than dump()
+    // for supported types and our dump_adl for "range alike" catches this case
     // which is not what we want for the strings. Also, we don't provide const
     // char* overload since yaml-cpp's overload calls std::string variant in the
     // end.
     ctx.emitter() << str;
-}
-
-// encode implementation for more complex types (like sequence, map, reflectable structs and enums)
-template <typename T, typename Context>
-auto encode(const T& value, Context& ctx)
-    -> decltype(serialization::detail::encode<yaml_stream_backend>(value, ctx), void())
-{
-    serialization::detail::encode<yaml_stream_backend>(value, ctx);
 }
 
 // to_yaml implementation
@@ -678,7 +676,7 @@ void dump(const T&, Context&, priority_tag<0>)
 {
     static_assert(always_false_v<T>,
                   "Cannot dump an instance of type T - no viable "
-                  "definition of encode provided");
+                  "definition of dump_adl provided");
 }
 
 template <typename T, typename Context>
@@ -690,16 +688,16 @@ auto dump(const T& obj, Context& ctx, priority_tag<1>)
 
 template <typename T, typename Context>
 auto dump(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(encode(obj, ctx), void())
+    -> decltype(dump_adl(obj, ctx), void())
 {
-    encode(obj, ctx);
+    dump_adl(obj, ctx);
 }
 
 template <typename T, typename Context>
 auto dump(const T& obj, Context& ctx, priority_tag<3>)
-    -> decltype(yaml::serializer<T>::encode(obj, ctx), void())
+    -> decltype(yaml::serializer<T>::dump(obj, ctx), void())
 {
-    yaml::serializer<T>::encode(obj, ctx);
+    yaml::serializer<T>::dump(obj, ctx);
 }
 
 template <typename T, typename Context>
