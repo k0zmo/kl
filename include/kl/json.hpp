@@ -1,7 +1,7 @@
 #pragma once
 
-#include "kl/detail/serialization.hpp"
 #include "kl/json_fwd.hpp"
+#include "kl/serialization.hpp"
 #include "kl/utility.hpp"
 
 // Undefine Win32 macro
@@ -26,6 +26,13 @@
 #include <utility>
 
 namespace kl::json {
+
+namespace detail {
+
+struct json_stream_backend;
+struct json_tree_backend;
+
+} // namespace detail
 
 class view
 {
@@ -66,6 +73,7 @@ template <typename Writer>
 class dump_context
 {
 public:
+    using backend_type = detail::json_stream_backend;
     using writer_type = Writer;
 
     explicit dump_context(Writer& writer, bool skip_null_fields = true)
@@ -89,6 +97,8 @@ private:
 class owning_serialize_context
 {
 public:
+    using backend_type = detail::json_tree_backend;
+
     explicit owning_serialize_context(bool skip_null_fields = true)
         : skip_null_fields_{skip_null_fields}
     {
@@ -110,6 +120,8 @@ private:
 class serialize_context
 {
 public:
+    using backend_type = detail::json_tree_backend;
+
     explicit serialize_context(rapidjson::Document& doc,
                                bool skip_null_fields = true)
         : serialize_context{doc.GetAllocator(), skip_null_fields}
@@ -446,82 +458,6 @@ private:
     }
 };
 
-// dump_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
-template <typename T, typename Context>
-auto dump_adl(const T& value, Context& ctx)
-    -> decltype(serialization::detail::dump_adl<json_stream_backend>(value, ctx), void())
-{
-    serialization::detail::dump_adl<json_stream_backend>(value, ctx);
-}
-
-// dump_adl implementations for simple types
-
-template <typename Context>
-void dump_adl(view v, Context& ctx)
-{
-    v.value().Accept(ctx.writer());
-}
-
-template <typename Context>
-void dump_adl(std::nullptr_t, Context& ctx)
-{
-    ctx.writer().Null();
-}
-
-template <typename Context>
-void dump_adl(bool b, Context& ctx)
-{
-    ctx.writer().Bool(b);
-}
-
-template <typename Context>
-void dump_adl(int i, Context& ctx)
-{
-    ctx.writer().Int(i);
-}
-
-template <typename Context>
-void dump_adl(unsigned int u, Context& ctx)
-{
-    ctx.writer().Uint(u);
-}
-
-template <typename Context>
-void dump_adl(std::int64_t i64, Context& ctx)
-{
-    ctx.writer().Int64(i64);
-}
-
-template <typename Context>
-void dump_adl(std::uint64_t u64, Context& ctx)
-{
-    ctx.writer().Uint64(u64);
-}
-
-template <typename Context>
-void dump_adl(double d, Context& ctx)
-{
-    ctx.writer().Double(d);
-}
-
-template <typename Context>
-void dump_adl(const typename Context::writer_type::Ch* str, Context& ctx)
-{
-    ctx.writer().String(str);
-}
-
-template <typename Context>
-void dump_adl(const std::basic_string<typename Context::writer_type::Ch>& str, Context& ctx)
-{
-    ctx.writer().String(str);
-}
-
-template <typename Context>
-void dump_adl(std::basic_string_view<typename Context::writer_type::Ch> str, Context& ctx)
-{
-    ctx.writer().String(str.data(), static_cast<rapidjson::SizeType>(str.length()));
-}
-
 struct json_tree_backend
 {
     using value_type = rapidjson::Value;
@@ -595,12 +531,93 @@ struct json_tree_backend
     static std::string type_name(const value_type& value) { return detail::type_name(value); }
 };
 
-// serialize_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
+} // namespace detail
+} // namespace kl::json
+
+namespace kl::serialization {
+
+// dump_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
+template <typename T, typename Context>
+auto dump_adl(const T& value, Context& ctx)
+    -> decltype(detail::dump_adl<json::detail::json_stream_backend>(value, ctx), void())
+{
+    detail::dump_adl<json::detail::json_stream_backend>(value, ctx);
+}
+
+// dump_adl implementations for simple types
+
+template <typename Context>
+void dump_adl(json::view v, Context& ctx)
+{
+    v.value().Accept(ctx.writer());
+}
+
+template <typename Context>
+void dump_adl(std::nullptr_t, Context& ctx)
+{
+    ctx.writer().Null();
+}
+
+template <typename Context>
+void dump_adl(bool b, Context& ctx)
+{
+    ctx.writer().Bool(b);
+}
+
+template <typename Context>
+void dump_adl(int i, Context& ctx)
+{
+    ctx.writer().Int(i);
+}
+
+template <typename Context>
+void dump_adl(unsigned int u, Context& ctx)
+{
+    ctx.writer().Uint(u);
+}
+
+template <typename Context>
+void dump_adl(std::int64_t i64, Context& ctx)
+{
+    ctx.writer().Int64(i64);
+}
+
+template <typename Context>
+void dump_adl(std::uint64_t u64, Context& ctx)
+{
+    ctx.writer().Uint64(u64);
+}
+
+template <typename Context>
+void dump_adl(double d, Context& ctx)
+{
+    ctx.writer().Double(d);
+}
+
+template <typename Context>
+void dump_adl(const typename Context::writer_type::Ch* str, Context& ctx)
+{
+    ctx.writer().String(str);
+}
+
+template <typename Context>
+void dump_adl(const std::basic_string<typename Context::writer_type::Ch>& str, Context& ctx)
+{
+    ctx.writer().String(str);
+}
+
+template <typename Context>
+void dump_adl(std::basic_string_view<typename Context::writer_type::Ch> str, Context& ctx)
+{
+    ctx.writer().String(str.data(), static_cast<rapidjson::SizeType>(str.length()));
+}
+
+// serialize_adl implementation  for more complex types (like seqs, maps, reflectable structs and enums)
 template <typename T, typename Context>
 auto serialize_adl(const T& value, Context& ctx)
-    -> decltype(serialization::detail::serialize_adl<json_tree_backend>(value, ctx))
+    -> decltype(detail::serialize_adl<json::detail::json_tree_backend>(value, ctx))
 {
-    return serialization::detail::serialize_adl<json_tree_backend>(value, ctx);
+    return detail::serialize_adl<json::detail::json_tree_backend>(value, ctx);
 }
 
 // serialize_adl implementations for simple types
@@ -622,7 +639,7 @@ rapidjson::Value serialize_adl(const JsonConstructible& value, Context& ctx)
 }
 
 template <typename Context>
-rapidjson::Value serialize_adl(view v, Context& ctx)
+rapidjson::Value serialize_adl(json::view v, Context& ctx)
 {
     return rapidjson::Value{v.value(), ctx.allocator()};
 }
@@ -660,17 +677,20 @@ rapidjson::Value serialize_adl(char (&str)[N], Context&)
     return rapidjson::Value{str, N - 1};
 }
 
-// deserialize_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
+// deserialize_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
 template <typename T>
 auto deserialize_adl(T& out, const rapidjson::Value& value)
-    -> decltype(serialization::detail::deserialize_adl<json_tree_backend>(out, value), void())
+    -> decltype(detail::deserialize_adl<json::detail::json_tree_backend>(out, value), void())
 {
-    serialization::detail::deserialize_adl<json_tree_backend>(out, value);
+    detail::deserialize_adl<json::detail::json_tree_backend>(out, value);
 }
+
+// deserialize_adl implementations for simple types
 
 [[noreturn]] inline void throw_lossy_conversion()
 {
-    throw deserialize_error{"value cannot be losslessly stored in the variable"};
+    throw json::deserialize_error{
+        "value cannot be losslessly stored in the variable"};
 }
 
 template <typename Target, typename Source>
@@ -684,7 +704,8 @@ Target narrow(Source src)
 template <typename Integral, enable_if<std::is_integral<Integral>> = true>
 void deserialize_adl(Integral& out, const rapidjson::Value& value)
 {
-    detail::expect_integral(value);
+    json::detail::expect_integral(value);
+
     // int8, int16 and int32
     if constexpr (std::is_signed_v<Integral> && sizeof(Integral) < 8)
     {
@@ -727,19 +748,19 @@ void deserialize_adl(Integral& out, const rapidjson::Value& value)
 template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
 void deserialize_adl(Floating& out, const rapidjson::Value& value)
 {
-    detail::expect_number(value);
+    json::detail::expect_number(value);
     out = static_cast<Floating>(value.GetDouble());
 }
 
 inline void deserialize_adl(bool& out, const rapidjson::Value& value)
 {
-    detail::expect_boolean(value);
+    json::detail::expect_boolean(value);
     out = value.GetBool();
 }
 
 inline void deserialize_adl(std::string& out, const rapidjson::Value& value)
 {
-    detail::expect_string(value);
+    json::detail::expect_string(value);
     out = {value.GetString(), static_cast<std::size_t>(value.GetStringLength())};
 }
 
@@ -750,79 +771,55 @@ inline void deserialize_adl(std::string_view& out, const rapidjson::Value& value
     // user-defined `deserialize_adl` which only need a string_view to do further
     // conversion or when one can guarantee `value` will outlive the returned
     // string_view. Nevertheless, use with caution.
-    detail::expect_string(value);
+    json::detail::expect_string(value);
     out = {value.GetString(), static_cast<std::size_t>(value.GetStringLength())};
 }
 
-inline void deserialize_adl(view& out, const rapidjson::Value& value)
+inline void deserialize_adl(json::view& out, const rapidjson::Value& value)
 {
-    out = view{value};
+    out = json::view{value};
 }
 
-template <typename T, typename Context>
-void dump(const T&, Context&, priority_tag<0>)
+template <>
+struct backend_traits<json::detail::json_stream_backend>
 {
-    static_assert(always_false_v<T>, "Cannot dump an instance of type T - no viable "
-                                     "definition of dump_adl provided");
-}
+    template <typename T, typename Context>
+    static auto dump(const T& obj, Context& ctx)
+        -> decltype(dump_adl(obj, ctx), void())
+    {
+        dump_adl(obj, ctx);
+    }
+};
 
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(dump_adl(obj, ctx), void())
+template <>
+struct backend_traits<json::detail::json_tree_backend>
 {
-    dump_adl(obj, ctx);
-}
+    template <typename T, typename Context>
+    static auto serialize(const T& obj, Context& ctx)
+        -> decltype(serialize_adl(obj, ctx))
+    {
+        return serialize_adl(obj, ctx);
+    }
 
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(json::serializer<T>::dump(obj, ctx), void())
-{
-    json::serializer<T>::dump(obj, ctx);
-}
+    template <typename T>
+    static auto deserialize(T& out, const rapidjson::Value& value)
+        -> decltype(deserialize_adl(out, value), void())
+    {
+        deserialize_adl(out, value);
+    }
+};
 
-template <typename T, typename Context>
-rapidjson::Value serialize(const T&, Context&, priority_tag<0>)
+template <>
+struct backend_for_value<rapidjson::Value>
 {
-    static_assert(always_false_v<T>, "Cannot serialize an instance of type T - no viable "
-                                     "definition of serialize_adl provided");
-    return {}; // Keeps compiler happy
-}
+    using type = json::detail::json_tree_backend;
+};
 
-template <typename T, typename Context>
-auto serialize(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(serialize_adl(obj, ctx))
-{
-    return serialize_adl(obj, ctx);
-}
+} // namespace kl::serialization
 
-template <typename T, typename Context>
-auto serialize(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(json::serializer<T>::serialize(obj, ctx))
-{
-    return json::serializer<T>::serialize(obj, ctx);
-}
+// Top-level functions
 
-template <typename T>
-void deserialize(T&, const rapidjson::Value&, priority_tag<0>)
-{
-    static_assert(always_false_v<T>, "Cannot deserialize an instance of type T - no viable "
-                                     "definition of deserialize_adl provided");
-}
-
-template <typename T>
-auto deserialize(T& out, const rapidjson::Value& value, priority_tag<1>)
-    -> decltype(deserialize_adl(out, value), void())
-{
-    deserialize_adl(out, value);
-}
-
-template <typename T>
-auto deserialize(T& out, const rapidjson::Value& value, priority_tag<2>)
-    -> decltype(json::serializer<T>::deserialize(out, value), void())
-{
-    json::serializer<T>::deserialize(out, value);
-}
-} // namespace detail
+namespace kl::json {
 
 template <typename T>
 std::string dump(const T& obj)
@@ -839,10 +836,9 @@ std::string dump(const T& obj)
 template <typename T, typename Context>
 void dump(const T& obj, Context& ctx)
 {
-    detail::dump(obj, ctx, priority_tag<2>{});
+    serialization::detail::dump_with_backend<detail::json_stream_backend>(obj, ctx);
 }
 
-// Top-level functions
 template <typename T>
 rapidjson::Document serialize(const T& obj)
 {
@@ -856,25 +852,22 @@ rapidjson::Document serialize(const T& obj)
 template <typename T, typename Context>
 rapidjson::Value serialize(const T& obj, Context& ctx)
 {
-    return detail::serialize(obj, ctx, priority_tag<2>{});
+    return serialization::detail::serialize_with_backend<detail::json_tree_backend>(obj, ctx);
 }
 
 template <typename T>
 void deserialize(T& out, const rapidjson::Value& value)
 {
-    detail::deserialize(out, value, priority_tag<2>{});
+    serialization::deserialize(out, value);
 }
 
-// Shorter version of from which can't be overloaded. Only use to invoke
-// the from() without providing a bit weird first parameter.
+// Shorter version of deserialize which can't be overloaded. Only use to invoke
+// the deserialize() without providing a bit weird first parameter.
 template <typename T>
 T deserialize(const rapidjson::Value& value)
 {
-    static_assert(std::is_default_constructible_v<T>,
-                  "T must be default constructible");
-    T out;
-    json::deserialize(out, value);
-    return out;
+    static_assert(std::is_default_constructible_v<T>, "T must be default constructible");
+    return serialization::deserialize<T>(value);
 }
 } // namespace kl::json
 

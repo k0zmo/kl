@@ -751,29 +751,30 @@ TEST_CASE("json")
 }
 
 namespace kl {
-namespace json {
+namespace serialization {
 
 template <>
 struct serializer<std::chrono::seconds>
 {
     template <typename Context>
-    static rapidjson::Value serialize(const std::chrono::seconds& t, Context& ctx)
+    static auto serialize(const std::chrono::seconds& t, Context& ctx)
     {
-        return json::serialize(t.count(), ctx);
+        return serialization::serialize(t.count(), ctx);
     }
 
-    static void deserialize(std::chrono::seconds& out, const rapidjson::Value& value)
+    template <typename Value>
+    static void deserialize(std::chrono::seconds& out, const Value& value)
     {
-        out = std::chrono::seconds{json::deserialize<long long>(value)};
+        out = std::chrono::seconds{serialization::deserialize<long long>(value)};
     }
 
     template <typename Context>
     static void dump(const std::chrono::seconds& s, Context& ctx)
     {
-        json::dump(s.count(), ctx);
+        serialization::dump(s.count(), ctx);
     }
 };
-} // namespace json
+} // namespace serialization
 } // namespace kl
 
 TEST_CASE("json - extended")

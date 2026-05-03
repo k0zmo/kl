@@ -1,6 +1,6 @@
 #pragma once
 
-#include "kl/detail/serialization.hpp"
+#include "kl/serialization.hpp"
 #include "kl/utility.hpp"
 #include "kl/yaml_fwd.hpp"
 
@@ -15,6 +15,13 @@
 #include <utility>
 
 namespace kl::yaml {
+
+namespace detail {
+
+struct yaml_stream_backend;
+struct yaml_tree_backend;
+
+} // namespace detail
 
 class view
 {
@@ -54,6 +61,8 @@ bool is_null_value(const T& t)
 class dump_context
 {
 public:
+    using backend_type = detail::yaml_stream_backend;
+
     explicit dump_context(YAML::Emitter& emitter, bool skip_null_fields = true)
         : emitter_{emitter}, skip_null_fields_{skip_null_fields}
     {
@@ -75,6 +84,8 @@ private:
 class serialize_context
 {
 public:
+    using backend_type = detail::yaml_tree_backend;
+
     explicit serialize_context(bool skip_null_fields = true)
         : skip_null_fields_{skip_null_fields}
     {
@@ -358,52 +369,6 @@ struct yaml_stream_backend
     }
 };
 
-// dump_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
-template <typename T, typename Context>
-auto dump_adl(const T& value, Context& ctx)
-    -> decltype(serialization::detail::dump_adl<yaml_stream_backend>(value, ctx), void())
-{
-    serialization::detail::dump_adl<yaml_stream_backend>(value, ctx);
-}
-
-// Two overloads below fixes encoding uint8_t as a double-quoted
-// hexadecimal value (128 => "\x80\")
-template <typename Context>
-void dump_adl(unsigned char v, Context& ctx)
-{
-    ctx.emitter() << +v;
-}
-
-template <typename Context>
-void dump_adl(signed char v, Context& ctx)
-{
-    ctx.emitter() << +v;
-}
-
-template <typename Context>
-void dump_adl(const view& v, Context& ctx)
-{
-    ctx.emitter() << v.value();
-}
-
-template <typename Context>
-void dump_adl(std::nullptr_t, Context& ctx)
-{
-    ctx.emitter() << YAML::Null;
-}
-
-template <typename Context>
-void dump_adl(const std::string& str, Context& ctx)
-{
-    // We repeat dump_adl() for std::string even though yaml-cpp has a native
-    // support for it. This is because dump_adl() has higher priority than dump()
-    // for supported types and our dump_adl for "range alike" catches this case
-    // which is not what we want for the strings. Also, we don't provide const
-    // char* overload since yaml-cpp's overload calls std::string variant in the
-    // end.
-    ctx.emitter() << str;
-}
-
 struct yaml_tree_backend
 {
     using value_type = YAML::Node;
@@ -482,12 +447,63 @@ struct yaml_tree_backend
     }
 };
 
-// serialize_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
+} // namespace detail
+} // namespace kl::yaml
+
+namespace kl::serialization {
+
+// dump_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
+template <typename T, typename Context>
+auto dump_adl(const T& value, Context& ctx)
+    -> decltype(detail::dump_adl<yaml::detail::yaml_stream_backend>(value, ctx), void())
+{
+    detail::dump_adl<yaml::detail::yaml_stream_backend>(value, ctx);
+}
+
+// Two overloads below fixes encoding uint8_t as a double-quoted
+// hexadecimal value (128 => "\x80\")
+template <typename Context>
+void dump_adl(unsigned char v, Context& ctx)
+{
+    ctx.emitter() << +v;
+}
+
+template <typename Context>
+void dump_adl(signed char v, Context& ctx)
+{
+    ctx.emitter() << +v;
+}
+
+template <typename Context>
+void dump_adl(const yaml::view& v, Context& ctx)
+{
+    ctx.emitter() << v.value();
+}
+
+template <typename Context>
+void dump_adl(std::nullptr_t, Context& ctx)
+{
+    ctx.emitter() << YAML::Null;
+}
+
+template <typename Context>
+void dump_adl(const std::string& str, Context& ctx)
+{
+    // We repeat dump_adl() for std::string even though yaml-cpp has a native
+    // support for it. This is because dump_adl() has higher priority than dump()
+    // for supported types and our dump_adl for "range alike" catches this case
+    // which is not what we want for the strings. Also, we don't provide const
+    // char* overload since yaml-cpp's overload calls std::string variant in the
+    // end.
+    ctx.emitter() << str;
+}
+
+// serialize_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
 template <typename T, typename Context>
 auto serialize_adl(const T& value, Context& ctx)
-    -> decltype(serialization::detail::serialize_adl<yaml_tree_backend>(value, ctx))
+    -> decltype(detail::serialize_adl<yaml::detail::yaml_tree_backend>(value, ctx))
 {
-    return serialization::detail::serialize_adl<yaml_tree_backend>(value, ctx);
+    return detail::serialize_adl<yaml::detail::yaml_tree_backend>(value, ctx);
 }
 
 // serialize_adl implementations for simple types
@@ -511,7 +527,7 @@ YAML::Node serialize_adl(signed char value, Context&)
 }
 
 template <typename Context>
-YAML::Node serialize_adl(view v, Context&)
+YAML::Node serialize_adl(yaml::view v, Context&)
 {
     return v.value();
 }
@@ -534,12 +550,12 @@ YAML::Node serialize_adl(const char* str, Context&)
     return YAML::Node{str};
 }
 
-// deserialize_adl implementation for more complex types (like sequence, map, reflectable structs and enums)
+// deserialize_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
 template <typename T>
 auto deserialize_adl(T& out, const YAML::Node& value)
-    -> decltype(serialization::detail::deserialize_adl<yaml_tree_backend>(out, value), void())
+    -> decltype(detail::deserialize_adl<yaml::detail::yaml_tree_backend>(out, value), void())
 {
-    serialization::detail::deserialize_adl<yaml_tree_backend>(out, value);
+    detail::deserialize_adl<yaml::detail::yaml_tree_backend>(out, value);
 }
 
 // deserialize_adl implementations for simple types
@@ -547,7 +563,7 @@ auto deserialize_adl(T& out, const YAML::Node& value)
 template <typename Arithmetic, enable_if<std::is_arithmetic<Arithmetic>> = true>
 void deserialize_adl(Arithmetic& out, const YAML::Node& value)
 {
-    detail::expect_scalar(value);
+    yaml::detail::expect_scalar(value);
 
     try
     {
@@ -555,13 +571,13 @@ void deserialize_adl(Arithmetic& out, const YAML::Node& value)
     }
     catch (const YAML::BadConversion& ex)
     {
-        throw deserialize_error{ex.what()};
+        throw yaml::deserialize_error{ex.what()};
     }
 }
 
 inline void deserialize_adl(std::string& out, const YAML::Node& value)
 {
-    detail::expect_scalar(value);
+    yaml::detail::expect_scalar(value);
     out = value.Scalar();
 }
 
@@ -572,86 +588,71 @@ inline void deserialize_adl(std::string_view& out, const YAML::Node& value)
     // writing user-defined `deserialize_adl` which only need a string_view to do
     // further conversion or when one can guarantee `value` will outlive the
     // returned string_view. Nevertheless, use with caution.
-    detail::expect_scalar(value);
+    yaml::detail::expect_scalar(value);
     out = value.Scalar();
 }
 
-inline void deserialize_adl(view& out, const YAML::Node& value)
+inline void deserialize_adl(yaml::view& out, const YAML::Node& value)
 {
-    out = view{value};
+    out = yaml::view{value};
 }
 
-template <typename T, typename Context>
-void dump(const T&, Context&, priority_tag<0>)
+template <>
+struct backend_traits<yaml::detail::yaml_stream_backend>
 {
-    static_assert(always_false_v<T>, "Cannot dump an instance of type T - no viable "
-                                     "definition of dump_adl provided");
-}
+private:
+    template <typename T, typename Context>
+    static auto dump_impl(const T& obj, Context& ctx, priority_tag<0>)
+        -> decltype(ctx.emitter() << obj, void())
+    {
+        ctx.emitter() << obj;
+    }
 
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(ctx.emitter() << obj, void())
-{
-    ctx.emitter() << obj;
-}
+    template <typename T, typename Context>
+    static auto dump_impl(const T& obj, Context& ctx, priority_tag<1>)
+        -> decltype(dump_adl(obj, ctx), void())
+    {
+        dump_adl(obj, ctx);
+    }
 
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(dump_adl(obj, ctx), void())
-{
-    dump_adl(obj, ctx);
-}
+public:
+    template <typename T, typename Context>
+    static auto dump(const T& obj, Context& ctx)
+        -> decltype(dump_impl(obj, ctx, priority_tag<1>{}), void())
+    {
+        dump_impl(obj, ctx, priority_tag<1>{});
+    }
+};
 
-template <typename T, typename Context>
-auto dump(const T& obj, Context& ctx, priority_tag<3>)
-    -> decltype(yaml::serializer<T>::dump(obj, ctx), void())
+template <>
+struct backend_traits<yaml::detail::yaml_tree_backend>
 {
-    yaml::serializer<T>::dump(obj, ctx);
-}
+    template <typename T, typename Context>
+    static auto serialize(const T& obj, Context& ctx)
+        -> decltype(serialize_adl(obj, ctx))
+    {
+        return serialize_adl(obj, ctx);
+    }
 
-template <typename T, typename Context>
-YAML::Node serialize(const T&, Context&, priority_tag<0>)
-{
-    static_assert(always_false_v<T>, "Cannot serialize an instance of type T - no viable "
-                                     "definition of serialize_adl provided");
-    return {}; // Keeps compiler happy
-}
+    template <typename T>
+    static auto deserialize(T& out, const YAML::Node& value)
+        -> decltype(deserialize_adl(out, value), void())
+    {
+        deserialize_adl(out, value);
+    }
+};
 
-template <typename T, typename Context>
-auto serialize(const T& obj, Context& ctx, priority_tag<1>)
-    -> decltype(serialize_adl(obj, ctx))
+template <>
+struct backend_for_value<YAML::Node>
 {
-    return serialize_adl(obj, ctx);
-}
+    using type = yaml::detail::yaml_tree_backend;
+};
 
-template <typename T, typename Context>
-auto serialize(const T& obj, Context& ctx, priority_tag<2>)
-    -> decltype(yaml::serializer<T>::serialize(obj, ctx))
-{
-    return yaml::serializer<T>::serialize(obj, ctx);
-}
+} // namespace kl::serialization
 
-template <typename T>
-void deserialize(T&, const YAML::Node&, priority_tag<0>)
-{
-    static_assert(always_false_v<T>, "Cannot deserialize an instance of type T - no viable "
-                                     "definition of deserialize_adl provided");
-}
+// Top level functions
 
-template <typename T>
-auto deserialize(T& out, const YAML::Node& value, priority_tag<1>)
-    -> decltype(deserialize_adl(out, value), void())
-{
-    deserialize_adl(out, value);
-}
-
-template <typename T>
-auto deserialize(T& out, const YAML::Node& value, priority_tag<2>)
-    -> decltype(yaml::serializer<T>::deserialize(out, value), void())
-{
-    yaml::serializer<T>::deserialize(out, value);
-}
-} // namespace detail
+namespace kl::yaml {
 
 template <typename T>
 std::string dump(const T& obj)
@@ -666,7 +667,7 @@ std::string dump(const T& obj)
 template <typename T, typename Context>
 void dump(const T& obj, Context& ctx)
 {
-    detail::dump(obj, ctx, priority_tag<3>{});
+    serialization::detail::dump_with_backend<detail::yaml_stream_backend>(obj, ctx);
 }
 
 template <typename T>
@@ -679,13 +680,13 @@ YAML::Node serialize(const T& obj)
 template <typename T, typename Context>
 YAML::Node serialize(const T& obj, Context& ctx)
 {
-    return detail::serialize(obj, ctx, priority_tag<2>{});
+    return serialization::detail::serialize_with_backend<detail::yaml_tree_backend>(obj, ctx);
 }
 
 template <typename T>
 void deserialize(T& out, const YAML::Node& value)
 {
-    return detail::deserialize(out, value, priority_tag<2>{});
+    return serialization::deserialize(out, value);
 }
 
 // Shorter version of deserialize which can't be overloaded. Only use to invoke
@@ -694,10 +695,7 @@ template <typename T>
 T deserialize(const YAML::Node& value)
 {
     static_assert(std::is_default_constructible_v<T>, "T must be default constructible");
-
-    T out;
-    yaml::deserialize(out, value);
-    return out;
+    return serialization::deserialize<T>(value);
 }
 } // namespace kl::yaml
 
