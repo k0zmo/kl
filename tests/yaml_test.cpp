@@ -727,29 +727,30 @@ tup:
 }
 
 namespace kl {
-namespace yaml {
+namespace serialization {
 
 template <>
 struct serializer<std::chrono::seconds>
 {
     template <typename Context>
-    static YAML::Node serialize(const std::chrono::seconds& t, Context& ctx)
+    static auto serialize(const std::chrono::seconds& t, Context& ctx)
     {
-        return yaml::serialize(t.count(), ctx);
+        return serialization::serialize(t.count(), ctx);
     }
 
-    static void deserialize(std::chrono::seconds& out, const YAML::Node& value)
+    template <typename Value>
+    static void deserialize(std::chrono::seconds& out, const Value& value)
     {
-        out = std::chrono::seconds{yaml::deserialize<long long>(value)};
+        out = std::chrono::seconds{serialization::deserialize<long long>(value)};
     }
 
     template <typename Context>
     static void dump(const std::chrono::seconds& s, Context& ctx)
     {
-        yaml::dump(s.count(), ctx);
+        serialization::dump(s.count(), ctx);
     }
 };
-} // namespace yaml
+} // namespace serialization
 } // namespace kl
 
 TEST_CASE("yaml - extended")

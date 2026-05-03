@@ -19,9 +19,6 @@ std::string dump(const T& obj);
 template <typename T, typename Context>
 void dump(const T& obj, Context& ctx);
 
-template <typename T>
-struct serializer;
-
 class serialize_context;
 
 template <typename T>

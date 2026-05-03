@@ -17,9 +17,6 @@ std::string dump(const T& obj);
 template <typename T, typename Context>
 void dump(const T& obj, Context& ctx);
 
-template <typename T>
-struct serializer;
-
 using allocator = rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>;
 
 class owning_serialize_context;

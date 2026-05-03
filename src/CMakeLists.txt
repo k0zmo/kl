@@ -18,6 +18,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/range.hpp
     ${kl_SOURCE_DIR}/include/kl/reflect_enum.hpp
     ${kl_SOURCE_DIR}/include/kl/reflect_struct.hpp
+    ${kl_SOURCE_DIR}/include/kl/serialization.hpp
     ${kl_SOURCE_DIR}/include/kl/signal.hpp
     ${kl_SOURCE_DIR}/include/kl/split.hpp
     ${kl_SOURCE_DIR}/include/kl/stream_join.hpp
