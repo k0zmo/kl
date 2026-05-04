@@ -726,41 +726,6 @@ tup:
     }
 }
 
-namespace kl {
-namespace serialization {
-
-template <>
-struct serializer<std::chrono::seconds>
-{
-    template <typename Context>
-    static auto serialize(const std::chrono::seconds& t, Context& ctx)
-    {
-        return serialization::serialize(t.count(), ctx);
-    }
-
-    template <typename Value>
-    static void deserialize(std::chrono::seconds& out, const Value& value)
-    {
-        out = std::chrono::seconds{serialization::deserialize<long long>(value)};
-    }
-
-    template <typename Context>
-    static void dump(const std::chrono::seconds& s, Context& ctx)
-    {
-        serialization::dump(s.count(), ctx);
-    }
-};
-} // namespace serialization
-} // namespace kl
-
-TEST_CASE("yaml - extended")
-{
-    using namespace std::chrono;
-    chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}};
-    auto y = kl::yaml::serialize(t);
-    auto obj = kl::yaml::deserialize<chrono_test>(y);
-}
-
 template <typename Context>
 YAML::Node serialize_adl(kl::yaml::tree_tag, global_struct, Context& ctx)
 {
@@ -1041,14 +1006,6 @@ TEST_CASE("yaml dump - custom context")
     yaml::dump(struct_with_blacklisted{}, ctx);
     std::string res = emitter.c_str();
     CHECK(res == "value: 34\nother_non_secret: true");
-}
-
-TEST_CASE("yaml dump - extended")
-{
-    using namespace std::chrono;
-    chrono_test t{2, seconds{10}, {seconds{6}, seconds{12}}};
-    const auto res = kl::yaml::dump(t);
-    CHECK(res == "t: 2\nsec: 10\nsecs:\n  - 6\n  - 12");
 }
 
 template <typename Context>

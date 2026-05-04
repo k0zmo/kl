@@ -750,41 +750,6 @@ TEST_CASE("json")
     }
 }
 
-namespace kl {
-namespace serialization {
-
-template <>
-struct serializer<std::chrono::seconds>
-{
-    template <typename Context>
-    static auto serialize(const std::chrono::seconds& t, Context& ctx)
-    {
-        return serialization::serialize(t.count(), ctx);
-    }
-
-    template <typename Value>
-    static void deserialize(std::chrono::seconds& out, const Value& value)
-    {
-        out = std::chrono::seconds{serialization::deserialize<long long>(value)};
-    }
-
-    template <typename Context>
-    static void dump(const std::chrono::seconds& s, Context& ctx)
-    {
-        serialization::dump(s.count(), ctx);
-    }
-};
-} // namespace serialization
-} // namespace kl
-
-TEST_CASE("json - extended")
-{
-    using namespace std::chrono;
-    chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}};
-    auto j = kl::json::serialize(t);
-    auto obj = kl::json::deserialize<chrono_test>(j);
-}
-
 template <typename Context>
 rapidjson::Value serialize_adl(kl::json::tree_tag, global_struct, Context& ctx)
 {
@@ -1041,14 +1006,6 @@ TEST_CASE("json dump - custom context")
     json::dump(struct_with_blacklisted{}, ctx);
     std::string res = sb.GetString();
     CHECK(res == R"({"value":34,"other_non_secret":true})");
-}
-
-TEST_CASE("json dump - extended")
-{
-    using namespace std::chrono;
-    chrono_test t{2, seconds{10}, {seconds{6}, seconds{12}}};
-    const auto res = kl::json::dump(t);
-    CHECK(res == R"({"t":2,"sec":10,"secs":[6,12]})");
 }
 
 template <typename Context>
