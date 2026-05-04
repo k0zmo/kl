@@ -23,6 +23,10 @@ struct yaml_tree_backend;
 
 } // namespace detail
 
+struct stream_tag : serialization::backend_tag<detail::yaml_stream_backend> {};
+struct tree_tag   : serialization::backend_tag<detail::yaml_tree_backend>   {};
+
+
 class view
 {
 public:
@@ -58,11 +62,9 @@ bool is_null_value(const T& t)
     return optional_traits<T>::is_null_value(t);
 }
 
-class dump_context
+class dump_context : public stream_tag
 {
 public:
-    using backend_type = detail::yaml_stream_backend;
-
     explicit dump_context(YAML::Emitter& emitter, bool skip_null_fields = true)
         : emitter_{emitter}, skip_null_fields_{skip_null_fields}
     {
@@ -81,11 +83,9 @@ private:
     bool skip_null_fields_;
 };
 
-class serialize_context
+class serialize_context : public tree_tag
 {
 public:
-    using backend_type = detail::yaml_tree_backend;
-
     explicit serialize_context(bool skip_null_fields = true)
         : skip_null_fields_{skip_null_fields}
     {
@@ -454,7 +454,7 @@ namespace kl::serialization {
 
 // dump_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
 template <typename T, typename Context>
-auto dump_adl(const T& value, Context& ctx)
+auto dump_adl(yaml::stream_tag, const T& value, Context& ctx)
     -> decltype(detail::dump_adl<yaml::detail::yaml_stream_backend>(value, ctx), void())
 {
     detail::dump_adl<yaml::detail::yaml_stream_backend>(value, ctx);
@@ -463,31 +463,31 @@ auto dump_adl(const T& value, Context& ctx)
 // Two overloads below fixes encoding uint8_t as a double-quoted
 // hexadecimal value (128 => "\x80\")
 template <typename Context>
-void dump_adl(unsigned char v, Context& ctx)
+void dump_adl(yaml::stream_tag, unsigned char v, Context& ctx)
 {
     ctx.emitter() << +v;
 }
 
 template <typename Context>
-void dump_adl(signed char v, Context& ctx)
+void dump_adl(yaml::stream_tag, signed char v, Context& ctx)
 {
     ctx.emitter() << +v;
 }
 
 template <typename Context>
-void dump_adl(const yaml::view& v, Context& ctx)
+void dump_adl(yaml::stream_tag, const yaml::view& v, Context& ctx)
 {
     ctx.emitter() << v.value();
 }
 
 template <typename Context>
-void dump_adl(std::nullptr_t, Context& ctx)
+void dump_adl(yaml::stream_tag, std::nullptr_t, Context& ctx)
 {
     ctx.emitter() << YAML::Null;
 }
 
 template <typename Context>
-void dump_adl(const std::string& str, Context& ctx)
+void dump_adl(yaml::stream_tag, const std::string& str, Context& ctx)
 {
     // We repeat dump_adl() for std::string even though yaml-cpp has a native
     // support for it. This is because dump_adl() has higher priority than dump()
@@ -500,7 +500,7 @@ void dump_adl(const std::string& str, Context& ctx)
 
 // serialize_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
 template <typename T, typename Context>
-auto serialize_adl(const T& value, Context& ctx)
+auto serialize_adl(yaml::tree_tag, const T& value, Context& ctx)
     -> decltype(detail::serialize_adl<yaml::detail::yaml_tree_backend>(value, ctx))
 {
     return detail::serialize_adl<yaml::detail::yaml_tree_backend>(value, ctx);
@@ -509,50 +509,50 @@ auto serialize_adl(const T& value, Context& ctx)
 // serialize_adl implementations for simple types
 
 template <typename Arithmetic, typename Context, enable_if<std::is_arithmetic<Arithmetic>> = true>
-YAML::Node serialize_adl(Arithmetic value, Context&)
+YAML::Node serialize_adl(yaml::tree_tag, Arithmetic value, Context&)
 {
     return YAML::Node{value};
 }
 
 template <typename Context>
-YAML::Node serialize_adl(unsigned char value, Context&)
+YAML::Node serialize_adl(yaml::tree_tag, unsigned char value, Context&)
 {
     return YAML::Node{+value};
 }
 
 template <typename Context>
-YAML::Node serialize_adl(signed char value, Context&)
+YAML::Node serialize_adl(yaml::tree_tag, signed char value, Context&)
 {
     return YAML::Node{+value};
 }
 
 template <typename Context>
-YAML::Node serialize_adl(yaml::view v, Context&)
+YAML::Node serialize_adl(yaml::tree_tag, yaml::view v, Context&)
 {
     return v.value();
 }
 
 template <typename Context>
-YAML::Node serialize_adl(std::nullptr_t, Context&)
+YAML::Node serialize_adl(yaml::tree_tag, std::nullptr_t, Context&)
 {
     return YAML::Node{};
 }
 
 template <typename Context>
-YAML::Node serialize_adl(const std::string& str, Context&)
+YAML::Node serialize_adl(yaml::tree_tag, const std::string& str, Context&)
 {
     return YAML::Node{str};
 }
 
 template <typename Context>
-YAML::Node serialize_adl(const char* str, Context&)
+YAML::Node serialize_adl(yaml::tree_tag, const char* str, Context&)
 {
     return YAML::Node{str};
 }
 
 // deserialize_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
 template <typename T>
-auto deserialize_adl(T& out, const YAML::Node& value)
+auto deserialize_adl(yaml::tree_tag, T& out, const YAML::Node& value)
     -> decltype(detail::deserialize_adl<yaml::detail::yaml_tree_backend>(out, value), void())
 {
     detail::deserialize_adl<yaml::detail::yaml_tree_backend>(out, value);
@@ -561,7 +561,7 @@ auto deserialize_adl(T& out, const YAML::Node& value)
 // deserialize_adl implementations for simple types
 
 template <typename Arithmetic, enable_if<std::is_arithmetic<Arithmetic>> = true>
-void deserialize_adl(Arithmetic& out, const YAML::Node& value)
+void deserialize_adl(yaml::tree_tag, Arithmetic& out, const YAML::Node& value)
 {
     yaml::detail::expect_scalar(value);
 
@@ -575,13 +575,13 @@ void deserialize_adl(Arithmetic& out, const YAML::Node& value)
     }
 }
 
-inline void deserialize_adl(std::string& out, const YAML::Node& value)
+inline void deserialize_adl(yaml::tree_tag, std::string& out, const YAML::Node& value)
 {
     yaml::detail::expect_scalar(value);
     out = value.Scalar();
 }
 
-inline void deserialize_adl(std::string_view& out, const YAML::Node& value)
+inline void deserialize_adl(yaml::tree_tag, std::string_view& out, const YAML::Node& value)
 {
     // This variant is unsafe because the lifetime of underlying string is tied
     // to the lifetime of the YAML's scalar value. It may come in handy when
@@ -592,7 +592,7 @@ inline void deserialize_adl(std::string_view& out, const YAML::Node& value)
     out = value.Scalar();
 }
 
-inline void deserialize_adl(yaml::view& out, const YAML::Node& value)
+inline void deserialize_adl(yaml::tree_tag, yaml::view& out, const YAML::Node& value)
 {
     out = yaml::view{value};
 }
@@ -610,9 +610,9 @@ private:
 
     template <typename T, typename Context>
     static auto dump_impl(const T& obj, Context& ctx, priority_tag<1>)
-        -> decltype(dump_adl(obj, ctx), void())
+        -> decltype(dump_adl(yaml::stream_tag{}, obj, ctx), void())
     {
-        dump_adl(obj, ctx);
+        dump_adl(yaml::stream_tag{}, obj, ctx);
     }
 
 public:
@@ -629,16 +629,16 @@ struct backend_traits<yaml::detail::yaml_tree_backend>
 {
     template <typename T, typename Context>
     static auto serialize(const T& obj, Context& ctx)
-        -> decltype(serialize_adl(obj, ctx))
+        -> decltype(serialize_adl(yaml::tree_tag{}, obj, ctx))
     {
-        return serialize_adl(obj, ctx);
+        return serialize_adl(yaml::tree_tag{}, obj, ctx);
     }
 
     template <typename T>
     static auto deserialize(T& out, const YAML::Node& value)
-        -> decltype(deserialize_adl(out, value), void())
+        -> decltype(deserialize_adl(yaml::tree_tag{}, out, value), void())
     {
-        deserialize_adl(out, value);
+        deserialize_adl(yaml::tree_tag{}, out, value);
     }
 };
 
@@ -667,20 +667,20 @@ std::string dump(const T& obj)
 template <typename T, typename Context>
 void dump(const T& obj, Context& ctx)
 {
-    serialization::detail::dump_with_backend<detail::yaml_stream_backend>(obj, ctx);
+    serialization::detail::dump_with_backend<stream_tag>(obj, ctx);
 }
 
 template <typename T>
 YAML::Node serialize(const T& obj)
 {
     serialize_context ctx{};
-    return serialize(obj, ctx);
+    return yaml::serialize(obj, ctx);
 }
 
 template <typename T, typename Context>
 YAML::Node serialize(const T& obj, Context& ctx)
 {
-    return serialization::detail::serialize_with_backend<detail::yaml_tree_backend>(obj, ctx);
+    return serialization::detail::serialize_with_backend<tree_tag>(obj, ctx);
 }
 
 template <typename T>

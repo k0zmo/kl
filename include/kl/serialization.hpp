@@ -14,13 +14,19 @@ struct serializer;
 template <typename Backend>
 struct backend_traits;
 
+template <typename Backend>
+struct backend_tag
+{
+    using backend_type = Backend;
+};
+
 template <typename Value>
 struct backend_for_value;
 
 namespace detail {
 
-template <typename Context>
-using backend_t = typename Context::backend_type;
+template <typename BackendIdentity>
+using backend_t = typename BackendIdentity::backend_type;
 
 template <typename Value>
 using backend_for_value_t =
@@ -105,10 +111,11 @@ void dump(const T& obj, Context& ctx)
 
 namespace detail {
 
-template <typename Backend, typename T, typename Context>
+template <typename BackendIdentity, typename T, typename Context>
 void dump_with_backend(const T& obj, Context& ctx)
 {
-    detail::dump<T, Backend>(obj, ctx, priority_tag<2>{});
+    using backend = backend_t<BackendIdentity>;
+    detail::dump<T, backend>(obj, ctx, priority_tag<2>{});
 }
 
 } // namespace detail
@@ -124,11 +131,12 @@ auto serialize(const T& obj, Context& ctx)
 
 namespace detail {
 
-template <typename Backend, typename T, typename Context>
+template <typename BackendIdentity, typename T, typename Context>
 auto serialize_with_backend(const T& obj, Context& ctx)
-    -> decltype(detail::serialize<T, Backend>(obj, ctx, priority_tag<2>{}))
+    -> decltype(detail::serialize<T, backend_t<BackendIdentity>>(obj, ctx, priority_tag<2>{}))
 {
-    return detail::serialize<T, Backend>(obj, ctx, priority_tag<2>{});
+    using backend = backend_t<BackendIdentity>;
+    return detail::serialize<T, backend>(obj, ctx, priority_tag<2>{});
 }
 
 } // namespace detail

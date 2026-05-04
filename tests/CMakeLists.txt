@@ -39,6 +39,9 @@ if(KL_ENABLE_YAML)
     target_sources(kl-tests PRIVATE yaml_test.cpp input/typedefs.hpp)
     target_link_libraries(kl-tests PRIVATE kl::yaml)
 endif()
+if(KL_ENABLE_JSON AND KL_ENABLE_YAML)
+    target_sources(kl-tests PRIVATE serialization_test.cpp)
+endif()
 
 kl_source_group(kl-tests
     TREE ${CMAKE_CURRENT_SOURCE_DIR}
