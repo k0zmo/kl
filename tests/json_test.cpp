@@ -786,12 +786,12 @@ TEST_CASE("json - extended")
 }
 
 template <typename Context>
-rapidjson::Value serialize_adl(global_struct, Context& ctx)
+rapidjson::Value serialize_adl(kl::json::tree_tag, global_struct, Context& ctx)
 {
     return kl::json::serialize("global_struct", ctx);
 }
 
-void deserialize_adl(global_struct& out, const rapidjson::Value& value)
+void deserialize_adl(kl::json::tree_tag, global_struct& out, const rapidjson::Value& value)
 {
     if (value != "global_struct")
         throw kl::json::deserialize_error{""};
@@ -801,12 +801,12 @@ void deserialize_adl(global_struct& out, const rapidjson::Value& value)
 namespace my {
 
 template <typename Context>
-rapidjson::Value serialize_adl(none_t, Context&)
+rapidjson::Value serialize_adl(kl::json::tree_tag, none_t, Context&)
 {
     return rapidjson::Value{};
 }
 
-void deserialize_adl(none_t& out, const rapidjson::Value& value)
+void deserialize_adl(kl::json::tree_tag, none_t& out, const rapidjson::Value& value)
 {
     out = value.IsNull() ? none_t{} : throw kl::json::deserialize_error{""};
 }
@@ -814,13 +814,14 @@ void deserialize_adl(none_t& out, const rapidjson::Value& value)
 // Defining such function with specializaton would not be possible as there's no
 // way to partially specialize a function template.
 template <typename T, typename Context>
-rapidjson::Value serialize_adl(const value_wrapper<T>& t, Context& ctx)
+rapidjson::Value serialize_adl(kl::json::tree_tag, const value_wrapper<T>& t, Context& ctx)
 {
     return kl::json::serialize(t.value, ctx);
 }
 
 template <typename T>
-void deserialize_adl(value_wrapper<T>& out, const rapidjson::Value& value)
+void deserialize_adl(kl::json::tree_tag, value_wrapper<T>& out,
+                     const rapidjson::Value& value)
 {
     out = value_wrapper<T>{kl::json::deserialize<T>(value)};
 }
@@ -1051,7 +1052,7 @@ TEST_CASE("json dump - extended")
 }
 
 template <typename Context>
-void dump_adl(global_struct, Context& ctx)
+void dump_adl(kl::json::stream_tag, global_struct, Context& ctx)
 {
     kl::json::dump("global_struct", ctx);
 }
@@ -1059,13 +1060,13 @@ void dump_adl(global_struct, Context& ctx)
 namespace my {
 
 template <typename Context>
-void dump_adl(none_t, Context& ctx)
+void dump_adl(kl::json::stream_tag, none_t, Context& ctx)
 {
     kl::json::dump(nullptr, ctx);
 }
 
 template <typename T, typename Context>
-void dump_adl(const value_wrapper<T>& t, Context& ctx)
+void dump_adl(kl::json::stream_tag, const value_wrapper<T>& t, Context& ctx)
 {
     kl::json::dump(t.value, ctx);
 }
@@ -1146,7 +1147,7 @@ struct zxc
     std::vector<int> d;
 
     template <typename Context>
-    friend rapidjson::Value serialize_adl(const zxc& z, Context& ctx)
+    friend rapidjson::Value serialize_adl(kl::json::tree_tag, const zxc& z, Context& ctx)
     {
         return kl::json::to_object(ctx)
             .add("a", z.a)
@@ -1162,7 +1163,7 @@ struct zxc
         //   return ret;
     }
 
-    friend void deserialize_adl(zxc& z, const rapidjson::Value& value)
+    friend void deserialize_adl(kl::json::tree_tag, zxc& z, const rapidjson::Value& value)
     {
         kl::json::from_object(value)
             .extract("a", z.a)
@@ -1189,7 +1190,8 @@ struct zxc_dynamic_names
     std::vector<int> d;
 
     template <typename Context>
-    friend rapidjson::Value serialize_adl(const zxc_dynamic_names& z, Context& ctx)
+    friend rapidjson::Value serialize_adl(kl::json::tree_tag, const zxc_dynamic_names& z,
+                                          Context& ctx)
     {
         std::string names{"abcd long string to subdue SSO optimization"};
         return kl::json::to_object(ctx)

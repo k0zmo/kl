@@ -762,12 +762,12 @@ TEST_CASE("yaml - extended")
 }
 
 template <typename Context>
-YAML::Node serialize_adl(global_struct, Context& ctx)
+YAML::Node serialize_adl(kl::yaml::tree_tag, global_struct, Context& ctx)
 {
     return kl::yaml::serialize("global_struct", ctx);
 }
 
-void deserialize_adl(global_struct& out, const YAML::Node& value)
+void deserialize_adl(kl::yaml::tree_tag, global_struct& out, const YAML::Node& value)
 {
     if (value.Scalar() != "global_struct")
         throw kl::yaml::deserialize_error{""};
@@ -777,12 +777,12 @@ void deserialize_adl(global_struct& out, const YAML::Node& value)
 namespace my {
 
 template <typename Context>
-YAML::Node serialize_adl(none_t, Context&)
+YAML::Node serialize_adl(kl::yaml::tree_tag, none_t, Context&)
 {
     return YAML::Node{};
 }
 
-void deserialize_adl(none_t& out, const YAML::Node& value)
+void deserialize_adl(kl::yaml::tree_tag, none_t& out, const YAML::Node& value)
 {
     out = value.IsNull() ? none_t{} : throw kl::yaml::deserialize_error{""};
 }
@@ -790,13 +790,13 @@ void deserialize_adl(none_t& out, const YAML::Node& value)
 // Defining such function with specializaton would not be possible as there's no
 // way to partially specialize a function template.
 template <typename T, typename Context>
-YAML::Node serialize_adl(const value_wrapper<T>& t, Context& ctx)
+YAML::Node serialize_adl(kl::yaml::tree_tag, const value_wrapper<T>& t, Context& ctx)
 {
     return kl::yaml::serialize(t.value, ctx);
 }
 
 template <typename T>
-void deserialize_adl(value_wrapper<T>& out, const YAML::Node& value)
+void deserialize_adl(kl::yaml::tree_tag, value_wrapper<T>& out, const YAML::Node& value)
 {
     out = value_wrapper<T>{kl::yaml::deserialize<T>(value)};
 }
@@ -1052,7 +1052,7 @@ TEST_CASE("yaml dump - extended")
 }
 
 template <typename Context>
-void dump_adl(global_struct, Context& ctx)
+void dump_adl(kl::yaml::stream_tag, global_struct, Context& ctx)
 {
     kl::yaml::dump("global_struct", ctx);
 }
@@ -1060,13 +1060,13 @@ void dump_adl(global_struct, Context& ctx)
 namespace my {
 
 template <typename Context>
-void dump_adl(none_t, Context& ctx)
+void dump_adl(kl::yaml::stream_tag, none_t, Context& ctx)
 {
     kl::yaml::dump(nullptr, ctx);
 }
 
 template <typename T, typename Context>
-void dump_adl(const value_wrapper<T>& t, Context& ctx)
+void dump_adl(kl::yaml::stream_tag, const value_wrapper<T>& t, Context& ctx)
 {
     kl::yaml::dump(t.value, ctx);
 }
@@ -1171,7 +1171,7 @@ struct zxc
     std::vector<int> d;
 
     template <typename Context>
-    friend YAML::Node serialize_adl(const zxc& z, Context& ctx)
+    friend YAML::Node serialize_adl(kl::yaml::tree_tag, const zxc& z, Context& ctx)
     {
         return kl::yaml::to_map(ctx)
             .add("a", z.a)
@@ -1187,7 +1187,7 @@ struct zxc
         //   return ret;
     }
 
-    friend void deserialize_adl(zxc& z, const YAML::Node& value)
+    friend void deserialize_adl(kl::yaml::tree_tag, zxc& z, const YAML::Node& value)
     {
         kl::yaml::from_map(value)
             .extract("a", z.a)
