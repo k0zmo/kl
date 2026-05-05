@@ -530,6 +530,27 @@ struct json_tree_backend
     static std::string type_name(const value_type& value) { return detail::type_name(value); }
 };
 
+// Checks if we can construct a Json object with given T
+template <typename T>
+using is_json_constructible =
+    std::bool_constant<std::is_constructible_v<rapidjson::Value, T> &&
+                       // We want reflectable unscoped enum to handle ourselves
+                       !std::is_enum_v<T>>;
+
+[[noreturn]] inline void throw_lossy_conversion()
+{
+    throw json::deserialize_error{
+        "value cannot be losslessly stored in the variable"};
+}
+
+template <typename Target, typename Source>
+Target narrow(Source src)
+{
+    if (static_cast<Source>(static_cast<Target>(src)) != src)
+        throw_lossy_conversion();
+    return static_cast<Target>(src);
+}
+
 } // namespace detail
 } // namespace kl::json
 
@@ -623,16 +644,9 @@ auto serialize_adl(json::tree_tag, const T& value, Context& ctx)
 
 // serialize_adl implementations for simple types
 
-// Checks if we can construct a Json object with given T
-template <typename T>
-using is_json_constructible =
-    std::bool_constant<std::is_constructible_v<rapidjson::Value, T> &&
-                       // We want reflectable unscoped enum to handle ourselves
-                       !std::is_enum_v<T>>;
-
 // For all T's that we can directly create rapidjson::Value value from
 template <typename JsonConstructible, typename Context,
-          enable_if<is_json_constructible<JsonConstructible>> = true>
+          enable_if<json::detail::is_json_constructible<JsonConstructible>> = true>
 rapidjson::Value serialize_adl(json::tree_tag, const JsonConstructible& value, Context& ctx)
 {
     (void)ctx;
@@ -688,20 +702,6 @@ auto deserialize_adl(json::tree_tag, T& out, const rapidjson::Value& value)
 
 // deserialize_adl implementations for simple types
 
-[[noreturn]] inline void throw_lossy_conversion()
-{
-    throw json::deserialize_error{
-        "value cannot be losslessly stored in the variable"};
-}
-
-template <typename Target, typename Source>
-Target narrow(Source src)
-{
-    if (static_cast<Source>(static_cast<Target>(src)) != src)
-        throw_lossy_conversion();
-    return static_cast<Target>(src);
-}
-
 template <typename Integral, enable_if<std::is_integral<Integral>> = true>
 void deserialize_adl(json::tree_tag, Integral& out, const rapidjson::Value& value)
 {
@@ -712,7 +712,7 @@ void deserialize_adl(json::tree_tag, Integral& out, const rapidjson::Value& valu
     {
         if (value.IsInt())
         {
-            out = narrow<Integral>(value.GetInt());
+            out = json::detail::narrow<Integral>(value.GetInt());
             return;
         }
     }
@@ -730,7 +730,7 @@ void deserialize_adl(json::tree_tag, Integral& out, const rapidjson::Value& valu
     {
         if (value.IsUint())
         {
-            out = narrow<Integral>(value.GetUint());
+            out = json::detail::narrow<Integral>(value.GetUint());
             return;
         }
     }
@@ -743,7 +743,7 @@ void deserialize_adl(json::tree_tag, Integral& out, const rapidjson::Value& valu
             return;
         }
     }
-    throw_lossy_conversion();
+    json::detail::throw_lossy_conversion();
 }
 
 template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
@@ -813,6 +813,12 @@ struct backend_traits<json::detail::json_tree_backend>
 
 template <>
 struct backend_for_value<rapidjson::Value>
+{
+    using type = json::detail::json_tree_backend;
+};
+
+template <>
+struct backend_for_value<rapidjson::Document>
 {
     using type = json::detail::json_tree_backend;
 };
