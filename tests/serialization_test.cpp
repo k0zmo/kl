@@ -6,9 +6,11 @@
 #include "input/typedefs.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <yaml-cpp/emitter.h>
+#include <yaml-cpp/node/node.h>
 
 #include <chrono>
 #include <string>
@@ -50,6 +52,36 @@ struct serialization_record
 };
 
 KL_REFLECT_STRUCT(serialization_record, i, s, values)
+
+struct generic_adl_value
+{
+    int value;
+};
+
+template <typename Tag, typename Context>
+auto serialize_adl(Tag, const generic_adl_value& value, Context& ctx)
+{
+    return kl::serialization::serialize(value.value, ctx);
+}
+
+struct reflected_with_backend_adl
+{
+    int reflected;
+};
+
+KL_REFLECT_STRUCT(reflected_with_backend_adl, reflected)
+
+template <typename Context>
+rapidjson::Value serialize_adl(kl::json::tree_tag, const reflected_with_backend_adl&, Context& ctx)
+{
+    return kl::json::serialize("json-backend-adl", ctx);
+}
+
+template <typename Context>
+YAML::Node serialize_adl(kl::yaml::tree_tag, const reflected_with_backend_adl&, Context& ctx)
+{
+    return kl::yaml::serialize("yaml-backend-adl", ctx);
+}
 
 } // namespace
 
@@ -133,6 +165,31 @@ TEST_CASE("serialization - json and yaml backends coexist")
         CHECK(yaml_out.s == "text");
         CHECK(yaml_out.values == std::vector<int>{1, 2, 3});
     }
+}
+
+TEST_CASE("serialization - generic user ADL works for json and yaml")
+{
+    generic_adl_value value{42};
+
+    auto json_value = kl::json::serialize(value);
+    REQUIRE(json_value.IsInt());
+    CHECK(json_value.GetInt() == 42);
+
+    auto yaml_value = kl::yaml::serialize(value);
+    CHECK(yaml_value.as<int>() == 42);
+}
+
+TEST_CASE("serialization - backend ADL wins over structural reflection")
+{
+    reflected_with_backend_adl value{42};
+
+    auto json_value = kl::json::serialize(value);
+    REQUIRE(json_value.IsString());
+    CHECK(json_value.GetString() == std::string{"json-backend-adl"});
+
+    auto yaml_value = kl::yaml::serialize(value);
+    REQUIRE(yaml_value.IsScalar());
+    CHECK(yaml_value.as<std::string>() == "yaml-backend-adl");
 }
 
 TEST_CASE("serialization - chrono duration serializer works with json and yaml")
