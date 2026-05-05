@@ -8,6 +8,37 @@
 
 namespace kl::serialization {
 
+/*
+   # Customization contract
+  
+   There are two user-facing customization mechanisms:
+  
+   1. Specialize `kl::serialization::serializer<T>`.
+      This has higher dispatch priority than backend ADL. If `serializer<T>`
+      provides `dump()`, `serialize()`, or `deserialize()`, that member is selected
+      before any `dump_adl()`, `serialize_adl()`, or `deserialize_adl()` overload.
+  
+   2. Provide backend ADL overloads.
+      The backend tag is the first argument and identifies the concrete backend
+      family. For example, JSON uses `kl::json::stream_tag` for `dump_adl()` and
+      `kl::json::tree_tag` for `serialize_adl()`/`deserialize_adl()`. YAML follows
+      the same stream_tag/tree_tag split.
+  
+          void dump_adl(kl::json::stream_tag, const T&, Context&);
+          rapidjson::Value serialize_adl(kl::json::tree_tag, const T&, Context&);
+          void deserialize_adl(kl::json::tree_tag, T&, const rapidjson::Value&);
+  
+      Backend-independent ADL can be written by templating the tag:
+  
+          template <typename Tag, typename Context>
+          auto serialize_adl(Tag, const T&, Context&);
+  
+   Direct `kl::serialization::dump()/serialize()` calls require a context carrying
+   `backend_type`. Built-in contexts do this by inheriting the public backend tags.
+   Backend-specific wrappers such as `kl::json::dump()`/`serialize()` and
+   `kl::yaml::dump()`/`serialize()` force the backend themselves, so custom contexts
+   used through those wrappers do not need to expose backend_type.
+*/
 template <typename T>
 struct serializer;
 

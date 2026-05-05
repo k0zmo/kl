@@ -14,8 +14,7 @@
 #include <string>
 #include <vector>
 
-namespace kl {
-namespace serialization {
+namespace kl::serialization {
 
 template <>
 struct serializer<std::chrono::seconds>
@@ -39,8 +38,7 @@ struct serializer<std::chrono::seconds>
     }
 };
 
-} // namespace serialization
-} // namespace kl
+} // namespace kl::serialization
 
 namespace {
 
