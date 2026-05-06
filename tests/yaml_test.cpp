@@ -4,6 +4,7 @@
 #include "kl/yaml.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_set.hpp"
+#include "kl/serialization_error.hpp"
 #include "input/typedefs.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -13,9 +14,7 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <chrono>
 #include <cstdint>
-#include <cstring>
 #include <deque>
 #include <list>
 #include <map>
@@ -62,7 +61,7 @@ TEST_CASE("yaml")
     SECTION("parse error")
     {
         REQUIRE_NOTHROW(R"([])"_yaml);
-        REQUIRE_THROWS_AS(R"([{]})"_yaml, yaml::parse_error);
+        REQUIRE_THROWS_AS(R"([{]})"_yaml, serialization::parse_error);
     }
 
     SECTION("serialize inner_t")
@@ -93,7 +92,7 @@ TEST_CASE("yaml")
 
     SECTION("deserialize inner_t - empty yaml")
     {
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>({}), yaml::deserialize_error);
+        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>({}), serialization::deserialize_error);
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>({}),
                             "type must be a sequence or map but is a Null\n"
                             "error when deserializing type " +
@@ -103,7 +102,7 @@ TEST_CASE("yaml")
     SECTION("deserialize inner_t - missing one field")
     {
         auto y = "d: 1.0"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y), serialization::deserialize_error);
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y), "type must be a scalar but is a Null\n"
                                                            "error when deserializing field r\n"
                                                            "error when deserializing type " +
@@ -129,13 +128,13 @@ TEST_CASE("yaml")
     SECTION("deserialize Manual - missing one field")
     {
         auto y = "Ad: 1.0\nB: 22\nC: 6.777"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y), serialization::deserialize_error);
         REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y), "type must be a scalar but is a Null\n"
                                                           "error when deserializing field Ar\n"
                                                           "error when deserializing type " +
                                                               kl::ctti::name<Manual>());
         y = "Ad: 1.0\nAr: 2\nC: 6.777"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y), yaml::deserialize_error);
+        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y), serialization::deserialize_error);
         REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y), "type must be a scalar but is a Null\n"
                                                           "error when deserializing field B\n"
                                                           "error when deserializing type " +
@@ -735,7 +734,7 @@ YAML::Node serialize_adl(kl::yaml::tree_tag, global_struct, Context& ctx)
 void deserialize_adl(kl::yaml::tree_tag, global_struct& out, const YAML::Node& value)
 {
     if (value.Scalar() != "global_struct")
-        throw kl::yaml::deserialize_error{""};
+        throw kl::serialization::deserialize_error{""};
     out = global_struct{};
 }
 
@@ -749,7 +748,7 @@ YAML::Node serialize_adl(kl::yaml::tree_tag, none_t, Context&)
 
 void deserialize_adl(kl::yaml::tree_tag, none_t& out, const YAML::Node& value)
 {
-    out = value.IsNull() ? none_t{} : throw kl::yaml::deserialize_error{""};
+    out = value.IsNull() ? none_t{} : throw kl::serialization::deserialize_error{""};
 }
 
 // Defining such function with specializaton would not be possible as there's no

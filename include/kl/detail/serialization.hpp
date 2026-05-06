@@ -1,6 +1,7 @@
 #pragma once
 
 #include "kl/detail/concepts.hpp"
+#include "kl/serialization_error.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_set.hpp"
@@ -226,7 +227,7 @@ void deserialize_adl(Map& out, const typename Backend::value_type& value)
             Backend::deserialize(mapped_value, field);
             out.emplace(std::move(key_value), std::move(mapped_value));
         }
-        catch (typename Backend::deserialize_error& ex)
+        catch (deserialize_error& ex)
         {
             std::string field_name;
             Backend::deserialize(field_name, key);
@@ -255,7 +256,7 @@ void deserialize_adl(GrowableRange& out, const typename Backend::value_type& val
             Backend::deserialize(element, item);
             out.push_back(std::move(element));
         }
-        catch (typename Backend::deserialize_error& ex)
+        catch (deserialize_error& ex)
         {
             std::string msg = "error when deserializing element " + std::to_string(out.size());
             ex.add(msg.c_str());
@@ -275,7 +276,7 @@ try
             {
                 Backend::deserialize(field, Backend::at_field(value, name));
             }
-            catch (typename Backend::deserialize_error& ex)
+            catch (deserialize_error& ex)
             {
                 std::string msg = "error when deserializing field " + std::string(name);
                 ex.add(msg.c_str());
@@ -287,8 +288,7 @@ try
     {
         if (Backend::size(value) > ctti::num_fields<Reflectable>())
         {
-            throw typename Backend::deserialize_error{
-                "sequence size is greater than declared struct's field count"};
+            throw deserialize_error{"sequence size is greater than declared struct's field count"};
         }
 
         ctti::reflect(out, [&value, index = 0U](auto& field, auto) mutable {
@@ -297,7 +297,7 @@ try
                 Backend::deserialize(field, Backend::at_index(value, index));
                 ++index;
             }
-            catch (typename Backend::deserialize_error& ex)
+            catch (deserialize_error& ex)
             {
                 std::string msg = "error when deserializing element " + std::to_string(index);
                 ex.add(msg.c_str());
@@ -307,11 +307,11 @@ try
     }
     else
     {
-        throw typename Backend::deserialize_error{"type must be a sequence or map but is a " +
-                                                  Backend::type_name(value)};
+        throw deserialize_error{"type must be a sequence or map but is a " +
+                                Backend::type_name(value)};
     }
 }
-catch (typename Backend::deserialize_error& ex)
+catch (deserialize_error& ex)
 {
     std::string msg = "error when deserializing type " + std::string(ctti::name<Reflectable>());
     ex.add(msg.c_str());
@@ -331,7 +331,7 @@ void deserialize_adl(Enum& out, const typename Backend::value_type& value)
             return;
         }
 
-        throw typename Backend::deserialize_error{"invalid enum value: " + text};
+        throw deserialize_error{"invalid enum value: " + text};
     }
     else
     {

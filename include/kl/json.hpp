@@ -18,7 +18,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <exception>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -125,47 +124,6 @@ public:
 private:
     json::allocator& alloc_;
     bool skip_null_fields_;
-};
-
-struct deserialize_error : std::exception
-{
-    explicit deserialize_error(const char* message)
-        : deserialize_error(std::string(message))
-    {
-    }
-    explicit deserialize_error(std::string message) noexcept
-        : messages_(std::move(message))
-    {
-    }
-
-    virtual ~deserialize_error() noexcept;
-
-    const char* what() const noexcept override { return messages_.c_str(); }
-
-    void add(const char* message);
-
-private:
-    std::string messages_;
-};
-
-struct parse_error : std::exception
-{
-    explicit parse_error(const char* message)
-        : parse_error{std::string(message)}
-    {
-    }
-
-    explicit parse_error(std::string message) noexcept
-        : message_{std::move(message)}
-    {
-    }
-
-    virtual ~parse_error() noexcept;
-
-    const char* what() const noexcept override { return message_.c_str(); }
-
-private:
-    std::string message_;
 };
 
 namespace detail {
@@ -305,7 +263,7 @@ public:
             json::deserialize(out, json::at(value_.GetObject(), member_name));
             return *this;
         }
-        catch (deserialize_error& ex)
+        catch (serialization::deserialize_error& ex)
         {
             std::string msg = "error when deserializing field " + std::string(member_name);
             ex.add(msg.c_str());
@@ -341,7 +299,7 @@ public:
             ++index_;
             return *this;
         }
-        catch (deserialize_error& ex)
+        catch (serialization::deserialize_error& ex)
         {
             std::string msg = "error when deserializing element " + std::to_string(index_);
             ex.add(msg.c_str());
@@ -441,7 +399,6 @@ private:
 struct json_tree_backend
 {
     using value_type = rapidjson::Value;
-    using deserialize_error = json::deserialize_error;
 
     template <typename T, typename Context>
     static value_type serialize(const T& value, Context& ctx)
@@ -520,8 +477,7 @@ using is_json_constructible =
 
 [[noreturn]] inline void throw_lossy_conversion()
 {
-    throw json::deserialize_error{
-        "value cannot be losslessly stored in the variable"};
+    throw serialization::deserialize_error{"value cannot be losslessly stored in the variable"};
 }
 
 template <typename Target, typename Source>
@@ -865,6 +821,6 @@ inline rapidjson::Document operator""_json(const char* s, std::size_t len)
     rapidjson::Document doc;
     rapidjson::ParseResult ok = doc.Parse(s, len);
     if (!ok)
-        throw kl::json::parse_error{rapidjson::GetParseError_En(ok.Code())};
+        throw kl::serialization::parse_error{rapidjson::GetParseError_En(ok.Code())};
     return doc;
 }

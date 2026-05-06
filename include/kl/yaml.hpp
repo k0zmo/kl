@@ -7,7 +7,6 @@
 #include <yaml-cpp/yaml.h>
 
 #include <cstddef>
-#include <exception>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -80,47 +79,6 @@ public:
 
 private:
     bool skip_null_fields_;
-};
-
-struct deserialize_error : std::exception
-{
-    explicit deserialize_error(const char* message)
-        : deserialize_error(std::string(message))
-    {
-    }
-    explicit deserialize_error(std::string message) noexcept
-        : messages_(std::move(message))
-    {
-    }
-
-    virtual ~deserialize_error() noexcept;
-
-    const char* what() const noexcept override { return messages_.c_str(); }
-
-    void add(const char* message);
-
-private:
-    std::string messages_;
-};
-
-struct parse_error : std::exception
-{
-    explicit parse_error(const char* message)
-        : parse_error{std::string(message)}
-    {
-    }
-
-    explicit parse_error(std::string message) noexcept
-        : message_{std::move(message)}
-    {
-    }
-
-    virtual ~parse_error() noexcept;
-
-    const char* what() const noexcept override { return message_.c_str(); }
-
-private:
-    std::string message_;
 };
 
 namespace detail {
@@ -228,7 +186,7 @@ public:
             yaml::deserialize(out, yaml::at(node_, member_name));
             return *this;
         }
-        catch (deserialize_error& ex)
+        catch (serialization::deserialize_error& ex)
         {
             std::string msg = "error when deserializing field ";
             msg += member_name;
@@ -265,7 +223,7 @@ public:
             ++index_;
             return *this;
         }
-        catch (deserialize_error& ex)
+        catch (serialization::deserialize_error& ex)
         {
             std::string msg = "error when deserializing element " + std::to_string(index_);
             ex.add(msg.c_str());
@@ -353,7 +311,6 @@ struct yaml_stream_backend
 struct yaml_tree_backend
 {
     using value_type = YAML::Node;
-    using deserialize_error = yaml::deserialize_error;
 
     template <typename T, typename Context>
     static value_type serialize(const T& value, Context& ctx)
@@ -552,7 +509,7 @@ void deserialize_adl(yaml::tree_tag, Arithmetic& out, const YAML::Node& value)
     }
     catch (const YAML::BadConversion& ex)
     {
-        throw yaml::deserialize_error{ex.what()};
+        throw serialization::deserialize_error{ex.what()};
     }
 }
 
@@ -688,6 +645,6 @@ inline YAML::Node operator""_yaml(const char* s, std::size_t)
     }
     catch (const YAML::Exception& ex)
     {
-        throw kl::yaml::parse_error{ex.what()};
+        throw kl::serialization::parse_error{ex.what()};
     }
 }
