@@ -19,7 +19,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <exception>
-#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -55,24 +54,6 @@ private:
     const rapidjson::Value* value_;
 };
 
-template <typename T>
-struct optional_traits
-{
-    static bool is_null_value(const T&) { return false; }
-};
-
-template <typename T>
-struct optional_traits<std::optional<T>>
-{
-    static bool is_null_value(const std::optional<T>& opt) { return !opt; }
-};
-
-template <typename T>
-bool is_null_value(const T& t)
-{
-    return optional_traits<T>::is_null_value(t);
-}
-
 template <typename Writer>
 class dump_context : public stream_tag
 {
@@ -89,7 +70,7 @@ public:
     template <typename Value>
     bool skip_null_value(const Value& value)
     {
-        return skip_null_fields_ && is_null_value(value);
+        return skip_null_fields_ && serialization::is_null_value(value);
     }
 
 private:
@@ -110,7 +91,7 @@ public:
     template <typename Value>
     bool skip_null_value(const Value& value)
     {
-        return skip_null_fields_ && is_null_value(value);
+        return skip_null_fields_ && serialization::is_null_value(value);
     }
 
 private:
@@ -138,7 +119,7 @@ public:
     template <typename Value>
     bool skip_null_value(const Value& value)
     {
-        return skip_null_fields_ && is_null_value(value);
+        return skip_null_fields_ && serialization::is_null_value(value);
     }
 
 private:
