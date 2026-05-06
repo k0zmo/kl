@@ -36,6 +36,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/binary_rw/variant.hpp
     ${kl_SOURCE_DIR}/include/kl/binary_rw/vector.hpp
     base64.cpp
+    serialization_error.cpp
 )
 if(WIN32)
     target_sources(kl PRIVATE file_view_win32.cpp)

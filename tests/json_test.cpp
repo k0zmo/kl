@@ -1,8 +1,8 @@
 #include "kl/json.hpp"
 #include "kl/ctti.hpp"
-#include "kl/enum_set.hpp"
 #include "kl/reflect_enum.hpp"
 #include "kl/reflect_struct.hpp"
+#include "kl/serialization_error.hpp"
 #include "kl/utility.hpp"
 
 #include "input/typedefs.hpp"
@@ -17,9 +17,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
-#include <chrono>
 #include <cstdint>
-#include <cstring>
 #include <deque>
 #include <list>
 #include <map>
@@ -76,7 +74,7 @@ TEST_CASE("json")
     SECTION("parse error")
     {
         REQUIRE_NOTHROW(R"([])"_json);
-        REQUIRE_THROWS_AS(R"([{]})"_json, json::parse_error);
+        REQUIRE_THROWS_AS(R"([{]})"_json, serialization::parse_error);
     }
 
     SECTION("serialize inner_t")
@@ -117,7 +115,7 @@ TEST_CASE("json")
     {
         auto j = R"({"d": 1.0})"_json;
         REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error);
+                          serialization::deserialize_error);
         REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
                             "type must be an integral but is a kNullType\n"
                             "error when deserializing field r\n"
@@ -145,7 +143,7 @@ TEST_CASE("json")
     {
         auto j = R"({"Ad": 3.0, "B": 331, "C": 7.66})"_json;
         REQUIRE_THROWS_AS(json::deserialize<Manual>(j),
-                          json::deserialize_error);
+                          serialization::deserialize_error);
         REQUIRE_THROWS_WITH(json::deserialize<Manual>(j),
                             "type must be an integral but is a kNullType\n"
                             "error when deserializing field Ar\n"
@@ -154,7 +152,7 @@ TEST_CASE("json")
 
         j = R"({"Ad": 3.0, "Ar": 21, "C": 7.66})"_json;
         REQUIRE_THROWS_AS(json::deserialize<Manual>(j),
-                          json::deserialize_error);
+                          serialization::deserialize_error);
         REQUIRE_THROWS_WITH(json::deserialize<Manual>(j),
                             "type must be an integral but is a kNullType\n"
                             "error when deserializing field B\n"
@@ -759,7 +757,7 @@ rapidjson::Value serialize_adl(kl::json::tree_tag, global_struct, Context& ctx)
 void deserialize_adl(kl::json::tree_tag, global_struct& out, const rapidjson::Value& value)
 {
     if (value != "global_struct")
-        throw kl::json::deserialize_error{""};
+        throw kl::serialization::deserialize_error{""};
     out = global_struct{};
 }
 
@@ -773,7 +771,7 @@ rapidjson::Value serialize_adl(kl::json::tree_tag, none_t, Context&)
 
 void deserialize_adl(kl::json::tree_tag, none_t& out, const rapidjson::Value& value)
 {
-    out = value.IsNull() ? none_t{} : throw kl::json::deserialize_error{""};
+    out = value.IsNull() ? none_t{} : throw kl::serialization::deserialize_error{""};
 }
 
 // Defining such function with specializaton would not be possible as there's no
