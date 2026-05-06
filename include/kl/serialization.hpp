@@ -9,7 +9,8 @@
 namespace kl::serialization {
 
 /*
-   # Customization contract
+   Customization contract
+   ======================
   
    There are two user-facing customization mechanisms:
   

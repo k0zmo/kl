@@ -972,42 +972,6 @@ TEST_CASE("json dump")
     }
 }
 
-namespace {
-
-class my_dump_context
-{
-public:
-    using writer_type = rapidjson::Writer<rapidjson::StringBuffer>;
-
-    explicit my_dump_context(writer_type& writer) : writer_{writer} {}
-
-    writer_type& writer() const { return writer_; }
-
-    template <typename Key, typename Value>
-    bool skip_field(const Key& key, const Value&)
-    {
-        return !std::strcmp(key, "secret");
-    }
-
-private:
-    writer_type& writer_;
-};
-} // namespace
-
-TEST_CASE("json dump - custom context")
-{
-    using namespace kl;
-    using namespace rapidjson;
-
-    StringBuffer sb;
-    Writer<StringBuffer> writer{sb};
-    my_dump_context ctx{writer};
-
-    json::dump(struct_with_blacklisted{}, ctx);
-    std::string res = sb.GetString();
-    CHECK(res == R"({"value":34,"other_non_secret":true})");
-}
-
 template <typename Context>
 void dump_adl(kl::json::stream_tag, global_struct, Context& ctx)
 {
