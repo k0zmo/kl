@@ -48,7 +48,7 @@ void dump_adl(const Range& rng, Context& ctx)
 }
 
 template <typename Backend, typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
+          enable_if<ctti::is_reflectable<Reflectable>> = true>
 void dump_adl(const Reflectable& refl, Context& ctx)
 {
     Backend::begin_map(ctx);
@@ -145,7 +145,7 @@ typename Backend::value_type serialize_adl(const Range& rng, Context& ctx)
 }
 
 template <typename Backend, typename Reflectable, typename Context,
-          enable_if<is_reflectable<Reflectable>> = true>
+          enable_if<ctti::is_reflectable<Reflectable>> = true>
 typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx)
 {
     auto out = Backend::make_map();
@@ -264,7 +264,7 @@ void deserialize_adl(GrowableRange& out, const typename Backend::value_type& val
     });
 }
 
-template <typename Backend, typename Reflectable, enable_if<is_reflectable<Reflectable>> = true>
+template <typename Backend, typename Reflectable, enable_if<ctti::is_reflectable<Reflectable>> = true>
 void deserialize_adl(Reflectable& out, const typename Backend::value_type& value)
 try
 {
