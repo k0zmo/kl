@@ -976,38 +976,6 @@ inner:
     }
 }
 
-namespace {
-
-class my_dump_context
-{
-public:
-    explicit my_dump_context(YAML::Emitter& emitter) : emitter_{emitter} {}
-
-    YAML::Emitter& emitter() const { return emitter_; }
-
-    template <typename Key, typename Value>
-    bool skip_field(const Key& key, const Value&)
-    {
-        return !std::strcmp(key, "secret");
-    }
-
-private:
-    YAML::Emitter& emitter_;
-};
-} // namespace
-
-TEST_CASE("yaml dump - custom context")
-{
-    using namespace kl;
-
-    YAML::Emitter emitter;
-    my_dump_context ctx{emitter};
-
-    yaml::dump(struct_with_blacklisted{}, ctx);
-    std::string res = emitter.c_str();
-    CHECK(res == "value: 34\nother_non_secret: true");
-}
-
 template <typename Context>
 void dump_adl(kl::yaml::stream_tag, global_struct, Context& ctx)
 {

@@ -27,7 +27,7 @@ void dump_adl(const Map& map, Context& ctx)
     Backend::begin_map(ctx);
     for (const auto& [key, value] : map)
     {
-        if (!ctx.skip_field(key, value))
+        if (!ctx.skip_null_value(value))
         {
             Backend::write_key(key, ctx);
             Backend::dump(value, ctx);
@@ -53,7 +53,7 @@ void dump_adl(const Reflectable& refl, Context& ctx)
 {
     Backend::begin_map(ctx);
     ctti::reflect(refl, [&ctx](auto& field, auto name) {
-        if (!ctx.skip_field(name, field))
+        if (!ctx.skip_null_value(field))
         {
             Backend::write_key(name, ctx);
             Backend::dump(field, ctx);
@@ -127,7 +127,7 @@ typename Backend::value_type serialize_adl(const Map& map, Context& ctx)
     auto out = Backend::make_map();
     for (const auto& [key, value] : map)
     {
-        if (!ctx.skip_field(key, value))
+        if (!ctx.skip_null_value(value))
             Backend::add_field(out, key, Backend::serialize(value, ctx), ctx);
     }
     return out;
@@ -150,7 +150,7 @@ typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx
 {
     auto out = Backend::make_map();
     ctti::reflect(refl, [&out, &ctx](auto& field, auto name) {
-        if (!ctx.skip_field(name, field))
+        if (!ctx.skip_null_value(field))
             Backend::add_field(out, name, Backend::serialize(field, ctx), ctx);
     });
     return out;

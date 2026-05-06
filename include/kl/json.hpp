@@ -86,8 +86,8 @@ public:
 
     Writer& writer() const { return writer_; }
 
-    template <typename Key, typename Value>
-    bool skip_field(const Key&, const Value& value)
+    template <typename Value>
+    bool skip_null_value(const Value& value)
     {
         return skip_null_fields_ && is_null_value(value);
     }
@@ -107,8 +107,8 @@ public:
 
     json::allocator& allocator() { return alloc_; }
 
-    template <typename Key, typename Value>
-    bool skip_field(const Key&, const Value& value)
+    template <typename Value>
+    bool skip_null_value(const Value& value)
     {
         return skip_null_fields_ && is_null_value(value);
     }
@@ -135,8 +135,8 @@ public:
 
     json::allocator& allocator() { return alloc_; }
 
-    template <typename Key, typename Value>
-    bool skip_field(const Key&, const Value& value)
+    template <typename Value>
+    bool skip_null_value(const Value& value)
     {
         return skip_null_fields_ && is_null_value(value);
     }
