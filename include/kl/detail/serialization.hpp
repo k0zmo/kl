@@ -17,6 +17,12 @@
 
 namespace kl::serialization::detail {
 
+template <typename Attribute, typename Field>
+constexpr bool has_attribute(const Field&)
+{
+    return Field::template has<Attribute>();
+}
+
 template <typename Backend, typename Field>
 decltype(auto) at_field(const typename Backend::value_type& value, const Field& field)
 {
@@ -78,7 +84,7 @@ void dump_adl(const Reflectable& refl, Context& ctx)
 {
     Backend::begin_map(ctx);
     ctti::reflect(refl, [&ctx](auto field) {
-        if constexpr (!field.template has<skip_serialization_t>())
+        if constexpr (!has_attribute<skip_serialization_t>(field))
         {
             auto&& value = field.value();
             if (!ctx.skip_null_value(value))
@@ -179,7 +185,7 @@ typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx
 {
     auto out = Backend::make_map();
     ctti::reflect(refl, [&out, &ctx](auto field) {
-        if constexpr (!field.template has<skip_serialization_t>())
+        if constexpr (!has_attribute<skip_serialization_t>(field))
         {
             auto&& value = field.value();
             if (!ctx.skip_null_value(value))
@@ -304,7 +310,7 @@ try
     if (Backend::is_map(value))
     {
         ctti::reflect(out, [&value](auto field) {
-            if constexpr (!field.template has<skip_deserialization_t>())
+            if constexpr (!has_attribute<skip_deserialization_t>(field))
             {
                 try
                 {
@@ -328,7 +334,7 @@ try
         }
 
         ctti::reflect(out, [&value, index = 0U](auto field) mutable {
-            if constexpr (!field.template has<skip_deserialization_t>())
+            if constexpr (!has_attribute<skip_deserialization_t>(field))
             {
                 try
                 {
