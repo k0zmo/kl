@@ -368,6 +368,11 @@ struct yaml_tree_backend
     static bool is_null(const value_type& value) { return !value || value.IsNull(); }
     static std::size_t size(const value_type& value) { return value.size(); }
 
+    static bool has_field(const value_type& object, const char* name)
+    {
+        return static_cast<bool>(object[name]);
+    }
+
     template <typename Key>
     static value_type at_field(const value_type& value, const Key& name)
     {
