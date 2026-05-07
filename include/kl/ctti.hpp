@@ -6,8 +6,9 @@
 #include <boost/core/demangle.hpp>
 
 #include <cstddef>
-#include <typeinfo>
 #include <string>
+#include <typeinfo>
+#include <utility>
 
 namespace kl::ctti {
 namespace detail {
@@ -37,11 +38,9 @@ constexpr void reflect(Reflected&& r, Visitor&& v)
 {
     using R = remove_cvref_t<Reflected>;
 
-    static_assert(
-        detail::has_reflect_struct_v<R>,
-        "Can't reflect this type. Define reflect_struct function");
-    reflect_struct(std::forward<Visitor>(v), std::forward<Reflected>(r),
-                    record<R>);
+    static_assert(detail::has_reflect_struct_v<R>,
+                  "Can't reflect this type. Define reflect_struct function");
+    reflect_struct(std::forward<Visitor>(v), std::forward<Reflected>(r), record<R>);
 }
 
 template <typename Reflected>
@@ -49,9 +48,8 @@ constexpr std::size_t num_fields() noexcept
 {
     using R = remove_cvref_t<Reflected>;
 
-    static_assert(
-        detail::has_reflect_struct_v<R>,
-        "Can't reflect this type. Define reflect_struct function");
+    static_assert(detail::has_reflect_struct_v<R>,
+                  "Can't reflect this type. Define reflect_struct function");
     return reflect_num_fields(record<R>);
 }
 

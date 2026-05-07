@@ -2,8 +2,8 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <sstream>
 #include <string>
-#include <tuple>
 
 namespace {
 
@@ -28,32 +28,14 @@ TEST_CASE("reflect struct")
     using namespace std::string_literals;
 
     A a{2, true, 3.14};
-    std::tuple<int, bool, double> t{};
-    unsigned acc{};
+    std::ostringstream ss;
     reflect_struct(
-        [&](auto&, auto name) {
-            switch (acc)
-            {
-            case 0:
-                CHECK(name == "i"s);
-                std::get<0>(t) = a.i;
-                break;
-            case 1:
-                CHECK(name == "b"s);
-                std::get<1>(t) = a.b;
-                break;
-            case 2:
-                CHECK(name == "d"s);
-                std::get<2>(t) = a.d;
-                break;
-            }
-            ++acc;
+        [&](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         },
-        a, kl::record<A>);
+        a, kl::ctti::record<A>);
 
-    CHECK(std::get<0>(t) == a.i);
-    CHECK(std::get<1>(t) == a.b);
-    CHECK(std::get<2>(t) == a.d);
+    CHECK(ss.str() == "i: 2\nb: 1\nd: 3.14\n");
 
     const B b = [&]() {
         B b;
@@ -63,13 +45,13 @@ TEST_CASE("reflect struct")
     }();
 
     std::string last_name;
-    acc = {};
+    unsigned acc{};
     reflect_struct(
-        [&](auto&, auto name) {
+        [&](auto field) {
             ++acc;
-            last_name = name;
+            last_name = field.name();
         },
-        b, kl::record<B>);
+        b, kl::ctti::record<B>);
     CHECK(acc == 4);
     CHECK(last_name == "ull");
 }
