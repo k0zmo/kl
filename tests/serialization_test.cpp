@@ -1,4 +1,5 @@
 #include "kl/serialization.hpp"
+#include "kl/serialization_attributes.hpp"
 #include "kl/json.hpp"
 #include "kl/reflect_struct.hpp"
 #include "kl/yaml.hpp"
@@ -52,6 +53,22 @@ struct serialization_record
 };
 
 KL_REFLECT_STRUCT(serialization_record, i, s, values)
+
+struct serialization_attributes_record
+{
+    int keep{};
+    int skip_se{};
+    int skip_de{};
+    int skip_both{};
+    int skip_both_manually{};
+};
+
+KL_REFLECT_STRUCT(serialization_attributes_record, keep,
+                  (skip_se, kl::serialization::skip_serialization),
+                  (skip_de, kl::serialization::skip_deserialization),
+                  (skip_both, kl::serialization::skip),
+                  (skip_both_manually, kl::serialization::skip_serialization,
+                   kl::serialization::skip_deserialization))
 
 struct generic_adl_value
 {
@@ -164,6 +181,69 @@ TEST_CASE("serialization - json and yaml backends coexist")
         CHECK(yaml_out.i == 7);
         CHECK(yaml_out.s == "text");
         CHECK(yaml_out.values == std::vector<int>{1, 2, 3});
+    }
+}
+
+TEST_CASE("serialization - skip field attributes")
+{
+    serialization_attributes_record record{1, 2, 3, 4};
+
+    SECTION("skip serialization")
+    {
+        auto json_value = kl::json::serialize(record);
+        REQUIRE(json_value.IsObject());
+        CHECK(json_value.HasMember("keep"));
+        CHECK(!json_value.HasMember("skip_se"));
+        CHECK(json_value.HasMember("skip_de"));
+        CHECK(!json_value.HasMember("skip_both"));
+        CHECK(!json_value.HasMember("skip_both_manually"));
+
+        CHECK(kl::json::dump(record) == R"({"keep":1,"skip_de":3})");
+
+        auto yaml_value = kl::yaml::serialize(record);
+        REQUIRE(yaml_value.IsMap());
+        CHECK(yaml_value["keep"].as<int>() == 1);
+        CHECK(!yaml_value["skip_se"]);
+        CHECK(yaml_value["skip_de"].as<int>() == 3);
+        CHECK(!yaml_value["skip_both"]);
+        CHECK(!yaml_value["skip_both_manually"]);
+
+        CHECK(kl::yaml::dump(record) == "keep: 1\nskip_de: 3");
+    }
+
+    SECTION("skip deserialization")
+    {
+        rapidjson::Document json_value;
+        json_value.Parse(R"({
+            "keep": 10,
+            "skip_se": 20,
+            "skip_de": 30,
+            "skip_both": 40,
+            "skip_both_manually": 50
+        })");
+
+        serialization_attributes_record json_out{1, 2, 3, 4, 5};
+        kl::json::deserialize(json_out, json_value);
+        CHECK(json_out.keep == 10);
+        CHECK(json_out.skip_se == 20);
+        CHECK(json_out.skip_de == 3);
+        CHECK(json_out.skip_both == 4);
+        CHECK(json_out.skip_both_manually == 5);
+
+        YAML::Node yaml_value;
+        yaml_value["keep"] = 100;
+        yaml_value["skip_se"] = 200;
+        yaml_value["skip_de"] = 300;
+        yaml_value["skip_both"] = 400;
+        yaml_value["skip_both_manually"] = 500;
+
+        serialization_attributes_record yaml_out{1, 2, 3, 4, 5};
+        kl::yaml::deserialize(yaml_out, yaml_value);
+        CHECK(yaml_out.keep == 100);
+        CHECK(yaml_out.skip_se == 200);
+        CHECK(yaml_out.skip_de == 3);
+        CHECK(yaml_out.skip_both == 4);
+        CHECK(yaml_out.skip_both_manually == 5);
     }
 }
 
