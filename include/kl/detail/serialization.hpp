@@ -17,6 +17,29 @@
 
 namespace kl::serialization::detail {
 
+template <typename Backend, typename Field>
+decltype(auto) at_field(const typename Backend::value_type& value, const Field& field)
+{
+    if constexpr (!Field::template has<aliases_t>())
+    {
+        return Backend::at_field(value, field.name());
+    }
+    else
+    {
+        if (Backend::has_field(value, field.name()))
+            return Backend::at_field(value, field.name());
+
+        const auto* aliases = field.template get<aliases_t>();
+        for (const char* alias : *aliases)
+        {
+            if (Backend::has_field(value, alias))
+                return Backend::at_field(value, alias);
+        }
+
+        return Backend::at_field(value, field.name());
+    }
+}
+
 // dump_adl implementation
 
 template <typename Backend, typename Map, typename Context,
@@ -285,7 +308,7 @@ try
             {
                 try
                 {
-                    Backend::deserialize(field.value(), Backend::at_field(value, field.name()));
+                    Backend::deserialize(field.value(), at_field<Backend>(value, field));
                 }
                 catch (deserialize_error& ex)
                 {

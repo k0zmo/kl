@@ -455,6 +455,11 @@ struct json_tree_backend
     static bool is_null(const value_type& value) { return value.IsNull(); }
     static std::size_t size(const value_type& value) { return value.Size(); }
 
+    static bool has_field(const value_type& object, const char* name)
+    {
+        return object.IsObject() && object.HasMember(name);
+    }
+
     static const value_type& at_field(const value_type& value, const char* name)
     {
         return json::at(value.GetObject(), name);

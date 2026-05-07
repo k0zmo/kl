@@ -1,3 +1,4 @@
+#include "kl/ctti.hpp"
 #include "kl/serialization.hpp"
 #include "kl/serialization_attributes.hpp"
 #include "kl/json.hpp"
@@ -7,11 +8,13 @@
 #include "input/typedefs.hpp"
 
 #include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers.hpp>
 #include <rapidjson/document.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 #include <yaml-cpp/emitter.h>
 #include <yaml-cpp/node/node.h>
+#include <yaml-cpp/node/type.h>
 
 #include <chrono>
 #include <string>
@@ -52,7 +55,8 @@ struct serialization_record
     std::vector<int> values;
 };
 
-KL_REFLECT_STRUCT(serialization_record, i, s, values)
+KL_REFLECT_STRUCT(serialization_record, i, s,
+                  (values, kl::serialization::aliases("vals", "numbers")))
 
 struct serialization_attributes_record
 {
@@ -244,6 +248,111 @@ TEST_CASE("serialization - skip field attributes")
         CHECK(yaml_out.skip_de == 3);
         CHECK(yaml_out.skip_both == 4);
         CHECK(yaml_out.skip_both_manually == 5);
+    }
+}
+
+TEST_CASE("serialization - field aliases")
+{
+    serialization_record record{7, "text", {1, 2, 3}};
+
+    SECTION("json")
+    {
+        auto json_value = kl::json::serialize(record);
+        REQUIRE(json_value.IsObject());
+        CHECK(json_value.HasMember("i"));
+        CHECK(json_value.HasMember("s"));
+        CHECK(json_value.HasMember("values"));
+        CHECK(!json_value.HasMember("vals"));
+        CHECK(!json_value.HasMember("numbers"));
+
+        auto json_out = kl::json::deserialize<serialization_record>(json_value);
+        CHECK(json_out.i == 7);
+        CHECK(json_out.s == "text");
+        CHECK(json_out.values == std::vector<int>{1, 2, 3});
+
+        rapidjson::Document json_alias1 = R"({
+            "i": 7,
+            "s": "text",
+            "vals": [1, 2, 3]
+        })"_json;
+
+        json_out = kl::json::deserialize<serialization_record>(json_alias1);
+        CHECK(json_out.i == 7);
+        CHECK(json_out.s == "text");
+        CHECK(json_out.values == std::vector<int>{1, 2, 3});
+
+        rapidjson::Document json_alias2 = R"({
+            "i": 7,
+            "s": "text",
+            "numbers": [1, 2, 3]
+        })"_json;
+
+        json_out = kl::json::deserialize<serialization_record>(json_alias2);
+        CHECK(json_out.i == 7);
+        CHECK(json_out.s == "text");
+        CHECK(json_out.values == std::vector<int>{1, 2, 3});
+
+        rapidjson::Document json_alias3 = R"({
+            "i": 7,
+            "s": "text"
+        })"_json;
+
+        CHECK_THROWS_WITH(kl::json::deserialize<serialization_record>(json_alias3),
+                          "type must be an array but is a kNullType\n"
+                          "error when deserializing field values\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<serialization_record>());
+    }
+
+    SECTION("yaml")
+    {
+        auto yaml_value = kl::yaml::serialize(record);
+        REQUIRE(yaml_value.IsMap());
+        CHECK(yaml_value["i"].as<int>() == 7);
+        CHECK(yaml_value["s"].as<std::string>() == "text");
+        REQUIRE(yaml_value["values"].IsSequence());
+        CHECK(yaml_value["values"].size() == 3);
+
+        auto yaml_out = kl::yaml::deserialize<serialization_record>(yaml_value);
+        CHECK(yaml_out.i == 7);
+        CHECK(yaml_out.s == "text");
+        CHECK(yaml_out.values == std::vector<int>{1, 2, 3});
+
+        YAML::Node yaml_alias1;
+        yaml_alias1["i"] = 7;
+        yaml_alias1["s"] = "text";
+        yaml_alias1["vals"] = YAML::Node(YAML::NodeType::Sequence);
+        yaml_alias1["vals"].push_back(1);
+        yaml_alias1["vals"].push_back(2);
+        yaml_alias1["vals"].push_back(3);
+
+        yaml_out = kl::yaml::deserialize<serialization_record>(yaml_alias1);
+        CHECK(yaml_out.i == 7);
+        CHECK(yaml_out.s == "text");
+        CHECK(yaml_out.values == std::vector<int>{1, 2, 3});
+
+        YAML::Node yaml_alias2;
+        yaml_alias2["i"] = 7;
+        yaml_alias2["s"] = "text";
+        yaml_alias2["numbers"] = YAML::Node(YAML::NodeType::Sequence);
+        yaml_alias2["numbers"].push_back(1);
+        yaml_alias2["numbers"].push_back(2);
+        yaml_alias2["numbers"].push_back(3);
+
+        yaml_out = kl::yaml::deserialize<serialization_record>(yaml_alias2);
+        CHECK(yaml_out.i == 7);
+        CHECK(yaml_out.s == "text");
+        CHECK(yaml_out.values == std::vector<int>{1, 2, 3});
+
+        YAML::Node yaml_alias3;
+        yaml_alias3["i"] = 7;
+        yaml_alias3["s"] = "text";
+
+        CHECK_THROWS_WITH(kl::yaml::deserialize<serialization_record>(yaml_alias3),
+                          "type must be a sequence but is a Null\n"
+                          "error when deserializing field values\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<serialization_record>());
     }
 }
 
