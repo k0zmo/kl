@@ -5,6 +5,7 @@
 #include "kl/ctti.hpp"
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_set.hpp"
+#include "kl/serialization_attributes.hpp"
 #include "kl/utility.hpp"
 
 #include <cstddef>
@@ -54,11 +55,14 @@ void dump_adl(const Reflectable& refl, Context& ctx)
 {
     Backend::begin_map(ctx);
     ctti::reflect(refl, [&ctx](auto field) {
-        auto&& value = field.value();
-        if (!ctx.skip_null_value(value))
+        if constexpr (!field.template has<skip_serialization_t>())
         {
-            Backend::write_key(field.name(), ctx);
-            Backend::dump(value, ctx);
+            auto&& value = field.value();
+            if (!ctx.skip_null_value(value))
+            {
+                Backend::write_key(field.name(), ctx);
+                Backend::dump(value, ctx);
+            }
         }
     });
     Backend::end_map(ctx);
@@ -152,9 +156,12 @@ typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx
 {
     auto out = Backend::make_map();
     ctti::reflect(refl, [&out, &ctx](auto field) {
-        auto&& value = field.value();
-        if (!ctx.skip_null_value(value))
-            Backend::add_field(out, field.name(), Backend::serialize(value, ctx), ctx);
+        if constexpr (!field.template has<skip_serialization_t>())
+        {
+            auto&& value = field.value();
+            if (!ctx.skip_null_value(value))
+                Backend::add_field(out, field.name(), Backend::serialize(value, ctx), ctx);
+        }
     });
     return out;
 }
@@ -274,15 +281,19 @@ try
     if (Backend::is_map(value))
     {
         ctti::reflect(out, [&value](auto field) {
-            try
+            if constexpr (!field.template has<skip_deserialization_t>())
             {
-                Backend::deserialize(field.value(), Backend::at_field(value, field.name()));
-            }
-            catch (deserialize_error& ex)
-            {
-                std::string msg = "error when deserializing field " + std::string(field.name());
-                ex.add(msg.c_str());
-                throw;
+                try
+                {
+                    Backend::deserialize(field.value(), Backend::at_field(value, field.name()));
+                }
+                catch (deserialize_error& ex)
+                {
+                    std::string msg =
+                        "error when deserializing field " + std::string(field.name());
+                    ex.add(msg.c_str());
+                    throw;
+                }
             }
         });
     }
@@ -294,16 +305,19 @@ try
         }
 
         ctti::reflect(out, [&value, index = 0U](auto field) mutable {
-            try
+            if constexpr (!field.template has<skip_deserialization_t>())
             {
-                Backend::deserialize(field.value(), Backend::at_index(value, index));
-                ++index;
-            }
-            catch (deserialize_error& ex)
-            {
-                std::string msg = "error when deserializing element " + std::to_string(index);
-                ex.add(msg.c_str());
-                throw;
+                try
+                {
+                    Backend::deserialize(field.value(), Backend::at_index(value, index));
+                    ++index;
+                }
+                catch (deserialize_error& ex)
+                {
+                    std::string msg = "error when deserializing element " + std::to_string(index);
+                    ex.add(msg.c_str());
+                    throw;
+                }
             }
         });
     }
