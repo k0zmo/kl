@@ -53,11 +53,12 @@ template <typename Backend, typename Reflectable, typename Context,
 void dump_adl(const Reflectable& refl, Context& ctx)
 {
     Backend::begin_map(ctx);
-    ctti::reflect(refl, [&ctx](auto& field, auto name) {
-        if (!ctx.skip_null_value(field))
+    ctti::reflect(refl, [&ctx](auto field) {
+        auto&& value = field.value();
+        if (!ctx.skip_null_value(value))
         {
-            Backend::write_key(name, ctx);
-            Backend::dump(field, ctx);
+            Backend::write_key(field.name(), ctx);
+            Backend::dump(value, ctx);
         }
     });
     Backend::end_map(ctx);
@@ -150,9 +151,10 @@ template <typename Backend, typename Reflectable, typename Context,
 typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx)
 {
     auto out = Backend::make_map();
-    ctti::reflect(refl, [&out, &ctx](auto& field, auto name) {
-        if (!ctx.skip_null_value(field))
-            Backend::add_field(out, name, Backend::serialize(field, ctx), ctx);
+    ctti::reflect(refl, [&out, &ctx](auto field) {
+        auto&& value = field.value();
+        if (!ctx.skip_null_value(value))
+            Backend::add_field(out, field.name(), Backend::serialize(value, ctx), ctx);
     });
     return out;
 }
@@ -271,14 +273,14 @@ try
 {
     if (Backend::is_map(value))
     {
-        ctti::reflect(out, [&value](auto& field, auto name) {
+        ctti::reflect(out, [&value](auto field) {
             try
             {
-                Backend::deserialize(field, Backend::at_field(value, name));
+                Backend::deserialize(field.value(), Backend::at_field(value, field.name()));
             }
             catch (deserialize_error& ex)
             {
-                std::string msg = "error when deserializing field " + std::string(name);
+                std::string msg = "error when deserializing field " + std::string(field.name());
                 ex.add(msg.c_str());
                 throw;
             }
@@ -291,10 +293,10 @@ try
             throw deserialize_error{"sequence size is greater than declared struct's field count"};
         }
 
-        ctti::reflect(out, [&value, index = 0U](auto& field, auto) mutable {
+        ctti::reflect(out, [&value, index = 0U](auto field) mutable {
             try
             {
-                Backend::deserialize(field, Backend::at_index(value, index));
+                Backend::deserialize(field.value(), Backend::at_index(value, index));
                 ++index;
             }
             catch (deserialize_error& ex)

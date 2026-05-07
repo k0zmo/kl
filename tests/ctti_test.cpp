@@ -53,7 +53,7 @@ private:
     // because `d` and `e` are private
     template <typename Visitor, typename Self>
     friend constexpr void reflect_struct(Visitor&&, Self&&,
-                                         ::kl::record_class<T>);
+                                         ::kl::ctti::record_class<T>);
     std::string d;
     std::vector<std::string> e;
 };
@@ -74,7 +74,35 @@ struct ZZZ
     int& ref_a = a;
     const int& ref_b = b;
 };
-KL_REFLECT_STRUCT(ZZZ, a, b, ref_a, ref_b)
+template <typename Visitor, typename Self>
+[[maybe_unused]] constexpr void reflect_struct(Visitor&& vis, Self&& self,
+                                               ::kl::ctti::record_class<ZZZ>)
+{
+    vis(KL_ACCESSOR_FIELD(a));
+    vis(KL_ACCESSOR_FIELD(b));
+    vis(KL_ACCESSOR_FIELD(ref_a));
+    vis(KL_ACCESSOR_FIELD(ref_b));
+}
+
+[[maybe_unused]] constexpr std::size_t
+    reflect_num_fields(::kl::ctti::record_class<ZZZ>) noexcept
+{
+    return 4;
+}
+
+struct attr_base {};
+struct attr_derived : attr_base {};
+struct attr_value
+{
+    int value;
+};
+
+struct WithAttrs
+{
+    int visible;
+    int annotated;
+};
+KL_REFLECT_STRUCT(WithAttrs, visible, (annotated, attr_derived{}, attr_value{42}))
 } // namespace test
 
 namespace {
@@ -103,12 +131,12 @@ namespace test {
 
 std::ostream& operator<<(std::ostream& os, const A& a)
 {
-    kl::ctti::reflect(a, [&os](auto& field, auto name) {
-        os << name << ": ";
+    kl::ctti::reflect(a, [&os](auto field) {
+        os << field.name() << ": ";
         // This is used so GCC 7 and 8 will also consider `operator<<` for
         // vector<T> and array<T,N> defined above (see
         // https://godbolt.org/z/dw9DdN)
-        trampoline_operator(os, field);
+        trampoline_operator(os, field.value());
         os << "\n";
     });
     return os;
@@ -138,11 +166,37 @@ TEST_CASE("ctti")
 
         std::ostringstream ss;
         A a = {"ZXC", {1,2,3}, 0};
-        kl::ctti::reflect(a, [&ss](auto& field, auto name){
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect(a, [&ss](auto field){
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "x: ZXC\ny: 1, 2, 3\n");
+    }
+
+    SECTION("field metadata")
+    {
+        WithAttrs value{1, 2};
+        unsigned acc{};
+        kl::ctti::reflect(value, [&](auto field) {
+            if (acc == 0)
+            {
+                CHECK(field.name() == "visible"s);
+                CHECK(field.value() == 1);
+                CHECK(!field.template has<attr_base>());
+            }
+            else
+            {
+                CHECK(field.name() == "annotated"s);
+                CHECK(field.value() == 2);
+                CHECK(field.template has<attr_base>());
+                REQUIRE(field.template get<attr_base>() != nullptr);
+                REQUIRE(field.template get<attr_value>() != nullptr);
+                CHECK(field.template get<attr_value>()->value == 42);
+            }
+            ++acc;
+        });
+
+        CHECK(acc == 2);
     }
 
     SECTION("global type B, derives from A")
@@ -158,8 +212,8 @@ TEST_CASE("ctti")
         b.y = {0, 1337};
         b.zzz = 123;
         b.z = 0;
-        kl::ctti::reflect(b, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect(b, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
@@ -177,8 +231,8 @@ TEST_CASE("ctti")
         const B& ref_b = b;
 
         std::ostringstream ss;
-        kl::ctti::reflect(ref_b, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect(ref_b, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
@@ -193,8 +247,8 @@ TEST_CASE("ctti")
 
         std::ostringstream ss;
         ss << std::boolalpha;
-        kl::ctti::reflect(s, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect(s, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "a: 5\nb: false\nc: 3.14, 0, 0\naa: x: ZXC\ny: 1, "
@@ -213,8 +267,8 @@ TEST_CASE("ctti")
 
         std::ostringstream ss;
         ss << std::boolalpha;
-        kl::ctti::reflect(sd, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect(sd, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "a: 3400\nb: true\nadev: 114\n");
@@ -234,8 +288,8 @@ TEST_CASE("ctti")
 
         std::ostringstream ss;
         ss << std::boolalpha;
-        kl::ctti::reflect(t, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect(t, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
         REQUIRE(ss.str() == "x: \ny: .\na: 2\nb: true\nc: 2.71, 3.14, "
                             "1.67\naa: x: \ny: .\n\nd: HELLO\ne: WORLD, "

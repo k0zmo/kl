@@ -36,14 +36,14 @@ struct Manual
 };
 template <typename Visitor, typename Self>
 constexpr void reflect_struct(Visitor&& vis, Self&& self,
-                              ::kl::record_class<Manual>)
+                              ::kl::ctti::record_class<Manual>)
 {
-    vis(self.a.r, "Ar");
-    vis(self.a.d, "Ad");
-    vis(self.b, "B");
-    vis(self.c, "C");
+    vis(KL_ACCESSOR_FIELD_NAMED("Ar", object.a.r));
+    vis(KL_ACCESSOR_FIELD_NAMED("Ad", object.a.d));
+    vis(KL_ACCESSOR_FIELD_NAMED("B", object.b));
+    vis(KL_ACCESSOR_FIELD_NAMED("C", object.c));
 }
-constexpr std::size_t reflect_num_fields(::kl::record_class<Manual>) noexcept
+constexpr std::size_t reflect_num_fields(::kl::ctti::record_class<Manual>) noexcept
 {
     return 4U;
 }
