@@ -12,6 +12,7 @@ struct skip_t : skip_serialization_t, skip_deserialization_t {};
 struct skip_if_null_t {};
 struct emit_null_t {};
 struct allow_missing_t {};
+struct skip_if_empty_t {};
 
 template <typename T>
 struct default_value_t
@@ -77,6 +78,9 @@ inline constexpr emit_null_t emit_null{};
 
 // Deserialization only. If the input key is absent, leave the existing field value unchanged.
 inline constexpr allow_missing_t allow_missing{};
+
+// Serialization only. Omit empty strings/containers
+inline constexpr skip_if_empty_t skip_if_empty{};
 
 // Deserialization only. If the input field is missing or present-but-null, assign value
 template <typename T>

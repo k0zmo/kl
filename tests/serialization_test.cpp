@@ -103,6 +103,37 @@ KL_REFLECT_STRUCT(nullish_serialization_record,
                   (emitted_null, attr::emit_null),
                   present)
 
+struct empty_serialization_record
+{
+    std::string context_empty;
+    std::string skipped_empty;
+    std::string present_string;
+    std::vector<int> skipped_empty_vector;
+    std::vector<int> present_vector;
+};
+
+KL_REFLECT_STRUCT(empty_serialization_record,
+                  context_empty,
+                  (skipped_empty, attr::skip_if_empty),
+                  present_string,
+                  (skipped_empty_vector, attr::skip_if_empty),
+                  present_vector)
+
+struct custom_empty_value
+{
+    bool empty{};
+};
+
+struct custom_empty_serialization_record
+{
+    custom_empty_value skipped_custom;
+    custom_empty_value present_custom;
+};
+
+KL_REFLECT_STRUCT(custom_empty_serialization_record,
+                  (skipped_custom, attr::skip_if_empty),
+                  (present_custom, attr::skip_if_empty))
+
 struct defaulted_serialization_record
 {
     int id{};
@@ -166,6 +197,41 @@ YAML::Node serialize_adl(kl::yaml::tree_tag, const reflected_with_backend_adl&, 
 }
 
 } // namespace
+
+namespace kl::serialization {
+
+template <>
+struct empty_traits<custom_empty_value>
+{
+    static bool is_empty_value(const custom_empty_value& value)
+    {
+        return value.empty;
+    }
+};
+
+template <>
+struct serializer<custom_empty_value>
+{
+    template <typename Context>
+    static auto serialize(const custom_empty_value& value, Context& ctx)
+    {
+        return serialization::serialize(value.empty, ctx);
+    }
+
+    template <typename Value>
+    static void deserialize(custom_empty_value& out, const Value& value)
+    {
+        out.empty = serialization::deserialize<bool>(value);
+    }
+
+    template <typename Context>
+    static void dump(const custom_empty_value& value, Context& ctx)
+    {
+        serialization::dump(value.empty, ctx);
+    }
+};
+
+} // namespace kl::serialization
 
 TEST_CASE("serialization - json and yaml backends coexist")
 {
@@ -377,6 +443,72 @@ TEST_CASE("serialization - null field attributes")
         kl::serialization::dump(record, yaml_dump_ctx);
         CHECK(std::string{emitter.c_str()} ==
               "context_null: ~\nemitted_null: ~\npresent: 7");
+    }
+}
+
+TEST_CASE("serialization - empty field attributes")
+{
+    empty_serialization_record record{"", "", "present", {}, {1, 2}};
+
+    SECTION("json")
+    {
+        auto json_value = kl::json::serialize(record);
+        REQUIRE(json_value.IsObject());
+        REQUIRE(json_value.HasMember("context_empty"));
+        CHECK(json_value["context_empty"].GetString() == std::string{});
+        CHECK(!json_value.HasMember("skipped_empty"));
+        REQUIRE(json_value.HasMember("present_string"));
+        CHECK(json_value["present_string"].GetString() == std::string{"present"});
+        CHECK(!json_value.HasMember("skipped_empty_vector"));
+        REQUIRE(json_value.HasMember("present_vector"));
+        CHECK(json_value["present_vector"].Size() == 2);
+
+        CHECK(kl::json::dump(record) ==
+              R"({"context_empty":"","present_string":"present","present_vector":[1,2]})");
+    }
+
+    SECTION("yaml")
+    {
+        auto yaml_value = kl::yaml::serialize(record);
+        REQUIRE(yaml_value.IsMap());
+        REQUIRE(yaml_value["context_empty"]);
+        CHECK(yaml_value["context_empty"].as<std::string>() == "");
+        CHECK(!yaml_value["skipped_empty"]);
+        REQUIRE(yaml_value["present_string"]);
+        CHECK(yaml_value["present_string"].as<std::string>() == "present");
+        CHECK(!yaml_value["skipped_empty_vector"]);
+        REQUIRE(yaml_value["present_vector"]);
+        CHECK(yaml_value["present_vector"].size() == 2);
+
+        CHECK(kl::yaml::dump(record) ==
+              "context_empty: \"\"\npresent_string: present\npresent_vector:\n  - 1\n  - 2");
+    }
+}
+
+TEST_CASE("serialization - empty traits customization point")
+{
+    custom_empty_serialization_record record{{true}, {false}};
+
+    SECTION("json")
+    {
+        auto json_value = kl::json::serialize(record);
+        REQUIRE(json_value.IsObject());
+        CHECK(!json_value.HasMember("skipped_custom"));
+        REQUIRE(json_value.HasMember("present_custom"));
+        CHECK_FALSE(json_value["present_custom"].GetBool());
+
+        CHECK(kl::json::dump(record) == R"({"present_custom":false})");
+    }
+
+    SECTION("yaml")
+    {
+        auto yaml_value = kl::yaml::serialize(record);
+        REQUIRE(yaml_value.IsMap());
+        CHECK(!yaml_value["skipped_custom"]);
+        REQUIRE(yaml_value["present_custom"]);
+        CHECK_FALSE(yaml_value["present_custom"].as<bool>());
+
+        CHECK(kl::yaml::dump(record) == "present_custom: false");
     }
 }
 

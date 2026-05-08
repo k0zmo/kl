@@ -3,6 +3,8 @@
 #include "kl/type_traits.hpp"
 
 #include <optional>
+#include <type_traits>
+#include <utility>
 
 namespace kl::serialization {
 
@@ -25,6 +27,36 @@ template <typename T>
 bool is_null_value(const T& t)
 {
     return optional_traits<T>::is_null_value(t);
+}
+
+namespace detail {
+
+KL_VALID_EXPR_HELPER(has_empty, std::declval<const T&>().empty())
+
+} // namespace detail
+
+template <typename T>
+struct empty_traits
+{
+    static bool is_empty_value(const T& value)
+    {
+        if constexpr (detail::has_empty_v<T>)
+        {
+            return value.empty();
+        }
+        else
+        {
+            static_assert(always_false_v<T>,
+                          "serialization empty_traits<T> must be specialized "
+                          "or T must provide empty()");
+        }
+    }
+};
+
+template <typename T>
+bool is_empty_value(const T& t)
+{
+    return empty_traits<T>::is_empty_value(t);
 }
 
 template <typename Backend>
