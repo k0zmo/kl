@@ -44,6 +44,21 @@ bool skip_null_field(const Value& value, Context& ctx)
         return ctx.skip_null_value(value);
 }
 
+template <typename Field, typename Value>
+bool skip_empty_field(const Value& value)
+{
+    if constexpr (Field::template has<attributes::skip_if_empty_t>())
+        return is_empty_value(value);
+    else
+        return false;
+}
+
+template <typename Field, typename Value, typename Context>
+bool skip_serialized_field(const Value& value, Context& ctx)
+{
+    return skip_null_field<Field>(value, ctx) || skip_empty_field<Field>(value);
+}
+
 template <typename Field>
 bool apply_default_value(const Field& field)
 {
@@ -148,7 +163,7 @@ void dump_adl(const Reflectable& refl, Context& ctx)
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
         {
             auto&& value = field.value();
-            if (!skip_null_field<decltype(field)>(value, ctx))
+            if (!skip_serialized_field<decltype(field)>(value, ctx))
             {
                 Backend::write_key(serialized_name(field), ctx);
                 Backend::dump(value, ctx);
@@ -249,7 +264,7 @@ typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
         {
             auto&& value = field.value();
-            if (!skip_null_field<decltype(field)>(value, ctx))
+            if (!skip_serialized_field<decltype(field)>(value, ctx))
             {
                 Backend::add_field(out,
                                    serialized_name(field),
