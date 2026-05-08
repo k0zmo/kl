@@ -115,7 +115,7 @@ struct defaulted_serialization_record
 KL_REFLECT_STRUCT(defaulted_serialization_record,
                   id,
                   (count, attr::default_value(42)),
-                  (label, attr::default_value(std::string{"default-label"})),
+                  (label, attr::default_value("default-label")),
                   (renamed, attr::rename("wire-renamed"), attr::default_value(7)),
                   (aliased, attr::aliases("legacy-aliased"), attr::default_value(9)))
 

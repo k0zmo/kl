@@ -18,6 +18,23 @@ struct default_value_t
     T value;
 };
 
+// This is needed so we can query attributes by 'shape' (is it default_value<T>?)
+// instead of requiring exact type match
+namespace detail {
+
+template <typename T>
+struct is_default_value : std::false_type {};
+
+template <typename T>
+struct is_default_value<default_value_t<T>> : std::true_type
+{
+    using value_type = T;
+};
+
+template <typename T>
+inline constexpr bool is_default_value_v = is_default_value<T>::value;
+} // namespace detail
+
 struct aliases_t
 {
     static constexpr std::size_t max_aliases = 8;
@@ -57,6 +74,7 @@ inline constexpr skip_if_null_t skip_if_null{};
 // when the context-wide skip_null_fields is true.
 inline constexpr emit_null_t emit_null{};
 
+// Deserialization only. If the input field is missing or present-but-null, assign value
 template <typename T>
 constexpr default_value_t<std::decay_t<T>> default_value(T&& value)
 {

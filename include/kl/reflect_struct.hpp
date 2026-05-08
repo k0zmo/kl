@@ -133,6 +133,12 @@ public:
         return get_impl<Attribute, 0>();
     }
 
+    template <typename Visitor>
+    constexpr void visit_attributes(Visitor&& vis) const
+    {
+        std::apply([&](const auto&... attr) { (vis(attr), ...); }, attributes_);
+    }
+
 private:
     template <typename Attribute, std::size_t I>
     constexpr const Attribute* get_impl() const
