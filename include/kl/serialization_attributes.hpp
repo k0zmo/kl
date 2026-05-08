@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <type_traits>
 
-namespace kl::serialization {
+namespace kl::serialization::attributes {
 
 struct skip_serialization_t {};
 struct skip_deserialization_t {};
@@ -41,4 +41,4 @@ constexpr aliases_t aliases(Names... names)
     return aliases_t{names...};
 }
 
-} // namespace kl::serialization
+} // namespace kl::serialization::attributes
