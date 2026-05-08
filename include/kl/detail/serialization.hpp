@@ -26,7 +26,7 @@ constexpr bool has_attribute(const Field&)
 template <typename Backend, typename Field>
 decltype(auto) at_field(const typename Backend::value_type& value, const Field& field)
 {
-    if constexpr (!Field::template has<aliases_t>())
+    if constexpr (!Field::template has<attributes::aliases_t>())
     {
         return Backend::at_field(value, field.name());
     }
@@ -35,7 +35,7 @@ decltype(auto) at_field(const typename Backend::value_type& value, const Field& 
         if (Backend::has_field(value, field.name()))
             return Backend::at_field(value, field.name());
 
-        const auto* aliases = field.template get<aliases_t>();
+        const auto* aliases = field.template get<attributes::aliases_t>();
         for (const char* alias : *aliases)
         {
             if (Backend::has_field(value, alias))
@@ -84,7 +84,7 @@ void dump_adl(const Reflectable& refl, Context& ctx)
 {
     Backend::begin_map(ctx);
     ctti::reflect(refl, [&ctx](auto field) {
-        if constexpr (!has_attribute<skip_serialization_t>(field))
+        if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
         {
             auto&& value = field.value();
             if (!ctx.skip_null_value(value))
@@ -185,7 +185,7 @@ typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx
 {
     auto out = Backend::make_map();
     ctti::reflect(refl, [&out, &ctx](auto field) {
-        if constexpr (!has_attribute<skip_serialization_t>(field))
+        if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
         {
             auto&& value = field.value();
             if (!ctx.skip_null_value(value))
@@ -310,7 +310,7 @@ try
     if (Backend::is_map(value))
     {
         ctti::reflect(out, [&value](auto field) {
-            if constexpr (!has_attribute<skip_deserialization_t>(field))
+            if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
             {
                 try
                 {
@@ -334,7 +334,7 @@ try
         }
 
         ctti::reflect(out, [&value, index = 0U](auto field) mutable {
-            if constexpr (!has_attribute<skip_deserialization_t>(field))
+            if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
             {
                 try
                 {

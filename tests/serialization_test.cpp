@@ -46,6 +46,8 @@ struct serializer<std::chrono::seconds>
 
 } // namespace kl::serialization
 
+namespace attr = kl::serialization::attributes;
+
 namespace {
 
 struct serialization_record
@@ -56,7 +58,7 @@ struct serialization_record
 };
 
 KL_REFLECT_STRUCT(serialization_record, i, s,
-                  (values, kl::serialization::aliases("vals", "numbers")))
+                  (values, attr::aliases("vals", "numbers")))
 
 struct serialization_attributes_record
 {
@@ -68,11 +70,10 @@ struct serialization_attributes_record
 };
 
 KL_REFLECT_STRUCT(serialization_attributes_record, keep,
-                  (skip_se, kl::serialization::skip_serialization),
-                  (skip_de, kl::serialization::skip_deserialization),
-                  (skip_both, kl::serialization::skip),
-                  (skip_both_manually, kl::serialization::skip_serialization,
-                   kl::serialization::skip_deserialization))
+                  (skip_se, attr::skip_serialization),
+                  (skip_de, attr::skip_deserialization),
+                  (skip_both, attr::skip),
+                  (skip_both_manually, attr::skip_serialization, attr::skip_deserialization))
 
 struct generic_adl_value
 {
