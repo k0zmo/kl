@@ -69,6 +69,23 @@ bool apply_default_value(const Field& field)
     return applied;
 }
 
+template <typename Field>
+bool apply_missing_field_policy(const Field& field)
+{
+    bool applied = apply_default_value(field);
+    if (!applied && field.template has<attributes::allow_missing_t>())
+    {
+        applied = true;
+    }
+    return applied;
+}
+
+template <typename Field>
+bool apply_null_field_policy(const Field& field)
+{
+    return apply_default_value(field);
+}
+
 template <typename Backend, typename Field>
 const char* resolve_field_name(const typename Backend::value_type& value, const Field& field)
 {
@@ -366,7 +383,7 @@ try
                     const char* name = resolve_field_name<Backend>(value, field);
                     if (!name)
                     {
-                        if (apply_default_value(field))
+                        if (apply_missing_field_policy(field))
                             return;
 
                         Backend::deserialize(field.value(), Backend::at_field(value, serialized_name(field)));
@@ -375,7 +392,7 @@ try
 
                     const auto& node = Backend::at_field(value, name);
                     // If the node exists but is null and we also need to apply a default value.
-                    if (Backend::is_null(node) && apply_default_value(field))
+                    if (Backend::is_null(node) && apply_null_field_policy(field))
                         return;
                     Backend::deserialize(field.value(), node);
                 }
