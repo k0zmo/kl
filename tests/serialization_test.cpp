@@ -119,6 +119,22 @@ KL_REFLECT_STRUCT(defaulted_serialization_record,
                   (renamed, attr::rename("wire-renamed"), attr::default_value(7)),
                   (aliased, attr::aliases("legacy-aliased"), attr::default_value(9)))
 
+struct allow_missing_serialization_record
+{
+    int id{};
+    int count{11};
+    std::string label{"kept"};
+    int default_then_allowed{};
+    int allowed_then_default{};
+};
+
+KL_REFLECT_STRUCT(allow_missing_serialization_record,
+                  id,
+                  (count, attr::allow_missing),
+                  (label, attr::allow_missing),
+                  (default_then_allowed, attr::default_value(31), attr::allow_missing),
+                  (allowed_then_default, attr::allow_missing, attr::default_value(32)))
+
 struct generic_adl_value
 {
     int value;
@@ -449,6 +465,83 @@ TEST_CASE("serialization - default value attribute")
         CHECK(yaml_out.label == "present-label");
         CHECK(yaml_out.renamed == 101);
         CHECK(yaml_out.aliased == 102);
+    }
+}
+
+TEST_CASE("serialization - allow missing attribute")
+{
+    SECTION("json")
+    {
+        rapidjson::Document missing = R"({
+            "id": 1
+        })"_json;
+
+        auto json_out = kl::json::deserialize<allow_missing_serialization_record>(missing);
+        CHECK(json_out.id == 1);
+        CHECK(json_out.count == 11);
+        CHECK(json_out.label == "kept");
+        CHECK(json_out.default_then_allowed == 31);
+        CHECK(json_out.allowed_then_default == 32);
+
+        rapidjson::Document present = R"({
+            "id": 2,
+            "count": 21,
+            "label": "present",
+            "default_then_allowed": 22,
+            "allowed_then_default": 23
+        })"_json;
+
+        json_out = kl::json::deserialize<allow_missing_serialization_record>(present);
+        CHECK(json_out.id == 2);
+        CHECK(json_out.count == 21);
+        CHECK(json_out.label == "present");
+        CHECK(json_out.default_then_allowed == 22);
+        CHECK(json_out.allowed_then_default == 23);
+
+        rapidjson::Document null = R"({
+            "id": 3,
+            "count": null
+        })"_json;
+
+        CHECK_THROWS_AS(kl::json::deserialize<allow_missing_serialization_record>(null),
+                        kl::serialization::deserialize_error);
+    }
+
+    SECTION("yaml")
+    {
+        auto missing = R"(
+id: 1
+)"_yaml;
+
+        auto yaml_out = kl::yaml::deserialize<allow_missing_serialization_record>(missing);
+        CHECK(yaml_out.id == 1);
+        CHECK(yaml_out.count == 11);
+        CHECK(yaml_out.label == "kept");
+        CHECK(yaml_out.default_then_allowed == 31);
+        CHECK(yaml_out.allowed_then_default == 32);
+
+        auto present = R"(
+id: 2
+count: 21
+label: present
+default_then_allowed: 22
+allowed_then_default: 23
+)"_yaml;
+
+        yaml_out = kl::yaml::deserialize<allow_missing_serialization_record>(present);
+        CHECK(yaml_out.id == 2);
+        CHECK(yaml_out.count == 21);
+        CHECK(yaml_out.label == "present");
+        CHECK(yaml_out.default_then_allowed == 22);
+        CHECK(yaml_out.allowed_then_default == 23);
+
+        auto null = R"(
+id: 3
+count: ~
+)"_yaml;
+
+        CHECK_THROWS_AS(kl::yaml::deserialize<allow_missing_serialization_record>(null),
+                        kl::serialization::deserialize_error);
     }
 }
 
