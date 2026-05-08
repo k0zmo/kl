@@ -6,6 +6,7 @@
 #include "kl/enum_reflector.hpp"
 #include "kl/enum_set.hpp"
 #include "kl/serialization_attributes.hpp"
+#include "kl/serialization_fwd.hpp"
 #include "kl/utility.hpp"
 
 #include <cstddef>

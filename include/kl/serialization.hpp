@@ -1,10 +1,10 @@
 #pragma once
 
+#include "kl/serialization_fwd.hpp"
 #include "kl/detail/serialization.hpp"
 #include "kl/type_traits.hpp"
 #include "kl/utility.hpp"
 
-#include <optional>
 #include <type_traits>
 
 namespace kl::serialization {
@@ -41,47 +41,8 @@ namespace kl::serialization {
    `kl::yaml::dump()`/`serialize()` force the backend themselves, so custom contexts
    used through those wrappers do not need to expose backend_type.
 */
-template <typename T>
-struct serializer;
-
-template <typename T>
-struct optional_traits
-{
-    static bool is_null_value(const T&) { return false; }
-};
-
-template <typename T>
-struct optional_traits<std::optional<T>>
-{
-    static bool is_null_value(const std::optional<T>& opt) { return !opt; }
-};
-
-template <typename T>
-bool is_null_value(const T& t)
-{
-    return optional_traits<T>::is_null_value(t);
-}
-
-template <typename Backend>
-struct backend_traits;
-
-template <typename Backend>
-struct backend_tag
-{
-    using backend_type = Backend;
-};
-
-template <typename Value>
-struct backend_for_value;
 
 namespace detail {
-
-template <typename BackendIdentity>
-using backend_t = typename BackendIdentity::backend_type;
-
-template <typename Value>
-using backend_for_value_t =
-    typename backend_for_value<remove_cvref_t<Value>>::type;
 
 template <typename T, typename Backend, typename Context>
 void dump(const T&, Context&, priority_tag<0>)
