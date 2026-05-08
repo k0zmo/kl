@@ -44,29 +44,44 @@ bool skip_null_field(const Field& field, const Value& value, Context& ctx)
         return ctx.skip_null_value(value);
 }
 
-template <typename Backend, typename Field>
-decltype(auto) at_field(const typename Backend::value_type& value, const Field& field)
+template <typename Field>
+bool apply_default_value(const Field& field)
 {
-    auto canonical = serialized_name(field);
+    // For now, this implementation requires a default_value's value to be the
+    // exact same type as the field's value.
+    using value_type = std::decay_t<decltype(field.value())>;
+    using attr_type = attributes::default_value_t<value_type>;
 
-    if constexpr (!Field::template has<attributes::aliases_t>())
+    if constexpr (Field::template has<attr_type>())
     {
-        return Backend::at_field(value, canonical);
+        field.value() = field.template get<attr_type>()->value;
+        return true;
     }
     else
     {
-        if (Backend::has_field(value, canonical))
-            return Backend::at_field(value, canonical);
+        return false;
+    }
+}
 
+template <typename Backend, typename Field>
+const char* resolve_field_name(const typename Backend::value_type& value, const Field& field)
+{
+    const char* canonical = serialized_name(field);
+
+    if (Backend::has_field(value, canonical))
+        return canonical;
+
+    if constexpr (Field::template has<attributes::aliases_t>())
+    {
         const auto* aliases = field.template get<attributes::aliases_t>();
         for (const char* alias : *aliases)
         {
             if (Backend::has_field(value, alias))
-                return Backend::at_field(value, alias);
+                return alias;
         }
-
-        return Backend::at_field(value, canonical);
     }
+
+    return nullptr;
 }
 
 // dump_adl implementation
@@ -342,12 +357,25 @@ try
             {
                 try
                 {
-                    Backend::deserialize(field.value(), at_field<Backend>(value, field));
+                    const char* name = resolve_field_name<Backend>(value, field);
+                    if (!name)
+                    {
+                        if (apply_default_value(field))
+                            return;
+
+                        Backend::deserialize(field.value(), Backend::at_field(value, serialized_name(field)));
+                        return;
+                    }
+
+                    const auto& node = Backend::at_field(value, name);
+                    // If the node exists but is null and we also need to apply a default value.
+                    if (Backend::is_null(node) && apply_default_value(field))
+                        return;
+                    Backend::deserialize(field.value(), node);
                 }
                 catch (deserialize_error& ex)
                 {
-                    std::string msg =
-                        "error when deserializing field " + std::string(field.name());
+                    std::string msg = "error when deserializing field " + std::string(field.name());
                     ex.add(msg.c_str());
                     throw;
                 }

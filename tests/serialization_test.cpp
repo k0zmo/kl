@@ -103,6 +103,22 @@ KL_REFLECT_STRUCT(nullish_serialization_record,
                   (emitted_null, attr::emit_null),
                   present)
 
+struct defaulted_serialization_record
+{
+    int id{};
+    int count{};
+    std::string label;
+    int renamed{};
+    int aliased{};
+};
+
+KL_REFLECT_STRUCT(defaulted_serialization_record,
+                  id,
+                  (count, attr::default_value(42)),
+                  (label, attr::default_value(std::string{"default-label"})),
+                  (renamed, attr::rename("wire-renamed"), attr::default_value(7)),
+                  (aliased, attr::aliases("legacy-aliased"), attr::default_value(9)))
+
 struct generic_adl_value
 {
     int value;
@@ -345,6 +361,94 @@ TEST_CASE("serialization - null field attributes")
         kl::serialization::dump(record, yaml_dump_ctx);
         CHECK(std::string{emitter.c_str()} ==
               "context_null: ~\nemitted_null: ~\npresent: 7");
+    }
+}
+
+TEST_CASE("serialization - default value attribute")
+{
+    SECTION("json")
+    {
+        rapidjson::Document missing = R"({
+            "id": 1
+        })"_json;
+
+        auto json_out = kl::json::deserialize<defaulted_serialization_record>(missing);
+        CHECK(json_out.id == 1);
+        CHECK(json_out.count == 42);
+        CHECK(json_out.label == "default-label");
+        CHECK(json_out.renamed == 7);
+        CHECK(json_out.aliased == 9);
+
+        rapidjson::Document nulls = R"({
+            "id": 2,
+            "count": null,
+            "label": null,
+            "wire-renamed": null,
+            "aliased": null
+        })"_json;
+
+        json_out = kl::json::deserialize<defaulted_serialization_record>(nulls);
+        CHECK(json_out.id == 2);
+        CHECK(json_out.count == 42);
+        CHECK(json_out.label == "default-label");
+        CHECK(json_out.renamed == 7);
+        CHECK(json_out.aliased == 9);
+
+        rapidjson::Document present = R"({
+            "id": 3,
+            "count": 100,
+            "label": "present-label",
+            "wire-renamed": 101,
+            "legacy-aliased": 102
+        })"_json;
+
+        json_out = kl::json::deserialize<defaulted_serialization_record>(present);
+        CHECK(json_out.id == 3);
+        CHECK(json_out.count == 100);
+        CHECK(json_out.label == "present-label");
+        CHECK(json_out.renamed == 101);
+        CHECK(json_out.aliased == 102);
+    }
+
+    SECTION("yaml")
+    {
+        YAML::Node missing;
+        missing["id"] = 1;
+
+        auto yaml_out = kl::yaml::deserialize<defaulted_serialization_record>(missing);
+        CHECK(yaml_out.id == 1);
+        CHECK(yaml_out.count == 42);
+        CHECK(yaml_out.label == "default-label");
+        CHECK(yaml_out.renamed == 7);
+        CHECK(yaml_out.aliased == 9);
+
+        YAML::Node nulls;
+        nulls["id"] = 2;
+        nulls["count"] = YAML::Node{};
+        nulls["label"] = YAML::Node{};
+        nulls["wire-renamed"] = YAML::Node{};
+        nulls["aliased"] = YAML::Node{};
+
+        yaml_out = kl::yaml::deserialize<defaulted_serialization_record>(nulls);
+        CHECK(yaml_out.id == 2);
+        CHECK(yaml_out.count == 42);
+        CHECK(yaml_out.label == "default-label");
+        CHECK(yaml_out.renamed == 7);
+        CHECK(yaml_out.aliased == 9);
+
+        YAML::Node present;
+        present["id"] = 3;
+        present["count"] = 100;
+        present["label"] = "present-label";
+        present["wire-renamed"] = 101;
+        present["legacy-aliased"] = 102;
+
+        yaml_out = kl::yaml::deserialize<defaulted_serialization_record>(present);
+        CHECK(yaml_out.id == 3);
+        CHECK(yaml_out.count == 100);
+        CHECK(yaml_out.label == "present-label");
+        CHECK(yaml_out.renamed == 101);
+        CHECK(yaml_out.aliased == 102);
     }
 }
 

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <utility>
 
 namespace kl::serialization::attributes {
 
@@ -10,6 +11,12 @@ struct skip_deserialization_t {};
 struct skip_t : skip_serialization_t, skip_deserialization_t {};
 struct skip_if_null_t {};
 struct emit_null_t {};
+
+template <typename T>
+struct default_value_t
+{
+    T value;
+};
 
 struct aliases_t
 {
@@ -49,6 +56,12 @@ inline constexpr skip_if_null_t skip_if_null{};
 // Serialization only. Force this field to be emitted even
 // when the context-wide skip_null_fields is true.
 inline constexpr emit_null_t emit_null{};
+
+template <typename T>
+constexpr default_value_t<std::decay_t<T>> default_value(T&& value)
+{
+    return {std::forward<T>(value)};
+}
 
 template <typename... Names>
 constexpr aliases_t aliases(Names... names)
