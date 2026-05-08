@@ -31,6 +31,11 @@ private:
     const char* names_[max_aliases];
 };
 
+struct rename_t
+{
+    const char* name;
+};
+
 inline constexpr skip_serialization_t skip_serialization{};
 inline constexpr skip_deserialization_t skip_deserialization{};
 inline constexpr skip_t skip{};
@@ -39,6 +44,11 @@ template <typename... Names>
 constexpr aliases_t aliases(Names... names)
 {
     return aliases_t{names...};
+}
+
+constexpr rename_t rename(const char* name)
+{
+    return {name};
 }
 
 } // namespace kl::serialization::attributes

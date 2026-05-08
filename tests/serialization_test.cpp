@@ -60,6 +60,19 @@ struct serialization_record
 KL_REFLECT_STRUCT(serialization_record, i, s,
                   (values, attr::aliases("vals", "numbers")))
 
+struct renamed_serialization_record
+{
+    int id{};
+    int api_token{};
+    int timeout{};
+};
+
+KL_REFLECT_STRUCT(renamed_serialization_record,
+                  id,
+                  (api_token, attr::rename("api-token"),
+                              attr::aliases("api_token", "token")),
+                  (timeout, attr::rename("request-timeout")))
+
 struct serialization_attributes_record
 {
     int keep{};
@@ -354,6 +367,104 @@ TEST_CASE("serialization - field aliases")
                           "error when deserializing field values\n"
                           "error when deserializing type " +
                               kl::ctti::name<serialization_record>());
+    }
+}
+
+TEST_CASE("serialization - renamed fields")
+{
+    renamed_serialization_record record{1, 2, 3};
+
+    SECTION("json")
+    {
+        auto json_value = kl::json::serialize(record);
+        REQUIRE(json_value.IsObject());
+        CHECK(json_value.HasMember("id"));
+        CHECK(json_value.HasMember("api-token"));
+        CHECK(json_value.HasMember("request-timeout"));
+        CHECK(!json_value.HasMember("api_token"));
+        CHECK(!json_value.HasMember("timeout"));
+        CHECK(json_value["api-token"].GetInt() == 2);
+        CHECK(json_value["request-timeout"].GetInt() == 3);
+
+        CHECK(kl::json::dump(record) == R"({"id":1,"api-token":2,"request-timeout":3})");
+
+        rapidjson::Document renamed = R"({
+            "id": 10,
+            "api-token": 20,
+            "request-timeout": 30
+        })"_json;
+
+        auto json_out = kl::json::deserialize<renamed_serialization_record>(renamed);
+        CHECK(json_out.id == 10);
+        CHECK(json_out.api_token == 20);
+        CHECK(json_out.timeout == 30);
+
+        rapidjson::Document alias = R"({
+            "id": 10,
+            "token": 21,
+            "request-timeout": 30
+        })"_json;
+
+        json_out = kl::json::deserialize<renamed_serialization_record>(alias);
+        CHECK(json_out.id == 10);
+        CHECK(json_out.api_token == 21);
+        CHECK(json_out.timeout == 30);
+
+        rapidjson::Document canonical_wins = R"({
+            "id": 10,
+            "api-token": 20,
+            "token": 21,
+            "request-timeout": 30
+        })"_json;
+
+        json_out = kl::json::deserialize<renamed_serialization_record>(canonical_wins);
+        CHECK(json_out.id == 10);
+        CHECK(json_out.api_token == 20);
+        CHECK(json_out.timeout == 30);
+    }
+
+    SECTION("yaml")
+    {
+        auto yaml_value = kl::yaml::serialize(record);
+        REQUIRE(yaml_value.IsMap());
+        CHECK(yaml_value["id"].as<int>() == 1);
+        CHECK(yaml_value["api-token"].as<int>() == 2);
+        CHECK(yaml_value["request-timeout"].as<int>() == 3);
+        CHECK(!yaml_value["api_token"]);
+        CHECK(!yaml_value["timeout"]);
+
+        CHECK(kl::yaml::dump(record) == "id: 1\napi-token: 2\nrequest-timeout: 3");
+
+        YAML::Node renamed;
+        renamed["id"] = 10;
+        renamed["api-token"] = 20;
+        renamed["request-timeout"] = 30;
+
+        auto yaml_out = kl::yaml::deserialize<renamed_serialization_record>(renamed);
+        CHECK(yaml_out.id == 10);
+        CHECK(yaml_out.api_token == 20);
+        CHECK(yaml_out.timeout == 30);
+
+        YAML::Node alias;
+        alias["id"] = 10;
+        alias["token"] = 21;
+        alias["request-timeout"] = 30;
+
+        yaml_out = kl::yaml::deserialize<renamed_serialization_record>(alias);
+        CHECK(yaml_out.id == 10);
+        CHECK(yaml_out.api_token == 21);
+        CHECK(yaml_out.timeout == 30);
+
+        YAML::Node canonical_wins;
+        canonical_wins["id"] = 10;
+        canonical_wins["api-token"] = 20;
+        canonical_wins["token"] = 21;
+        canonical_wins["request-timeout"] = 30;
+
+        yaml_out = kl::yaml::deserialize<renamed_serialization_record>(canonical_wins);
+        CHECK(yaml_out.id == 10);
+        CHECK(yaml_out.api_token == 20);
+        CHECK(yaml_out.timeout == 30);
     }
 }
 

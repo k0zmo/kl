@@ -23,17 +23,28 @@ constexpr bool has_attribute(const Field&)
     return Field::template has<Attribute>();
 }
 
+template <typename Field>
+constexpr const char* serialized_name(const Field& field)
+{
+    if constexpr (Field::template has<attributes::rename_t>())
+        return field.template get<attributes::rename_t>()->name;
+    else
+        return field.name();
+}
+
 template <typename Backend, typename Field>
 decltype(auto) at_field(const typename Backend::value_type& value, const Field& field)
 {
+    auto canonical = serialized_name(field);
+
     if constexpr (!Field::template has<attributes::aliases_t>())
     {
-        return Backend::at_field(value, field.name());
+        return Backend::at_field(value, canonical);
     }
     else
     {
-        if (Backend::has_field(value, field.name()))
-            return Backend::at_field(value, field.name());
+        if (Backend::has_field(value, canonical))
+            return Backend::at_field(value, canonical);
 
         const auto* aliases = field.template get<attributes::aliases_t>();
         for (const char* alias : *aliases)
@@ -42,7 +53,7 @@ decltype(auto) at_field(const typename Backend::value_type& value, const Field& 
                 return Backend::at_field(value, alias);
         }
 
-        return Backend::at_field(value, field.name());
+        return Backend::at_field(value, canonical);
     }
 }
 
@@ -89,7 +100,7 @@ void dump_adl(const Reflectable& refl, Context& ctx)
             auto&& value = field.value();
             if (!ctx.skip_null_value(value))
             {
-                Backend::write_key(field.name(), ctx);
+                Backend::write_key(serialized_name(field), ctx);
                 Backend::dump(value, ctx);
             }
         }
@@ -189,7 +200,12 @@ typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx
         {
             auto&& value = field.value();
             if (!ctx.skip_null_value(value))
-                Backend::add_field(out, field.name(), Backend::serialize(value, ctx), ctx);
+            {
+                Backend::add_field(out,
+                                   serialized_name(field),
+                                   Backend::serialize(value, ctx),
+                                   ctx);
+            }
         }
     });
     return out;
