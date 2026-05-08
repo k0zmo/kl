@@ -35,7 +35,6 @@ struct json_tree_backend;
 struct stream_tag : serialization::backend_tag<detail::json_stream_backend> {};
 struct tree_tag   : serialization::backend_tag<detail::json_tree_backend>   {};
 
-
 class view
 {
 public:
