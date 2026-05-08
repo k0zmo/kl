@@ -47,20 +47,26 @@ bool skip_null_field(const Field& field, const Value& value, Context& ctx)
 template <typename Field>
 bool apply_default_value(const Field& field)
 {
-    // For now, this implementation requires a default_value's value to be the
-    // exact same type as the field's value.
-    using value_type = std::decay_t<decltype(field.value())>;
-    using attr_type = attributes::default_value_t<value_type>;
+    bool applied = false;
 
-    if constexpr (Field::template has<attr_type>())
-    {
-        field.value() = field.template get<attr_type>()->value;
-        return true;
-    }
-    else
-    {
-        return false;
-    }
+    field.visit_attributes([&](const auto& attr) {
+        using attr_type = std::decay_t<decltype(attr)>;
+
+        if constexpr (attributes::detail::is_default_value_v<attr_type>)
+        {
+            using default_type = typename attributes::detail::is_default_value<attr_type>::value_type;
+
+            static_assert(std::is_assignable_v<decltype(field.value()), default_type>,
+                          "serialization default_value must be assignable to the field type");
+            if (!applied)
+            {
+                field.value() = attr.value;
+                applied = true;
+            }
+        }
+    });
+
+    return applied;
 }
 
 template <typename Backend, typename Field>
