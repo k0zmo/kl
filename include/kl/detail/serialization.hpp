@@ -34,11 +34,11 @@ constexpr const char* serialized_name(const Field& field)
 }
 
 template <typename Field, typename Value, typename Context>
-bool skip_null_field(const Field& field, const Value& value, Context& ctx)
+bool skip_null_field(const Value& value, Context& ctx)
 {
-    if constexpr (has_attribute<attributes::emit_null_t>(field))
+    if constexpr (Field::template has<attributes::emit_null_t>())
         return false;
-    else if constexpr (has_attribute<attributes::skip_if_null_t>(field))
+    else if constexpr (Field::template has<attributes::skip_if_null_t>())
         return is_null_value(value);
     else
         return ctx.skip_null_value(value);
@@ -131,7 +131,7 @@ void dump_adl(const Reflectable& refl, Context& ctx)
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
         {
             auto&& value = field.value();
-            if (!skip_null_field(field, value, ctx))
+            if (!skip_null_field<decltype(field)>(value, ctx))
             {
                 Backend::write_key(serialized_name(field), ctx);
                 Backend::dump(value, ctx);
@@ -232,7 +232,7 @@ typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
         {
             auto&& value = field.value();
-            if (!skip_null_field(field, value, ctx))
+            if (!skip_null_field<decltype(field)>(value, ctx))
             {
                 Backend::add_field(out,
                                    serialized_name(field),
