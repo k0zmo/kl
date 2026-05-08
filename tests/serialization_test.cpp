@@ -17,6 +17,7 @@
 #include <yaml-cpp/node/type.h>
 
 #include <chrono>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -87,6 +88,20 @@ KL_REFLECT_STRUCT(serialization_attributes_record, keep,
                   (skip_de, attr::skip_deserialization),
                   (skip_both, attr::skip),
                   (skip_both_manually, attr::skip_serialization, attr::skip_deserialization))
+
+struct nullish_serialization_record
+{
+    std::optional<int> context_null;
+    std::optional<int> skipped_null;
+    std::optional<int> emitted_null;
+    std::optional<int> present;
+};
+
+KL_REFLECT_STRUCT(nullish_serialization_record,
+                  context_null,
+                  (skipped_null, attr::skip_if_null),
+                  (emitted_null, attr::emit_null),
+                  present)
 
 struct generic_adl_value
 {
@@ -262,6 +277,74 @@ TEST_CASE("serialization - skip field attributes")
         CHECK(yaml_out.skip_de == 3);
         CHECK(yaml_out.skip_both == 4);
         CHECK(yaml_out.skip_both_manually == 5);
+    }
+}
+
+TEST_CASE("serialization - null field attributes")
+{
+    nullish_serialization_record record{std::nullopt, std::nullopt, std::nullopt, 7};
+
+    SECTION("json")
+    {
+        auto default_json = kl::json::serialize(record);
+        REQUIRE(default_json.IsObject());
+        CHECK(!default_json.HasMember("context_null"));
+        CHECK(!default_json.HasMember("skipped_null"));
+        REQUIRE(default_json.HasMember("emitted_null"));
+        CHECK(default_json["emitted_null"].IsNull());
+        REQUIRE(default_json.HasMember("present"));
+        CHECK(default_json["present"].GetInt() == 7);
+
+        CHECK(kl::json::dump(record) == R"({"emitted_null":null,"present":7})");
+
+        kl::json::owning_serialize_context json_ctx{false};
+        auto explicit_null_json = kl::serialization::serialize(record, json_ctx);
+        REQUIRE(explicit_null_json.IsObject());
+        REQUIRE(explicit_null_json.HasMember("context_null"));
+        CHECK(explicit_null_json["context_null"].IsNull());
+        CHECK(!explicit_null_json.HasMember("skipped_null"));
+        REQUIRE(explicit_null_json.HasMember("emitted_null"));
+        CHECK(explicit_null_json["emitted_null"].IsNull());
+        REQUIRE(explicit_null_json.HasMember("present"));
+        CHECK(explicit_null_json["present"].GetInt() == 7);
+
+        rapidjson::StringBuffer buffer;
+        rapidjson::Writer<rapidjson::StringBuffer> writer{buffer};
+        kl::json::dump_context json_dump_ctx{writer, false};
+        kl::serialization::dump(record, json_dump_ctx);
+        CHECK(std::string{buffer.GetString()} ==
+              R"({"context_null":null,"emitted_null":null,"present":7})");
+    }
+
+    SECTION("yaml")
+    {
+        auto default_yaml = kl::yaml::serialize(record);
+        REQUIRE(default_yaml.IsMap());
+        CHECK(!default_yaml["context_null"]);
+        CHECK(!default_yaml["skipped_null"]);
+        REQUIRE(default_yaml["emitted_null"]);
+        CHECK(default_yaml["emitted_null"].IsNull());
+        REQUIRE(default_yaml["present"]);
+        CHECK(default_yaml["present"].as<int>() == 7);
+
+        CHECK(kl::yaml::dump(record) == "emitted_null: ~\npresent: 7");
+
+        kl::yaml::serialize_context yaml_ctx{false};
+        auto explicit_null_yaml = kl::serialization::serialize(record, yaml_ctx);
+        REQUIRE(explicit_null_yaml.IsMap());
+        REQUIRE(explicit_null_yaml["context_null"]);
+        CHECK(explicit_null_yaml["context_null"].IsNull());
+        CHECK(!explicit_null_yaml["skipped_null"]);
+        REQUIRE(explicit_null_yaml["emitted_null"]);
+        CHECK(explicit_null_yaml["emitted_null"].IsNull());
+        REQUIRE(explicit_null_yaml["present"]);
+        CHECK(explicit_null_yaml["present"].as<int>() == 7);
+
+        YAML::Emitter emitter;
+        kl::yaml::dump_context yaml_dump_ctx{emitter, false};
+        kl::serialization::dump(record, yaml_dump_ctx);
+        CHECK(std::string{emitter.c_str()} ==
+              "context_null: ~\nemitted_null: ~\npresent: 7");
     }
 }
 
