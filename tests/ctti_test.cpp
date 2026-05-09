@@ -101,9 +101,6 @@ struct WithAttrs
     int annotated;
 };
 KL_REFLECT_STRUCT(WithAttrs, visible, (annotated, attr_derived{}, attr_value{42}))
-} // namespace test
-
-namespace {
 
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
@@ -117,25 +114,10 @@ std::ostream& operator<<(std::ostream& os, const std::array<T, N>& v)
     return os << kl::stream_join(v);
 }
 
-template <typename T>
-std::ostream& trampoline_operator(std::ostream& os, const T& obj)
-{
-    os << obj;
-    return os;
-}
-} // namespace
-
-namespace test {
-
 std::ostream& operator<<(std::ostream& os, const A& a)
 {
     kl::ctti::reflect(a, [&os](auto field) {
-        os << field.name() << ": ";
-        // This is used so GCC 7 and 8 will also consider `operator<<` for
-        // vector<T> and array<T,N> defined above (see
-        // https://godbolt.org/z/dw9DdN)
-        trampoline_operator(os, field.value());
-        os << "\n";
+        os << field.name() << ": " << field.value() << "\n";
     });
     return os;
 }
