@@ -7,6 +7,7 @@
 #include "kl/enum_set.hpp"
 #include "kl/serialization_attributes.hpp"
 #include "kl/serialization_fwd.hpp"
+#include "kl/type_traits.hpp"
 #include "kl/utility.hpp"
 
 #include <cstddef>
@@ -57,6 +58,18 @@ template <typename Field, typename Value, typename Context>
 bool skip_serialized_field(const Value& value, Context& ctx)
 {
     return skip_null_field<Field>(value, ctx) || skip_empty_field<Field>(value);
+}
+
+template <typename Field>
+constexpr void check_flatten_field()
+{
+    using value_type = remove_cvref_t<decltype(std::declval<Field>().value())>;
+
+    if constexpr (Field::template has<attributes::flatten_t>())
+    {
+        static_assert(ctti::is_reflectable_v<value_type>,
+                      "serialization flatten field must be reflectable");
+    }
 }
 
 template <typename Field>
@@ -122,6 +135,60 @@ const char* resolve_field_name(const typename Backend::value_type& value, const 
     return nullptr;
 }
 
+template <typename Backend, typename Reflectable, typename Context>
+void dump_reflected_fields(const Reflectable& refl, Context& ctx)
+{
+    ctti::reflect(refl, [&ctx](auto field) {
+        check_flatten_field<decltype(field)>();
+
+        if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
+        {
+            auto&& value = field.value();
+            if (!skip_serialized_field<decltype(field)>(value, ctx))
+            {
+                if constexpr (decltype(field)::template has<attributes::flatten_t>())
+                {
+                    dump_reflected_fields<Backend>(value, ctx);
+                }
+                else
+                {
+                    Backend::write_key(serialized_name(field), ctx);
+                    Backend::dump(value, ctx);
+                }
+            }
+        }
+    });
+}
+
+template <typename Backend, typename Reflectable, typename Context>
+void add_reflected_fields(typename Backend::value_type& out,
+                          const Reflectable& refl,
+                          Context& ctx)
+{
+    ctti::reflect(refl, [&out, &ctx](auto field) {
+        check_flatten_field<decltype(field)>();
+
+        if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
+        {
+            auto&& value = field.value();
+            if (!skip_serialized_field<decltype(field)>(value, ctx))
+            {
+                if constexpr (decltype(field)::template has<attributes::flatten_t>())
+                {
+                    add_reflected_fields<Backend>(out, value, ctx);
+                }
+                else
+                {
+                    Backend::add_field(out,
+                                       serialized_name(field),
+                                       Backend::serialize(value, ctx),
+                                       ctx);
+                }
+            }
+        }
+    });
+}
+
 // dump_adl implementation
 
 template <typename Backend, typename Map, typename Context,
@@ -159,17 +226,7 @@ template <typename Backend, typename Reflectable, typename Context,
 void dump_adl(const Reflectable& refl, Context& ctx)
 {
     Backend::begin_map(ctx);
-    ctti::reflect(refl, [&ctx](auto field) {
-        if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
-        {
-            auto&& value = field.value();
-            if (!skip_serialized_field<decltype(field)>(value, ctx))
-            {
-                Backend::write_key(serialized_name(field), ctx);
-                Backend::dump(value, ctx);
-            }
-        }
-    });
+    dump_reflected_fields<Backend>(refl, ctx);
     Backend::end_map(ctx);
 }
 
@@ -260,19 +317,7 @@ template <typename Backend, typename Reflectable, typename Context,
 typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx)
 {
     auto out = Backend::make_map();
-    ctti::reflect(refl, [&out, &ctx](auto field) {
-        if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
-        {
-            auto&& value = field.value();
-            if (!skip_serialized_field<decltype(field)>(value, ctx))
-            {
-                Backend::add_field(out,
-                                   serialized_name(field),
-                                   Backend::serialize(value, ctx),
-                                   ctx);
-            }
-        }
-    });
+    add_reflected_fields<Backend>(out, refl, ctx);
     return out;
 }
 
@@ -391,10 +436,18 @@ try
     if (Backend::is_map(value))
     {
         ctti::reflect(out, [&value](auto field) {
+            check_flatten_field<decltype(field)>();
+
             if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
             {
                 try
                 {
+                    if constexpr (decltype(field)::template has<attributes::flatten_t>())
+                    {
+                        Backend::deserialize(field.value(), value);
+                        return;
+                    }
+
                     const char* name = resolve_field_name<Backend>(value, field);
                     if (!name)
                     {
@@ -428,10 +481,18 @@ try
         }
 
         ctti::reflect(out, [&value, index = 0U](auto field) mutable {
+            check_flatten_field<decltype(field)>();
+
             if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
             {
                 try
                 {
+                    if constexpr (decltype(field)::template has<attributes::flatten_t>())
+                    {
+                        throw deserialize_error{
+                            "flatten fields are not supported in sequence deserialization"};
+                    }
+
                     Backend::deserialize(field.value(), Backend::at_index(value, index));
                     ++index;
                 }
