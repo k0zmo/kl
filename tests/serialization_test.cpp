@@ -187,6 +187,26 @@ KL_REFLECT_STRUCT(int_extra_fields_record,
                   a,
                   (extra, attr::extra_fields))
 
+struct nested_extra_fields_record
+{
+    std::map<std::string, int> extra;
+};
+
+KL_REFLECT_STRUCT(nested_extra_fields_record,
+                  (extra, attr::extra_fields))
+
+struct duplicate_extra_fields_record
+{
+    int a{};
+    std::map<std::string, int> extra;
+    nested_extra_fields_record nested;
+};
+
+KL_REFLECT_STRUCT(duplicate_extra_fields_record,
+                  a,
+                  (extra, attr::extra_fields),
+                  (nested, attr::flatten))
+
 struct explicit_string_key
 {
     std::string value;
@@ -773,6 +793,31 @@ TEST_CASE("serialization - extra fields reject reserved keys", "[serialization]"
         CHECK_THROWS_WITH(kl::serialization::detail::check_extra_field_key(reserved_names, key),
                           "serialization extra_fields key collides with reflected field: a");
     }
+}
+
+TEST_CASE("serialization - extra fields rejects multiple fields", "[serialization]")
+{
+    duplicate_extra_fields_record record{1, {{"outer", 2}}, {{{"inner", 3}}}};
+
+    CHECK_THROWS_WITH(kl::json::serialize(record),
+                      "serialization only one extra_fields field is supported");
+    CHECK_THROWS_WITH(kl::json::dump(record),
+                      "serialization only one extra_fields field is supported");
+    CHECK_THROWS_WITH(kl::yaml::serialize(record),
+                      "serialization only one extra_fields field is supported");
+    CHECK_THROWS_WITH(kl::yaml::dump(record),
+                      "serialization only one extra_fields field is supported");
+
+    rapidjson::Document json_value = R"({"a": 1, "unknown": 2})"_json;
+    CHECK_THROWS_WITH(kl::json::deserialize<duplicate_extra_fields_record>(json_value),
+                      "serialization only one extra_fields field is supported");
+
+    auto yaml_value = R"(
+a: 1
+unknown: 2
+)"_yaml;
+    CHECK_THROWS_WITH(kl::yaml::deserialize<duplicate_extra_fields_record>(yaml_value),
+                      "serialization only one extra_fields field is supported");
 }
 
 TEST_CASE("serialization - flatten rejects reflected name collisions", "[serialization]")
