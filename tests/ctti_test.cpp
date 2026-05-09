@@ -102,6 +102,19 @@ struct WithAttrs
 };
 KL_REFLECT_STRUCT(WithAttrs, visible, (annotated, attr_derived{}, attr_value{42}))
 
+struct has_attr_tester
+{
+    int a;
+    int b;
+    int c;
+    KL_REFLECT_STRUCT_FRIEND(has_attr_tester, (a, attr_base{}), (b), (c, attr_value{3}))
+};
+static_assert(kl::ctti::has_any_attribute<attr_base>(has_attr_tester{}));
+static_assert(!kl::ctti::has_any_attribute<attr_derived>(has_attr_tester{}));
+static_assert(kl::ctti::has_any_attribute<attr_value>(has_attr_tester{}));
+static_assert(kl::ctti::has_any_attribute<attr_base, attr_value>(has_attr_tester{}));
+static_assert(kl::ctti::has_any_attribute<attr_derived, attr_base>(has_attr_tester{}));
+
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
 {
