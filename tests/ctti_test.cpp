@@ -51,13 +51,11 @@ public:
 
 private:
     // because `d` and `e` are private
-    template <typename Visitor, typename Self>
-    friend constexpr void reflect_struct(Visitor&&, Self&&,
-                                         ::kl::ctti::record_class<T>);
+    KL_REFLECT_STRUCT_DERIVED_FRIEND(T, (A, S), d, e)
+
     std::string d;
     std::vector<std::string> e;
 };
-KL_REFLECT_STRUCT_DERIVED(T, (A, S), d, e)
 } // namespace inner
 
 struct B : A
