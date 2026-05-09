@@ -13,6 +13,7 @@ struct skip_if_null_t {};
 struct emit_null_t {};
 struct allow_missing_t {};
 struct skip_if_empty_t {};
+struct flatten_t {};
 
 template <typename T>
 struct default_value_t
@@ -81,6 +82,9 @@ inline constexpr allow_missing_t allow_missing{};
 
 // Serialization only. Omit empty strings/containers
 inline constexpr skip_if_empty_t skip_if_empty{};
+
+// Serialize/deserialize reflected object fields directly in the parent object.
+inline constexpr flatten_t flatten{};
 
 // Deserialization only. If the input field is missing or present-but-null, assign value
 template <typename T>

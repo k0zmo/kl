@@ -134,6 +134,28 @@ KL_REFLECT_STRUCT(custom_empty_serialization_record,
                   (skipped_custom, attr::skip_if_empty),
                   (present_custom, attr::skip_if_empty))
 
+struct flattened_inner_record
+{
+    int b{};
+    std::optional<int> skipped_null;
+};
+
+KL_REFLECT_STRUCT(flattened_inner_record,
+                  b,
+                  (skipped_null, attr::skip_if_null))
+
+struct flattened_outer_record
+{
+    int a{};
+    flattened_inner_record inner;
+    int c{};
+};
+
+KL_REFLECT_STRUCT(flattened_outer_record,
+                  a,
+                  (inner, attr::flatten),
+                  c)
+
 struct defaulted_serialization_record
 {
     int id{};
@@ -509,6 +531,67 @@ TEST_CASE("serialization - empty traits customization point")
         CHECK_FALSE(yaml_value["present_custom"].as<bool>());
 
         CHECK(kl::yaml::dump(record) == "present_custom: false");
+    }
+}
+
+TEST_CASE("serialization - flatten reflected field")
+{
+    flattened_outer_record record{1, {2, std::nullopt}, 3};
+
+    SECTION("json")
+    {
+        auto json_value = kl::json::serialize(record);
+        REQUIRE(json_value.IsObject());
+        REQUIRE(json_value.HasMember("a"));
+        CHECK(json_value["a"].GetInt() == 1);
+        REQUIRE(json_value.HasMember("b"));
+        CHECK(json_value["b"].GetInt() == 2);
+        CHECK(!json_value.HasMember("inner"));
+        CHECK(!json_value.HasMember("skipped_null"));
+        REQUIRE(json_value.HasMember("c"));
+        CHECK(json_value["c"].GetInt() == 3);
+
+        CHECK(kl::json::dump(record) == R"({"a":1,"b":2,"c":3})");
+
+        rapidjson::Document flat = R"({
+            "a": 10,
+            "b": 20,
+            "c": 30
+        })"_json;
+
+        auto json_out = kl::json::deserialize<flattened_outer_record>(flat);
+        CHECK(json_out.a == 10);
+        CHECK(json_out.inner.b == 20);
+        CHECK(!json_out.inner.skipped_null);
+        CHECK(json_out.c == 30);
+    }
+
+    SECTION("yaml")
+    {
+        auto yaml_value = kl::yaml::serialize(record);
+        REQUIRE(yaml_value.IsMap());
+        REQUIRE(yaml_value["a"]);
+        CHECK(yaml_value["a"].as<int>() == 1);
+        REQUIRE(yaml_value["b"]);
+        CHECK(yaml_value["b"].as<int>() == 2);
+        CHECK(!yaml_value["inner"]);
+        CHECK(!yaml_value["skipped_null"]);
+        REQUIRE(yaml_value["c"]);
+        CHECK(yaml_value["c"].as<int>() == 3);
+
+        CHECK(kl::yaml::dump(record) == "a: 1\nb: 2\nc: 3");
+
+        auto flat = R"(
+a: 10
+b: 20
+c: 30
+)"_yaml;
+
+        auto yaml_out = kl::yaml::deserialize<flattened_outer_record>(flat);
+        CHECK(yaml_out.a == 10);
+        CHECK(yaml_out.inner.b == 20);
+        CHECK(!yaml_out.inner.skipped_null);
+        CHECK(yaml_out.c == 30);
     }
 }
 
