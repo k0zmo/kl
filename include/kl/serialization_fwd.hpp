@@ -3,14 +3,15 @@
 #include "kl/type_traits.hpp"
 
 #include <optional>
-#include <type_traits>
 #include <utility>
 
 namespace kl::serialization {
 
+// Primary template for user-defined serialization logic.
 template <typename T>
 struct serializer;
 
+// Trait used to determine whether a value should be considered "null".
 template <typename T>
 struct optional_traits
 {
@@ -23,6 +24,7 @@ struct optional_traits<std::optional<T>>
     static bool is_null_value(const std::optional<T>& opt) { return !opt; }
 };
 
+// Returns true when the value is considered null according to optional_traits.
 template <typename T>
 bool is_null_value(const T& t)
 {
@@ -35,6 +37,8 @@ KL_VALID_EXPR_HELPER(has_empty, std::declval<const T&>().empty())
 
 } // namespace detail
 
+// Trait used to determine whether a value should be considered "empty".
+// Works automatically for types that provide an empty() member
 template <typename T>
 struct empty_traits
 {
@@ -53,6 +57,7 @@ struct empty_traits
     }
 };
 
+// Returns true when the value is considered empty according to empty_traits.
 template <typename T>
 bool is_empty_value(const T& t)
 {
@@ -68,6 +73,7 @@ struct backend_tag
     using backend_type = Backend;
 };
 
+// Maps a backend-specific value type back to its backend_tag.
 template <typename Value>
 struct backend_for_value;
 

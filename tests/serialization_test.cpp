@@ -17,6 +17,7 @@
 #include <yaml-cpp/node/type.h>
 
 #include <chrono>
+#include <map>
 #include <optional>
 #include <string>
 #include <vector>
@@ -155,6 +156,26 @@ KL_REFLECT_STRUCT(flattened_outer_record,
                   a,
                   (inner, attr::flatten),
                   c)
+
+struct json_extra_fields_record
+{
+    int a{};
+    std::map<std::string, kl::json::view> extra;
+};
+
+KL_REFLECT_STRUCT(json_extra_fields_record,
+                  a,
+                  (extra, attr::extra_fields))
+
+struct yaml_extra_fields_record
+{
+    int a{};
+    std::map<std::string, kl::yaml::view> extra;
+};
+
+KL_REFLECT_STRUCT(yaml_extra_fields_record,
+                  a,
+                  (extra, attr::extra_fields))
 
 struct defaulted_serialization_record
 {
@@ -592,6 +613,77 @@ c: 30
         CHECK(yaml_out.inner.b == 20);
         CHECK(!yaml_out.inner.skipped_null);
         CHECK(yaml_out.c == 30);
+    }
+}
+
+TEST_CASE("serialization - extra fields attribute")
+{
+    SECTION("json")
+    {
+        rapidjson::Document value = R"({
+            "a": 1,
+            "valueExtra": [1, 2, 3],
+            "otherExtra": {"nested": true}
+        })"_json;
+
+        auto json_out = kl::json::deserialize<json_extra_fields_record>(value);
+        CHECK(json_out.a == 1);
+        REQUIRE(json_out.extra.size() == 2);
+        REQUIRE(json_out.extra.count("valueExtra") == 1);
+        REQUIRE(json_out.extra["valueExtra"]->IsArray());
+        CHECK(json_out.extra["valueExtra"]->Size() == 3);
+        REQUIRE(json_out.extra.count("otherExtra") == 1);
+        REQUIRE(json_out.extra["otherExtra"]->IsObject());
+        CHECK(json_out.extra["otherExtra"]->HasMember("nested"));
+
+        auto serialized = kl::json::serialize(json_out);
+        REQUIRE(serialized.IsObject());
+        REQUIRE(serialized.HasMember("a"));
+        CHECK(serialized["a"].GetInt() == 1);
+        REQUIRE(serialized.HasMember("valueExtra"));
+        CHECK(serialized["valueExtra"].Size() == 3);
+        REQUIRE(serialized.HasMember("otherExtra"));
+        CHECK(serialized["otherExtra"]["nested"].GetBool());
+        CHECK(!serialized.HasMember("extra"));
+
+        CHECK(kl::json::dump(json_out) ==
+              R"({"a":1,"otherExtra":{"nested":true},"valueExtra":[1,2,3]})");
+    }
+
+    SECTION("yaml")
+    {
+        auto value = R"(
+a: 1
+valueExtra:
+  - 1
+  - 2
+  - 3
+otherExtra:
+  nested: true
+)"_yaml;
+
+        auto yaml_out = kl::yaml::deserialize<yaml_extra_fields_record>(value);
+        CHECK(yaml_out.a == 1);
+        REQUIRE(yaml_out.extra.size() == 2);
+        REQUIRE(yaml_out.extra.count("valueExtra") == 1);
+        REQUIRE(yaml_out.extra["valueExtra"]->IsSequence());
+        CHECK(yaml_out.extra["valueExtra"]->size() == 3);
+        REQUIRE(yaml_out.extra.count("otherExtra") == 1);
+        REQUIRE(yaml_out.extra["otherExtra"]->IsMap());
+        CHECK(yaml_out.extra["otherExtra"]->operator[]("nested").as<bool>());
+
+        auto serialized = kl::yaml::serialize(yaml_out);
+        REQUIRE(serialized.IsMap());
+        REQUIRE(serialized["a"]);
+        CHECK(serialized["a"].as<int>() == 1);
+        REQUIRE(serialized["valueExtra"]);
+        CHECK(serialized["valueExtra"].size() == 3);
+        REQUIRE(serialized["otherExtra"]);
+        CHECK(serialized["otherExtra"]["nested"].as<bool>());
+        CHECK(!serialized["extra"]);
+
+        CHECK(kl::yaml::dump(yaml_out) ==
+              "a: 1\notherExtra:\n  nested: true\nvalueExtra:\n  - 1\n  - 2\n  - 3");
     }
 }
 
