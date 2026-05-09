@@ -53,4 +53,18 @@ constexpr std::size_t num_fields() noexcept
     return reflect_num_fields(record<R>);
 }
 
+template <typename... Attributes, typename Reflectable>
+constexpr bool has_any_attribute(const Reflectable& refl)
+{
+    bool result = false;
+    ctti::reflect(refl, [&result](auto field) {
+        using field_type = decltype(field);
+        if constexpr((field_type::template has<Attributes>() || ...))
+        {
+            result = true;
+        }
+    });
+    return result;
+}
+
 } // namespace kl::ctti

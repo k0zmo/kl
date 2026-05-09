@@ -177,6 +177,68 @@ KL_REFLECT_STRUCT(yaml_extra_fields_record,
                   a,
                   (extra, attr::extra_fields))
 
+struct int_extra_fields_record
+{
+    int a{};
+    std::map<std::string, int> extra;
+};
+
+KL_REFLECT_STRUCT(int_extra_fields_record,
+                  a,
+                  (extra, attr::extra_fields))
+
+struct explicit_string_key
+{
+    std::string value;
+
+    explicit operator std::string() const { return value; }
+};
+
+struct flattened_collision_inner_record
+{
+    int a{};
+};
+
+KL_REFLECT_STRUCT(flattened_collision_inner_record, a)
+
+struct flattened_outer_collision_record
+{
+    int a{};
+    flattened_collision_inner_record inner;
+};
+
+KL_REFLECT_STRUCT(flattened_outer_collision_record,
+                  a,
+                  (inner, attr::flatten))
+
+struct flattened_sibling_collision_record
+{
+    flattened_collision_inner_record left;
+    flattened_collision_inner_record right;
+};
+
+KL_REFLECT_STRUCT(flattened_sibling_collision_record,
+                  (left, attr::flatten),
+                  (right, attr::flatten))
+
+struct flattened_alias_collision_inner_record
+{
+    int value{};
+};
+
+KL_REFLECT_STRUCT(flattened_alias_collision_inner_record,
+                  (value, attr::aliases("a")))
+
+struct flattened_alias_collision_outer_record
+{
+    int a{};
+    flattened_alias_collision_inner_record inner;
+};
+
+KL_REFLECT_STRUCT(flattened_alias_collision_outer_record,
+                  a,
+                  (inner, attr::flatten))
+
 struct defaulted_serialization_record
 {
     int id{};
@@ -684,6 +746,78 @@ otherExtra:
 
         CHECK(kl::yaml::dump(yaml_out) ==
               "a: 1\notherExtra:\n  nested: true\nvalueExtra:\n  - 1\n  - 2\n  - 3");
+    }
+}
+
+TEST_CASE("serialization - extra fields reject reserved keys")
+{
+    SECTION("transparent string lookup")
+    {
+        int_extra_fields_record record{1, {{"a", 2}}};
+
+        CHECK_THROWS_WITH(kl::json::serialize(record),
+                          "serialization extra_fields key collides with reflected field: a");
+        CHECK_THROWS_WITH(kl::json::dump(record),
+                          "serialization extra_fields key collides with reflected field: a");
+        CHECK_THROWS_WITH(kl::yaml::serialize(record),
+                          "serialization extra_fields key collides with reflected field: a");
+        CHECK_THROWS_WITH(kl::yaml::dump(record),
+                          "serialization extra_fields key collides with reflected field: a");
+    }
+
+    SECTION("explicit string construction fallback")
+    {
+        kl::serialization::detail::string_set reserved_names{"a"};
+        explicit_string_key key{"a"};
+
+        CHECK_THROWS_WITH(kl::serialization::detail::check_extra_field_key(reserved_names, key),
+                          "serialization extra_fields key collides with reflected field: a");
+    }
+}
+
+TEST_CASE("serialization - flatten rejects reflected name collisions")
+{
+    SECTION("outer and inner")
+    {
+        flattened_outer_collision_record record{1, {2}};
+
+        CHECK_THROWS_WITH(kl::json::serialize(record),
+                          "serialization reflected field name collision: a");
+        CHECK_THROWS_WITH(kl::json::dump(record),
+                          "serialization reflected field name collision: a");
+
+        rapidjson::Document json_value = R"({"a": 1})"_json;
+        CHECK_THROWS_WITH(kl::json::deserialize<flattened_outer_collision_record>(json_value),
+                          "serialization reflected field name collision: a");
+
+        CHECK_THROWS_WITH(kl::yaml::serialize(record),
+                          "serialization reflected field name collision: a");
+        CHECK_THROWS_WITH(kl::yaml::dump(record),
+                          "serialization reflected field name collision: a");
+
+        auto yaml_value = R"(a: 1)"_yaml;
+        CHECK_THROWS_WITH(kl::yaml::deserialize<flattened_outer_collision_record>(yaml_value),
+                          "serialization reflected field name collision: a");
+    }
+
+    SECTION("inner and inner")
+    {
+        flattened_sibling_collision_record record{{1}, {2}};
+
+        CHECK_THROWS_WITH(kl::json::serialize(record),
+                          "serialization reflected field name collision: a");
+        CHECK_THROWS_WITH(kl::yaml::serialize(record),
+                          "serialization reflected field name collision: a");
+    }
+
+    SECTION("aliases")
+    {
+        flattened_alias_collision_outer_record record{1, {2}};
+
+        CHECK_THROWS_WITH(kl::json::serialize(record),
+                          "serialization reflected field name collision: a");
+        CHECK_THROWS_WITH(kl::yaml::serialize(record),
+                          "serialization reflected field name collision: a");
     }
 }
 

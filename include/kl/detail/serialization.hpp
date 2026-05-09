@@ -10,15 +10,24 @@
 #include "kl/type_traits.hpp"
 #include "kl/utility.hpp"
 
+#include <cassert>
 #include <cstddef>
 #include <optional>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 #include <type_traits>
 #include <utility>
 
 namespace kl::serialization::detail {
+
+using string_set = std::set<std::string, std::less<>>;
+
+template <typename Key>
+inline constexpr bool can_find_reserved_name_v =
+    std::is_invocable_r_v<bool, std::less<>, const std::string&, const Key&> &&
+    std::is_invocable_r_v<bool, std::less<>, const Key&, const std::string&>;
 
 template <typename Attribute, typename Field>
 constexpr bool has_attribute(const Field&)
@@ -164,7 +173,7 @@ const char* resolve_field_name(const typename Backend::value_type& value, const 
 }
 
 template <typename Field>
-void collect_field_reserved_names(std::set<std::string>& names, const Field& field)
+void collect_field_reserved_names(string_set& names, const Field& field)
 {
     if constexpr (Field::template has<attributes::extra_fields_t>())
     {
@@ -178,35 +187,77 @@ void collect_field_reserved_names(std::set<std::string>& names, const Field& fie
     }
     else
     {
-        names.insert(serialized_name(field));
+        // We want to detect duplicate reflected names/aliases and throw an error if needed
+        auto add_name = [&names](const char* name) {
+            if (!names.insert(name).second)
+            {
+                throw std::logic_error{"serialization reflected field name collision: " +
+                                       std::string{name}};
+            }
+        };
+
+        add_name(serialized_name(field));
 
         if constexpr (Field::template has<attributes::aliases_t>())
         {
             const auto* aliases = field.template get<attributes::aliases_t>();
             for (const char* alias : *aliases)
-                names.insert(alias);
+                add_name(alias);
         }
     }
 }
 
 // Build a list of field names from a reflectable struct that could be considered "extra fields"
 template <typename Reflectable>
-std::set<std::string> reserved_field_names(const Reflectable& refl)
+string_set reserved_field_names(const Reflectable& refl)
 {
-    std::set<std::string> names;
-
+    string_set names;
     ctti::reflect(refl, [&names](auto field) {
         check_field_attributes<decltype(field)>();
         collect_field_reserved_names(names, field);
     });
-
     return names;
 }
 
-template <typename Backend, typename Reflectable, typename Context>
-void dump_reflected_fields(const Reflectable& refl, Context& ctx)
+// Build a list of field names but only if any of the fields has
+// extra_field or flatten attribute attached to it
+template <typename Reflectable>
+std::optional<string_set> optional_reserved_field_names(const Reflectable& refl)
 {
-    ctti::reflect(refl, [&ctx](auto field) {
+    if (!ctti::has_any_attribute<attributes::extra_fields_t, attributes::flatten_t>(refl))
+        return std::nullopt;
+    return reserved_field_names(refl);
+}
+
+template <typename Key>
+void check_extra_field_key(const string_set& reserved_names, const Key& key)
+{
+    if constexpr (can_find_reserved_name_v<Key>)
+    {
+        if (reserved_names.find(key) != reserved_names.end())
+        {
+            throw std::logic_error{
+                "serialization extra_fields key collides with reflected field: " +
+                std::string{key}};
+        }
+    }
+    else
+    {
+        std::string key_name{key};
+        if (reserved_names.find(key_name) != reserved_names.end())
+        {
+            throw std::logic_error{
+                "serialization extra_fields key collides with reflected field: " + key_name};
+        }
+    }
+}
+
+template <typename Backend, typename Reflectable, typename Context>
+void dump_reflected_fields(const Reflectable& refl,
+                           const std::optional<string_set>& reserved_names,
+                           Context& ctx)
+{
+    ctti::reflect(refl, [&reserved_names, &ctx](auto field) {
         check_field_attributes<decltype(field)>();
 
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
@@ -218,6 +269,8 @@ void dump_reflected_fields(const Reflectable& refl, Context& ctx)
                 {
                     for (const auto& [key, extra_value] : value)
                     {
+                        check_extra_field_key(*reserved_names, key);
+
                         if (!ctx.skip_null_value(extra_value))
                         {
                             Backend::write_key(key, ctx);
@@ -227,7 +280,7 @@ void dump_reflected_fields(const Reflectable& refl, Context& ctx)
                 }
                 else if constexpr (decltype(field)::template has<attributes::flatten_t>())
                 {
-                    dump_reflected_fields<Backend>(value, ctx);
+                    dump_reflected_fields<Backend>(value, reserved_names, ctx);
                 }
                 else
                 {
@@ -242,9 +295,10 @@ void dump_reflected_fields(const Reflectable& refl, Context& ctx)
 template <typename Backend, typename Reflectable, typename Context>
 void add_reflected_fields(typename Backend::value_type& out,
                           const Reflectable& refl,
+                          const std::optional<string_set>& reserved_names,
                           Context& ctx)
 {
-    ctti::reflect(refl, [&out, &ctx](auto field) {
+    ctti::reflect(refl, [&out, &reserved_names, &ctx](auto field) {
         check_field_attributes<decltype(field)>();
 
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
@@ -256,6 +310,8 @@ void add_reflected_fields(typename Backend::value_type& out,
                 {
                     for (const auto& [key, extra_value] : value)
                     {
+                        check_extra_field_key(*reserved_names, key);
+
                         if (!ctx.skip_null_value(extra_value))
                         {
                             Backend::add_field(out,
@@ -267,7 +323,7 @@ void add_reflected_fields(typename Backend::value_type& out,
                 }
                 else if constexpr (decltype(field)::template has<attributes::flatten_t>())
                 {
-                    add_reflected_fields<Backend>(out, value, ctx);
+                    add_reflected_fields<Backend>(out, value, reserved_names, ctx);
                 }
                 else
                 {
@@ -318,7 +374,7 @@ template <typename Backend, typename Reflectable, typename Context,
 void dump_adl(const Reflectable& refl, Context& ctx)
 {
     Backend::begin_map(ctx);
-    dump_reflected_fields<Backend>(refl, ctx);
+    dump_reflected_fields<Backend>(refl, optional_reserved_field_names(refl), ctx);
     Backend::end_map(ctx);
 }
 
@@ -409,7 +465,7 @@ template <typename Backend, typename Reflectable, typename Context,
 typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx)
 {
     auto out = Backend::make_map();
-    add_reflected_fields<Backend>(out, refl, ctx);
+    add_reflected_fields<Backend>(out, refl, optional_reserved_field_names(refl), ctx);
     return out;
 }
 
@@ -527,7 +583,7 @@ try
 {
     if (Backend::is_map(value))
     {
-        const auto reserved_names = reserved_field_names(out);
+        const auto reserved_names = optional_reserved_field_names(out);
 
         ctti::reflect(out, [&value, &reserved_names](auto field) {
             check_field_attributes<decltype(field)>();
@@ -538,16 +594,15 @@ try
                 {
                     if constexpr (decltype(field)::template has<attributes::extra_fields_t>())
                     {
+                        assert(reserved_names);
                         auto& extras = field.value();
                         extras.clear();
 
                         Backend::for_each_field(value, [&](const auto& key, const auto& node) {
                             std::string key_value;
                             Backend::deserialize(key_value, key);
-
-                            if (reserved_names.find(key_value) != reserved_names.end())
+                            if (reserved_names->find(key_value) != reserved_names->end())
                                 return;
-
                             typename remove_cvref_t<decltype(extras)>::mapped_type mapped_value{};
                             Backend::deserialize(mapped_value, node);
                             extras.emplace(std::move(key_value), std::move(mapped_value));
