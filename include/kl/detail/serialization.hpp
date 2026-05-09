@@ -173,16 +173,23 @@ const char* resolve_field_name(const typename Backend::value_type& value, const 
 }
 
 template <typename Field>
-void collect_field_reserved_names(string_set& names, const Field& field)
+void collect_field_reserved_names(string_set& names, std::size_t& extra_fields_count,
+                                  const Field& field)
 {
     if constexpr (Field::template has<attributes::extra_fields_t>())
     {
+        ++extra_fields_count;
+        if (extra_fields_count > 1)
+        {
+            throw std::logic_error{
+                "serialization only one extra_fields field is supported"};
+        }
         return;
     }
     else if constexpr (Field::template has<attributes::flatten_t>())
     {
-        ctti::reflect(field.value(), [&names](auto nested_field) {
-            collect_field_reserved_names(names, nested_field);
+        ctti::reflect(field.value(), [&names, &extra_fields_count](auto nested_field) {
+            collect_field_reserved_names(names, extra_fields_count, nested_field);
         });
     }
     else
@@ -212,9 +219,10 @@ template <typename Reflectable>
 string_set reserved_field_names(const Reflectable& refl)
 {
     string_set names;
-    ctti::reflect(refl, [&names](auto field) {
+    std::size_t extra_fields_count = 0;
+    ctti::reflect(refl, [&names, &extra_fields_count](auto field) {
         check_field_attributes<decltype(field)>();
-        collect_field_reserved_names(names, field);
+        collect_field_reserved_names(names, extra_fields_count, field);
     });
     return names;
 }
