@@ -338,7 +338,7 @@ struct serializer<custom_empty_value>
 
 } // namespace kl::serialization
 
-TEST_CASE("serialization - json and yaml backends coexist")
+TEST_CASE("serialization - json and yaml backends coexist", "[serialization]")
 {
     serialization_record record{7, "text", {1, 2, 3}};
 
@@ -420,7 +420,7 @@ TEST_CASE("serialization - json and yaml backends coexist")
     }
 }
 
-TEST_CASE("serialization - skip field attributes")
+TEST_CASE("serialization - skip field attributes", "[serialization]")
 {
     serialization_attributes_record record{1, 2, 3, 4};
 
@@ -483,7 +483,7 @@ TEST_CASE("serialization - skip field attributes")
     }
 }
 
-TEST_CASE("serialization - null field attributes")
+TEST_CASE("serialization - null field attributes", "[serialization]")
 {
     nullish_serialization_record record{std::nullopt, std::nullopt, std::nullopt, 7};
 
@@ -551,7 +551,7 @@ TEST_CASE("serialization - null field attributes")
     }
 }
 
-TEST_CASE("serialization - empty field attributes")
+TEST_CASE("serialization - empty field attributes", "[serialization]")
 {
     empty_serialization_record record{"", "", "present", {}, {1, 2}};
 
@@ -590,7 +590,7 @@ TEST_CASE("serialization - empty field attributes")
     }
 }
 
-TEST_CASE("serialization - empty traits customization point")
+TEST_CASE("serialization - empty traits customization point", "[serialization]")
 {
     custom_empty_serialization_record record{{true}, {false}};
 
@@ -617,7 +617,7 @@ TEST_CASE("serialization - empty traits customization point")
     }
 }
 
-TEST_CASE("serialization - flatten reflected field")
+TEST_CASE("serialization - flatten reflected field", "[serialization]")
 {
     flattened_outer_record record{1, {2, std::nullopt}, 3};
 
@@ -678,7 +678,7 @@ c: 30
     }
 }
 
-TEST_CASE("serialization - extra fields attribute")
+TEST_CASE("serialization - extra fields attribute", "[serialization]")
 {
     SECTION("json")
     {
@@ -749,7 +749,7 @@ otherExtra:
     }
 }
 
-TEST_CASE("serialization - extra fields reject reserved keys")
+TEST_CASE("serialization - extra fields reject reserved keys", "[serialization]")
 {
     SECTION("transparent string lookup")
     {
@@ -775,7 +775,7 @@ TEST_CASE("serialization - extra fields reject reserved keys")
     }
 }
 
-TEST_CASE("serialization - flatten rejects reflected name collisions")
+TEST_CASE("serialization - flatten rejects reflected name collisions", "[serialization]")
 {
     SECTION("outer and inner")
     {
@@ -821,7 +821,7 @@ TEST_CASE("serialization - flatten rejects reflected name collisions")
     }
 }
 
-TEST_CASE("serialization - default value attribute")
+TEST_CASE("serialization - default value attribute", "[serialization]")
 {
     SECTION("json")
     {
@@ -909,7 +909,7 @@ TEST_CASE("serialization - default value attribute")
     }
 }
 
-TEST_CASE("serialization - allow missing attribute")
+TEST_CASE("serialization - allow missing attribute", "[serialization]")
 {
     SECTION("json")
     {
@@ -986,7 +986,7 @@ count: ~
     }
 }
 
-TEST_CASE("serialization - field aliases")
+TEST_CASE("serialization - field aliases", "[serialization]")
 {
     serialization_record record{7, "text", {1, 2, 3}};
 
@@ -1091,7 +1091,7 @@ TEST_CASE("serialization - field aliases")
     }
 }
 
-TEST_CASE("serialization - renamed fields")
+TEST_CASE("serialization - renamed fields", "[serialization]")
 {
     renamed_serialization_record record{1, 2, 3};
 
@@ -1189,7 +1189,7 @@ TEST_CASE("serialization - renamed fields")
     }
 }
 
-TEST_CASE("serialization - generic user ADL works for json and yaml")
+TEST_CASE("serialization - generic user ADL works for json and yaml", "[serialization]")
 {
     generic_adl_value value{42};
 
@@ -1201,7 +1201,7 @@ TEST_CASE("serialization - generic user ADL works for json and yaml")
     CHECK(yaml_value.as<int>() == 42);
 }
 
-TEST_CASE("serialization - backend ADL wins over structural reflection")
+TEST_CASE("serialization - backend ADL wins over structural reflection", "[serialization]")
 {
     reflected_with_backend_adl value{42};
 
@@ -1214,7 +1214,7 @@ TEST_CASE("serialization - backend ADL wins over structural reflection")
     CHECK(yaml_value.as<std::string>() == "yaml-backend-adl");
 }
 
-TEST_CASE("serialization - chrono duration serializer works with json and yaml")
+TEST_CASE("serialization - chrono duration serializer works with json and yaml", "[serialization]")
 {
     using namespace std::chrono;
 
