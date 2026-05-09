@@ -26,7 +26,7 @@
 #include <utility>
 #include <vector>
 
-TEST_CASE("yaml")
+TEST_CASE("yaml", "[yaml][serialization]")
 {
     using namespace kl;
 
@@ -766,7 +766,7 @@ void deserialize_adl(kl::yaml::tree_tag, value_wrapper<T>& out, const YAML::Node
 }
 } // namespace my
 
-TEST_CASE("yaml - overloading")
+TEST_CASE("yaml - overloading", "[yaml][serialization]")
 {
     aggregate a{{}, {}, {31}};
     auto y = kl::yaml::serialize(a);
@@ -776,7 +776,7 @@ TEST_CASE("yaml - overloading")
     REQUIRE(obj.w.value == 31);
 }
 
-TEST_CASE("yaml - enum_set")
+TEST_CASE("yaml - enum_set", "[yaml][serialization]")
 {
     SECTION("to yaml")
     {
@@ -817,7 +817,7 @@ TEST_CASE("yaml - enum_set")
     }
 }
 
-TEST_CASE("yaml dump")
+TEST_CASE("yaml dump", "[yaml][serialization]")
 {
     using namespace kl;
 
@@ -996,7 +996,7 @@ void dump_adl(kl::yaml::stream_tag, const value_wrapper<T>& t, Context& ctx)
 }
 } // namespace my
 
-TEST_CASE("yaml dump - overloading")
+TEST_CASE("yaml dump - overloading", "[yaml][serialization]")
 {
     aggregate a{{}, {}, {31}};
     auto res = kl::yaml::dump(a);
@@ -1031,7 +1031,7 @@ KL_REFLECT_STRUCT(event_a, f1, f2, f3)
 using event_c = std::tuple<std::string, bool, std::vector<int>>;
 } // namespace
 
-TEST_CASE("yaml::view - two-phase deserialization")
+TEST_CASE("yaml::view - two-phase deserialization", "[yaml][serialization]")
 {
     auto y =
         R"(---
@@ -1130,7 +1130,7 @@ struct zxc
 };
 } // namespace
 
-TEST_CASE("yaml: manually (de)serialized type")
+TEST_CASE("yaml: manually (de)serialized type", "[yaml][serialization]")
 {
     zxc z{"asd", 3, true, {1, 2, 34}};
     CHECK(YAML::Dump(kl::yaml::serialize(z)) ==
@@ -1162,7 +1162,7 @@ d:
                       "\nerror when deserializing field c");
 }
 
-TEST_CASE("yaml: to_sequence and to_map")
+TEST_CASE("yaml: to_sequence and to_map", "[yaml][serialization]")
 {
     kl::yaml::serialize_context ctx;
 
@@ -1187,7 +1187,7 @@ TEST_CASE("yaml: to_sequence and to_map")
                  R"(, {a: zxc, b: 222, c: false, d: [1]}]})");
 }
 
-TEST_CASE("yaml: from_sequence and from_map")
+TEST_CASE("yaml: from_sequence and from_map", "[yaml][serialization]")
 {
     const auto y =
         R"(ctx: 123

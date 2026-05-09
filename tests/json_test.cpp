@@ -37,7 +37,7 @@ static std::string to_string(const rapidjson::Value& v)
     return std::string(buffer.GetString());
 }
 
-TEST_CASE("json")
+TEST_CASE("json", "[json][serialization]")
 {
     using namespace kl;
 
@@ -841,7 +841,7 @@ TEST_CASE("json - enum_set")
     }
 }
 
-TEST_CASE("json dump")
+TEST_CASE("json dump", "[json][serialization]")
 {
     using namespace kl;
 
@@ -991,7 +991,7 @@ void dump_adl(kl::json::stream_tag, const value_wrapper<T>& t, Context& ctx)
 }
 } // namespace my
 
-TEST_CASE("json dump - overloading")
+TEST_CASE("json dump - overloading", "[json][serialization]")
 {
     aggregate a{{}, {}, {31}};
     auto res = kl::json::dump(a);
@@ -1026,7 +1026,7 @@ KL_REFLECT_STRUCT(event_a, f1, f2, f3)
 using event_c = std::tuple<std::string, bool, std::vector<int>>;
 } // namespace
 
-TEST_CASE("json::view - two-phase deserialization")
+TEST_CASE("json::view - two-phase deserialization", "[json][serialization]")
 {
     auto j = R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}},)"
              R"({"type":"c","data":["d1",false,[1,2,3]]}])"_json;
@@ -1122,7 +1122,7 @@ struct zxc_dynamic_names
 };
 } // namespace
 
-TEST_CASE("json: manually (de)serialized type")
+TEST_CASE("json: manually (de)serialized type", "[json][serialization]")
 {
     zxc z{"asd", 3, true, {1, 2, 34}};
     CHECK(to_string(kl::json::serialize(z)) ==
@@ -1145,7 +1145,7 @@ TEST_CASE("json: manually (de)serialized type")
                       "error when deserializing field c");
 }
 
-TEST_CASE("json: to_array and to_object")
+TEST_CASE("json: to_array and to_object", "[json][serialization]")
 {
     kl::json::owning_serialize_context ctx;
 
@@ -1171,7 +1171,7 @@ TEST_CASE("json: to_array and to_object")
           R"({"a":"zxc","b":222,"c":false,"d":[1]}]})");
 }
 
-TEST_CASE("json: from_array and from_object")
+TEST_CASE("json: from_array and from_object", "[json][serialization]")
 {
     const auto j =
         R"({"ctx":123,"array":[{"r":331,"d":5.6},{"something":true},3]})"_json;
