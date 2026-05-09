@@ -21,6 +21,27 @@ struct B : A
 };
 KL_REFLECT_STRUCT_DERIVED(B, A, ull)
 
+struct ReflectedFriend
+{
+    ReflectedFriend(int i, bool b) : i{i}, b{b} {}
+
+private:
+    int i;
+    bool b;
+
+    KL_REFLECT_STRUCT_FRIEND(ReflectedFriend, i, b)
+};
+
+struct ReflectedFriendDerived : ReflectedFriend
+{
+    ReflectedFriendDerived() : ReflectedFriend{7, false} {}
+
+private:
+    std::string s{"derived"};
+
+    KL_REFLECT_STRUCT_DERIVED_FRIEND(ReflectedFriendDerived, ReflectedFriend, s)
+};
+
 } // namespace
 
 TEST_CASE("reflect struct")
@@ -54,4 +75,30 @@ TEST_CASE("reflect struct")
         b, kl::ctti::record<B>);
     CHECK(acc == 4);
     CHECK(last_name == "ull");
+}
+
+TEST_CASE("reflect struct using hidden friends")
+{
+    ReflectedFriend reflected{42, true};
+
+    std::ostringstream ss;
+    reflect_struct([&](auto field) {
+        ss << field.name() << ": " << field.value() << "\n";
+    }, reflected, kl::ctti::record<ReflectedFriend>);
+
+    CHECK(ss.str() == "i: 42\nb: 1\n");
+    CHECK(reflect_num_fields(kl::ctti::record<ReflectedFriend>) == 2);
+}
+
+TEST_CASE("reflect derived struct using hidden friends")
+{
+    ReflectedFriendDerived reflected;
+
+    std::ostringstream ss;
+    reflect_struct([&](auto field) {
+        ss << field.name() << ": " << field.value() << "\n";
+    }, reflected, kl::ctti::record<ReflectedFriendDerived>);
+
+    CHECK(ss.str() == "i: 7\nb: 0\ns: derived\n");
+    CHECK(reflect_num_fields(kl::ctti::record<ReflectedFriendDerived>) == 3);
 }

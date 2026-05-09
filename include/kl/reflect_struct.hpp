@@ -22,6 +22,8 @@ struct A
     double d;
 };
 KL_REFLECT_STRUCT(A, i, b, d)
+// or, inside the struct definition:
+// KL_REFLECT_STRUCT_FRIEND(A, i, b, d)
 
 struct B : A
 {
@@ -29,6 +31,8 @@ struct B : A
 };
 KL_REFLECT_STRUCT_DERIVED(B, A, str)
 // or KL_REFLECT_STRUCT_DERIVED(B, (A), str)
+// or, inside the struct definition:
+// KL_REFLECT_STRUCT_DERIVED_FRIEND(B, A, str)
 
 }
 
@@ -41,6 +45,8 @@ KL_REFLECT_STRUCT_DERIVED(B, A, str)
    (member, metadata...). Metadata is stored in the reflected field object and
    can be queried with field.has<T>() and field.get<T>().
  * Macro should be placed in the same namespace as the type
+ * Alternatively, KL_REFLECT_STRUCT_FRIEND can be placed inside the type.
+   This is useful when reflected members are private or protected.
  * Above definitions are expanded to:
 
      template <typename Visitor, typename Self>
@@ -80,6 +86,7 @@ KL_REFLECT_STRUCT_DERIVED(B, A, str)
    class parentheses can be omitted
  * The rest is a list of all fields that need to be visible by kl::ctti
  * Similarly, macro should be placed in the same namespace as the type
+ * Alternatively, KL_REFLECT_STRUCT_DERIVED_FRIEND can be placed inside the type.
 
  * Use kl::ctti to query type's fields:
      ns::B b = ...
@@ -221,34 +228,59 @@ accessor_field(Object&, const char*, Accessor, Attributes...)
 #define KL_REFLECT_STRUCT(type_, ...)                                          \
     KL_REFLECT_STRUCT_TUPLE(type_, KL_VARIADIC_TO_TUPLE(__VA_ARGS__))
 
+#define KL_REFLECT_STRUCT_FRIEND(type_, ...)                                   \
+    KL_REFLECT_STRUCT_FRIEND_TUPLE(type_, KL_VARIADIC_TO_TUPLE(__VA_ARGS__))
+
 #define KL_REFLECT_STRUCT_DERIVED(type_, bases_, ...)                          \
     KL_REFLECT_STRUCT_DERIVED_TUPLE(type_, KL_ARG_TO_TUPLE(bases_),            \
                                     KL_VARIADIC_TO_TUPLE(__VA_ARGS__))
 
+#define KL_REFLECT_STRUCT_DERIVED_FRIEND(type_, bases_, ...)                   \
+    KL_REFLECT_STRUCT_DERIVED_FRIEND_TUPLE(                                    \
+        type_, KL_ARG_TO_TUPLE(bases_), KL_VARIADIC_TO_TUPLE(__VA_ARGS__))
+
+#define KL_REFLECT_STRUCT_NAMESPACE_DECL [[maybe_unused]]
+#define KL_REFLECT_STRUCT_FRIEND_DECL friend
+
 #define KL_REFLECT_STRUCT_TUPLE(type_, fields_)                                \
+    KL_REFLECT_STRUCT_TUPLE_IMPL(KL_REFLECT_STRUCT_NAMESPACE_DECL, type_,      \
+                                 fields_)
+
+#define KL_REFLECT_STRUCT_FRIEND_TUPLE(type_, fields_)                         \
+    KL_REFLECT_STRUCT_TUPLE_IMPL(KL_REFLECT_STRUCT_FRIEND_DECL, type_, fields_)
+
+#define KL_REFLECT_STRUCT_TUPLE_IMPL(decl_, type_, fields_)                    \
     template <typename Visitor, typename Self>                                 \
-    [[maybe_unused]] constexpr void reflect_struct(                            \
+    decl_ constexpr void reflect_struct(                                       \
         Visitor&& vis, Self&& self, ::kl::ctti::record_class<type_>)           \
     {                                                                          \
         KL_REFLECT_STRUCT_VIS_MEMBERS(type_, fields_)                          \
     }                                                                          \
                                                                                \
-    [[maybe_unused]] constexpr std::size_t reflect_num_fields(                 \
+    decl_ constexpr std::size_t reflect_num_fields(                            \
         ::kl::ctti::record_class<type_>) noexcept                              \
     {                                                                          \
         return KL_TUPLE_SIZE(fields_);                                         \
     }
 
 #define KL_REFLECT_STRUCT_DERIVED_TUPLE(type_, bases_, fields_)                \
+    KL_REFLECT_STRUCT_DERIVED_TUPLE_IMPL(KL_REFLECT_STRUCT_NAMESPACE_DECL,     \
+                                         type_, bases_, fields_)
+
+#define KL_REFLECT_STRUCT_DERIVED_FRIEND_TUPLE(type_, bases_, fields_)         \
+    KL_REFLECT_STRUCT_DERIVED_TUPLE_IMPL(KL_REFLECT_STRUCT_FRIEND_DECL, type_, \
+                                         bases_, fields_)
+
+#define KL_REFLECT_STRUCT_DERIVED_TUPLE_IMPL(decl_, type_, bases_, fields_)    \
     template <typename Visitor, typename Self>                                 \
-    [[maybe_unused]] constexpr void reflect_struct(                            \
+    decl_ constexpr void reflect_struct(                                       \
         Visitor&& vis, Self&& self, ::kl::ctti::record_class<type_>)           \
     {                                                                          \
         KL_REFLECT_STRUCT_VIS_BASES(bases_)                                    \
         KL_REFLECT_STRUCT_VIS_MEMBERS(type_, fields_)                          \
     }                                                                          \
                                                                                \
-    [[maybe_unused]] constexpr std::size_t reflect_num_fields(                 \
+    decl_ constexpr std::size_t reflect_num_fields(                            \
         ::kl::ctti::record_class<type_>) noexcept                              \
     {                                                                          \
         return KL_TUPLE_SIZE(fields_) +                                        \
