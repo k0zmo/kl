@@ -12,6 +12,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <set>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -73,6 +74,32 @@ constexpr void check_flatten_field()
 }
 
 template <typename Field>
+constexpr void check_extra_fields_field()
+{
+    using value_type = remove_cvref_t<decltype(std::declval<Field>().value())>;
+
+    if constexpr (Field::template has<attributes::extra_fields_t>())
+    {
+        static_assert(::kl::detail::is_map_alike<value_type>::value,
+                      "serialization extra_fields field must be map-like");
+
+        if constexpr (::kl::detail::is_map_alike<value_type>::value)
+        {
+            static_assert(
+                std::is_constructible_v<std::string, typename value_type::key_type>,
+                "serialization extra_fields key type must be constructible as std::string");
+        }
+    }
+}
+
+template <typename Field>
+constexpr void check_field_attributes()
+{
+    check_flatten_field<Field>();
+    check_extra_fields_field<Field>();
+}
+
+template <typename Field>
 bool apply_default_value(const Field& field)
 {
     bool applied = false;
@@ -82,7 +109,8 @@ bool apply_default_value(const Field& field)
 
         if constexpr (attributes::detail::is_default_value_v<attr_type>)
         {
-            using default_type = typename attributes::detail::is_default_value<attr_type>::value_type;
+            using default_type =
+                typename attributes::detail::is_default_value<attr_type>::value_type;
 
             static_assert(std::is_assignable_v<decltype(field.value()), default_type>,
                           "serialization default_value must be assignable to the field type");
@@ -135,18 +163,69 @@ const char* resolve_field_name(const typename Backend::value_type& value, const 
     return nullptr;
 }
 
+template <typename Field>
+void collect_field_reserved_names(std::set<std::string>& names, const Field& field)
+{
+    if constexpr (Field::template has<attributes::extra_fields_t>())
+    {
+        return;
+    }
+    else if constexpr (Field::template has<attributes::flatten_t>())
+    {
+        ctti::reflect(field.value(), [&names](auto nested_field) {
+            collect_field_reserved_names(names, nested_field);
+        });
+    }
+    else
+    {
+        names.insert(serialized_name(field));
+
+        if constexpr (Field::template has<attributes::aliases_t>())
+        {
+            const auto* aliases = field.template get<attributes::aliases_t>();
+            for (const char* alias : *aliases)
+                names.insert(alias);
+        }
+    }
+}
+
+// Build a list of field names from a reflectable struct that could be considered "extra fields"
+template <typename Reflectable>
+std::set<std::string> reserved_field_names(const Reflectable& refl)
+{
+    std::set<std::string> names;
+
+    ctti::reflect(refl, [&names](auto field) {
+        check_field_attributes<decltype(field)>();
+        collect_field_reserved_names(names, field);
+    });
+
+    return names;
+}
+
 template <typename Backend, typename Reflectable, typename Context>
 void dump_reflected_fields(const Reflectable& refl, Context& ctx)
 {
     ctti::reflect(refl, [&ctx](auto field) {
-        check_flatten_field<decltype(field)>();
+        check_field_attributes<decltype(field)>();
 
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
         {
             auto&& value = field.value();
             if (!skip_serialized_field<decltype(field)>(value, ctx))
             {
-                if constexpr (decltype(field)::template has<attributes::flatten_t>())
+                if constexpr (decltype(field)::template has<attributes::extra_fields_t>())
+                {
+                    for (const auto& [key, extra_value] : value)
+                    {
+                        if (!ctx.skip_null_value(extra_value))
+                        {
+                            Backend::write_key(key, ctx);
+                            Backend::dump(extra_value, ctx);
+                        }
+                    }
+                }
+                else if constexpr (decltype(field)::template has<attributes::flatten_t>())
                 {
                     dump_reflected_fields<Backend>(value, ctx);
                 }
@@ -166,14 +245,27 @@ void add_reflected_fields(typename Backend::value_type& out,
                           Context& ctx)
 {
     ctti::reflect(refl, [&out, &ctx](auto field) {
-        check_flatten_field<decltype(field)>();
+        check_field_attributes<decltype(field)>();
 
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
         {
             auto&& value = field.value();
             if (!skip_serialized_field<decltype(field)>(value, ctx))
             {
-                if constexpr (decltype(field)::template has<attributes::flatten_t>())
+                if constexpr (decltype(field)::template has<attributes::extra_fields_t>())
+                {
+                    for (const auto& [key, extra_value] : value)
+                    {
+                        if (!ctx.skip_null_value(extra_value))
+                        {
+                            Backend::add_field(out,
+                                               key,
+                                               Backend::serialize(extra_value, ctx),
+                                               ctx);
+                        }
+                    }
+                }
+                else if constexpr (decltype(field)::template has<attributes::flatten_t>())
                 {
                     add_reflected_fields<Backend>(out, value, ctx);
                 }
@@ -435,14 +527,34 @@ try
 {
     if (Backend::is_map(value))
     {
-        ctti::reflect(out, [&value](auto field) {
-            check_flatten_field<decltype(field)>();
+        const auto reserved_names = reserved_field_names(out);
+
+        ctti::reflect(out, [&value, &reserved_names](auto field) {
+            check_field_attributes<decltype(field)>();
 
             if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
             {
                 try
                 {
-                    if constexpr (decltype(field)::template has<attributes::flatten_t>())
+                    if constexpr (decltype(field)::template has<attributes::extra_fields_t>())
+                    {
+                        auto& extras = field.value();
+                        extras.clear();
+
+                        Backend::for_each_field(value, [&](const auto& key, const auto& node) {
+                            std::string key_value;
+                            Backend::deserialize(key_value, key);
+
+                            if (reserved_names.find(key_value) != reserved_names.end())
+                                return;
+
+                            typename remove_cvref_t<decltype(extras)>::mapped_type mapped_value{};
+                            Backend::deserialize(mapped_value, node);
+                            extras.emplace(std::move(key_value), std::move(mapped_value));
+                        });
+                        return;
+                    }
+                    else if constexpr (decltype(field)::template has<attributes::flatten_t>())
                     {
                         Backend::deserialize(field.value(), value);
                         return;
@@ -481,13 +593,18 @@ try
         }
 
         ctti::reflect(out, [&value, index = 0U](auto field) mutable {
-            check_flatten_field<decltype(field)>();
+            check_field_attributes<decltype(field)>();
 
             if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
             {
                 try
                 {
-                    if constexpr (decltype(field)::template has<attributes::flatten_t>())
+                    if constexpr (decltype(field)::template has<attributes::extra_fields_t>())
+                    {
+                        throw deserialize_error{
+                            "extra_fields fields are not supported in sequence deserialization"};
+                    }
+                    else if constexpr (decltype(field)::template has<attributes::flatten_t>())
                     {
                         throw deserialize_error{
                             "flatten fields are not supported in sequence deserialization"};

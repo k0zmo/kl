@@ -4,8 +4,10 @@
 #include <type_traits>
 #include <utility>
 
+// Per-field attributes for controlling serialization/deserialization behaviour.
 namespace kl::serialization::attributes {
 
+// Tag types for field-level serialization control
 struct skip_serialization_t {};
 struct skip_deserialization_t {};
 struct skip_t : skip_serialization_t, skip_deserialization_t {};
@@ -14,7 +16,9 @@ struct emit_null_t {};
 struct allow_missing_t {};
 struct skip_if_empty_t {};
 struct flatten_t {};
+struct extra_fields_t {};
 
+// Wraps a default value to assign when the input field is missing or null
 template <typename T>
 struct default_value_t
 {
@@ -38,6 +42,7 @@ template <typename T>
 inline constexpr bool is_default_value_v = is_default_value<T>::value;
 } // namespace detail
 
+// Holds a set of alternative input key names accepted during deserialization
 struct aliases_t
 {
     static constexpr std::size_t max_aliases = 8;
@@ -60,13 +65,19 @@ private:
     const char* names_[max_aliases];
 };
 
+// Overrides the serialized key name for a field
 struct rename_t
 {
     const char* name;
 };
 
+// Exclude field from serialization output
 inline constexpr skip_serialization_t skip_serialization{};
+
+// Ignore field during deserialization
 inline constexpr skip_deserialization_t skip_deserialization{};
+
+// Both skip_serialization and skip_deserialization
 inline constexpr skip_t skip{};
 
 // Serialization only. Omit this field when serialization::is_null_value(field.value()) is true.
@@ -86,6 +97,9 @@ inline constexpr skip_if_empty_t skip_if_empty{};
 // Serialize/deserialize reflected object fields directly in the parent object.
 inline constexpr flatten_t flatten{};
 
+// Serialize/deserialize map-like field entries directly in the parent object.
+inline constexpr extra_fields_t extra_fields{};
+
 // Deserialization only. If the input field is missing or present-but-null, assign value
 template <typename T>
 constexpr default_value_t<std::decay_t<T>> default_value(T&& value)
@@ -93,12 +107,14 @@ constexpr default_value_t<std::decay_t<T>> default_value(T&& value)
     return {std::forward<T>(value)};
 }
 
+// Deserialization only. Accept any of the given names as input key aliases
 template <typename... Names>
 constexpr aliases_t aliases(Names... names)
 {
     return aliases_t{names...};
 }
 
+// Override the serialized/deserialized key name for a field
 constexpr rename_t rename(const char* name)
 {
     return {name};
