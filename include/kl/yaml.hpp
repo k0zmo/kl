@@ -1,6 +1,8 @@
 #pragma once
 
 #include "kl/serialization.hpp"
+#include "kl/serialization_error.hpp"
+#include "kl/serialization_fwd.hpp"
 #include "kl/utility.hpp"
 #include "kl/yaml_fwd.hpp"
 
@@ -78,6 +80,10 @@ public:
 
 private:
     bool skip_null_fields_;
+};
+
+class deserialize_context : public tree_tag
+{
 };
 
 namespace detail {
@@ -169,10 +175,12 @@ private:
     YAML::Node node_;
 };
 
+template <typename Context>
 class map_extractor
 {
 public:
-    explicit map_extractor(const YAML::Node& node) : node_{node}
+    explicit map_extractor(const YAML::Node& node, Context& ctx)
+        : node_{node}, ctx_{ctx}
     {
         detail::expect_map(node_);
     }
@@ -182,7 +190,7 @@ public:
     {
         try
         {
-            yaml::deserialize(out, yaml::at(node_, member_name));
+            yaml::deserialize(out, yaml::at(node_, member_name), ctx_);
             return *this;
         }
         catch (serialization::deserialize_error& ex)
@@ -196,12 +204,15 @@ public:
 
 private:
     const YAML::Node& node_;
+    Context& ctx_;
 };
 
+template <typename Context>
 class sequence_extractor
 {
 public:
-    explicit sequence_extractor(const YAML::Node& node) : node_{node}
+    explicit sequence_extractor(const YAML::Node& node, Context& ctx)
+        : node_{node}, ctx_{ctx}
     {
         detail::expect_sequence(node_);
     }
@@ -218,7 +229,7 @@ public:
     {
         try
         {
-            yaml::deserialize(out, yaml::at(node_, index_));
+            yaml::deserialize(out, yaml::at(node_, index_), ctx_);
             ++index_;
             return *this;
         }
@@ -232,8 +243,10 @@ public:
 
 private:
     const YAML::Node& node_;
+    Context& ctx_;
     unsigned index_{};
 };
+
 } // namespace detail
 
 template <typename Context>
@@ -248,14 +261,16 @@ auto to_map(Context& ctx)
     return detail::map_builder<Context>{ctx};
 }
 
-inline auto from_sequence(const YAML::Node& node)
+template <typename Context>
+auto from_sequence(const YAML::Node& node, Context& ctx)
 {
-    return detail::sequence_extractor{node};
+    return detail::sequence_extractor<Context>{node, ctx};
 }
 
-inline auto from_map(const YAML::Node& node)
+template <typename Context>
+auto from_map(const YAML::Node& node, Context& ctx)
 {
-    return detail::map_extractor{node};
+    return detail::map_extractor<Context>{node, ctx};
 }
 
 namespace detail {
@@ -317,10 +332,10 @@ struct yaml_tree_backend
         return yaml::serialize(value, ctx);
     }
 
-    template <typename T>
-    static void deserialize(T& out, const value_type& value)
+    template <typename T, typename Context>
+    static void deserialize(T& out, const value_type& value, Context& ctx)
     {
-        yaml::deserialize(out, value);
+        yaml::deserialize(out, value, ctx);
     }
 
     // Map stuff
@@ -493,17 +508,18 @@ YAML::Node serialize_adl(yaml::tree_tag, const char* str, Context&)
 }
 
 // deserialize_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
-template <typename T>
-auto deserialize_adl(yaml::tree_tag, T& out, const YAML::Node& value)
-    -> decltype(detail::deserialize_adl<yaml::detail::yaml_tree_backend>(out, value), void())
+template <typename T, typename Context>
+auto deserialize_adl(yaml::tree_tag, T& out, const YAML::Node& value, Context& ctx)
+    -> decltype(detail::deserialize_adl<yaml::detail::yaml_tree_backend>(out, value, ctx), void())
 {
-    detail::deserialize_adl<yaml::detail::yaml_tree_backend>(out, value);
+    detail::deserialize_adl<yaml::detail::yaml_tree_backend>(out, value, ctx);
 }
 
 // deserialize_adl implementations for simple types
 
-template <typename Arithmetic, enable_if<std::is_arithmetic<Arithmetic>> = true>
-void deserialize_adl(yaml::tree_tag, Arithmetic& out, const YAML::Node& value)
+template <typename Arithmetic, typename Context,
+          enable_if<std::is_arithmetic<Arithmetic>> = true>
+void deserialize_adl(yaml::tree_tag, Arithmetic& out, const YAML::Node& value, Context&)
 {
     yaml::detail::expect_scalar(value);
 
@@ -517,13 +533,15 @@ void deserialize_adl(yaml::tree_tag, Arithmetic& out, const YAML::Node& value)
     }
 }
 
-inline void deserialize_adl(yaml::tree_tag, std::string& out, const YAML::Node& value)
+template <typename Context>
+void deserialize_adl(yaml::tree_tag, std::string& out, const YAML::Node& value, Context&)
 {
     yaml::detail::expect_scalar(value);
     out = value.Scalar();
 }
 
-inline void deserialize_adl(yaml::tree_tag, std::string_view& out, const YAML::Node& value)
+template <typename Context>
+void deserialize_adl(yaml::tree_tag, std::string_view& out, const YAML::Node& value, Context&)
 {
     // This variant is unsafe because the lifetime of underlying string is tied
     // to the lifetime of the YAML's scalar value. It may come in handy when
@@ -534,7 +552,8 @@ inline void deserialize_adl(yaml::tree_tag, std::string_view& out, const YAML::N
     out = value.Scalar();
 }
 
-inline void deserialize_adl(yaml::tree_tag, yaml::view& out, const YAML::Node& value)
+template <typename Context>
+void deserialize_adl(yaml::tree_tag, yaml::view& out, const YAML::Node& value, Context&)
 {
     out = yaml::view{value};
 }
@@ -576,18 +595,12 @@ struct backend_traits<yaml::detail::yaml_tree_backend>
         return serialize_adl(yaml::tree_tag{}, obj, ctx);
     }
 
-    template <typename T>
-    static auto deserialize(T& out, const YAML::Node& value)
-        -> decltype(deserialize_adl(yaml::tree_tag{}, out, value), void())
+    template <typename T, typename Context>
+    static auto deserialize(T& out, const YAML::Node& value, Context& ctx)
+        -> decltype(deserialize_adl(yaml::tree_tag{}, out, value, ctx), void())
     {
-        deserialize_adl(yaml::tree_tag{}, out, value);
+        deserialize_adl(yaml::tree_tag{}, out, value, ctx);
     }
-};
-
-template <>
-struct backend_for_value<YAML::Node>
-{
-    using type = yaml::detail::yaml_tree_backend;
 };
 
 } // namespace kl::serialization
@@ -628,7 +641,14 @@ YAML::Node serialize(const T& obj, Context& ctx)
 template <typename T>
 void deserialize(T& out, const YAML::Node& value)
 {
-    return serialization::deserialize(out, value);
+    deserialize_context ctx{};
+    yaml::deserialize(out, value, ctx);
+}
+
+template <typename T, typename Context>
+void deserialize(T& out, const YAML::Node& value, Context& ctx)
+{
+    serialization::detail::deserialize_with_backend<tree_tag>(out, value, ctx);
 }
 
 // Shorter version of deserialize which can't be overloaded. Only use to invoke
@@ -637,7 +657,17 @@ template <typename T>
 T deserialize(const YAML::Node& value)
 {
     static_assert(std::is_default_constructible_v<T>, "T must be default constructible");
-    return serialization::deserialize<T>(value);
+    deserialize_context ctx{};
+    return yaml::deserialize<T>(value, ctx);
+}
+
+template <typename T, typename Context>
+T deserialize(const YAML::Node& value, Context& ctx)
+{
+    static_assert(std::is_default_constructible_v<T>, "T must be default constructible");
+    T out;
+    yaml::deserialize(out, value, ctx);
+    return out;
 }
 } // namespace kl::yaml
 

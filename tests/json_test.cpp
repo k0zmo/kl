@@ -754,7 +754,9 @@ rapidjson::Value serialize_adl(kl::json::tree_tag, global_struct, Context& ctx)
     return kl::json::serialize("global_struct", ctx);
 }
 
-void deserialize_adl(kl::json::tree_tag, global_struct& out, const rapidjson::Value& value)
+template <typename Context>
+void deserialize_adl(kl::json::tree_tag, global_struct& out,
+                     const rapidjson::Value& value, Context&)
 {
     if (value != "global_struct")
         throw kl::serialization::deserialize_error{""};
@@ -769,7 +771,8 @@ rapidjson::Value serialize_adl(kl::json::tree_tag, none_t, Context&)
     return rapidjson::Value{};
 }
 
-void deserialize_adl(kl::json::tree_tag, none_t& out, const rapidjson::Value& value)
+template <typename Context>
+void deserialize_adl(kl::json::tree_tag, none_t& out, const rapidjson::Value& value, Context&)
 {
     out = value.IsNull() ? none_t{} : throw kl::serialization::deserialize_error{""};
 }
@@ -782,11 +785,11 @@ rapidjson::Value serialize_adl(kl::json::tree_tag, const value_wrapper<T>& t, Co
     return kl::json::serialize(t.value, ctx);
 }
 
-template <typename T>
+template <typename T, typename Context>
 void deserialize_adl(kl::json::tree_tag, value_wrapper<T>& out,
-                     const rapidjson::Value& value)
+                     const rapidjson::Value& value, Context& ctx)
 {
-    out = value_wrapper<T>{kl::json::deserialize<T>(value)};
+    out = value_wrapper<T>{kl::json::deserialize<T>(value, ctx)};
 }
 } // namespace my
 
@@ -1082,9 +1085,11 @@ struct zxc
         //   return ret;
     }
 
-    friend void deserialize_adl(kl::json::tree_tag, zxc& z, const rapidjson::Value& value)
+    template <typename Context>
+    friend void deserialize_adl(kl::json::tree_tag, zxc& z,
+                                const rapidjson::Value& value, Context& ctx)
     {
-        kl::json::from_object(value)
+        kl::json::from_object(value, ctx)
             .extract("a", z.a)
             .extract("b", z.b)
             .extract("c", z.c)
@@ -1178,7 +1183,8 @@ TEST_CASE("json: from_array and from_object", "[json][serialization]")
 
     int ctx;
     kl::json::view av;
-    kl::json::from_object(j).extract("ctx", ctx).extract("array", av);
+    kl::json::deserialize_context context;
+    kl::json::from_object(j, context).extract("ctx", ctx).extract("array", av);
     REQUIRE(ctx == 123);
     const auto& jarr = kl::json::at(j.GetObject(), "array");
     REQUIRE(jarr == av.value());
@@ -1186,16 +1192,16 @@ TEST_CASE("json: from_array and from_object", "[json][serialization]")
     inner_t inn;
     kl::json::view view;
     int i;
-    kl::json::from_array(jarr).extract(inn).extract(view, 1).extract(i);
+    kl::json::from_array(jarr, context).extract(inn).extract(view, 1).extract(i);
     REQUIRE(inn.r == 331);
     REQUIRE(inn.d == Catch::Approx(5.6));
     REQUIRE(i == 3);
 
     bool smth;
-    kl::json::from_object(view.value()).extract("something", smth);
+    kl::json::from_object(view.value(), context).extract("something", smth);
     REQUIRE(smth);
 
-    REQUIRE_THROWS_WITH(kl::json::from_array(jarr).extract(smth, 2),
+    REQUIRE_THROWS_WITH(kl::json::from_array(jarr, context).extract(smth, 2),
                         "type must be a boolean but is a kNumberType\n"
                         "error when deserializing element 2");
 }

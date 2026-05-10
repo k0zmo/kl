@@ -531,26 +531,27 @@ typename Backend::value_type serialize_adl(const std::optional<T>& opt, Context&
 
 // deserialize_adl implementation
 
-template <typename Backend, typename Map, enable_if<::kl::detail::is_map_alike<Map>> = true>
-void deserialize_adl(Map& out, const typename Backend::value_type& value)
+template <typename Backend, typename Map, typename Context,
+          enable_if<::kl::detail::is_map_alike<Map>> = true>
+void deserialize_adl(Map& out, const typename Backend::value_type& value, Context& ctx)
 {
     Backend::expect_map(value);
 
     out.clear();
 
-    Backend::for_each_field(value, [&out](const auto& key, const auto& field) {
+    Backend::for_each_field(value, [&out, &ctx](const auto& key, const auto& field) {
         try
         {
             typename Map::key_type key_value{};
-            Backend::deserialize(key_value, key);
+            Backend::deserialize(key_value, key, ctx);
             typename Map::mapped_type mapped_value{};
-            Backend::deserialize(mapped_value, field);
+            Backend::deserialize(mapped_value, field, ctx);
             out.emplace(std::move(key_value), std::move(mapped_value));
         }
         catch (deserialize_error& ex)
         {
             std::string field_name;
-            Backend::deserialize(field_name, key);
+            Backend::deserialize(field_name, key, ctx);
             std::string msg = "error when deserializing field " + field_name;
             ex.add(msg.c_str());
             throw;
@@ -558,10 +559,11 @@ void deserialize_adl(Map& out, const typename Backend::value_type& value)
     });
 }
 
-template <typename Backend, typename GrowableRange,
+template <typename Backend, typename GrowableRange, typename Context,
           enable_if<std::negation<::kl::detail::is_map_alike<GrowableRange>>,
                     ::kl::detail::is_growable_range<GrowableRange>> = true>
-void deserialize_adl(GrowableRange& out, const typename Backend::value_type& value)
+void deserialize_adl(GrowableRange& out, const typename Backend::value_type& value,
+                     Context& ctx)
 {
     Backend::expect_sequence(value);
 
@@ -569,11 +571,11 @@ void deserialize_adl(GrowableRange& out, const typename Backend::value_type& val
     if constexpr (::kl::detail::has_reserve_v<GrowableRange>)
         out.reserve(Backend::size(value));
 
-    Backend::for_each_element(value, [&out](const auto& item) {
+    Backend::for_each_element(value, [&out, &ctx](const auto& item) {
         try
         {
             typename GrowableRange::value_type element{};
-            Backend::deserialize(element, item);
+            Backend::deserialize(element, item, ctx);
             out.push_back(std::move(element));
         }
         catch (deserialize_error& ex)
@@ -585,15 +587,17 @@ void deserialize_adl(GrowableRange& out, const typename Backend::value_type& val
     });
 }
 
-template <typename Backend, typename Reflectable, enable_if<ctti::is_reflectable<Reflectable>> = true>
-void deserialize_adl(Reflectable& out, const typename Backend::value_type& value)
+template <typename Backend, typename Reflectable, typename Context,
+          enable_if<ctti::is_reflectable<Reflectable>> = true>
+void deserialize_adl(Reflectable& out, const typename Backend::value_type& value,
+                     Context& ctx)
 try
 {
     if (Backend::is_map(value))
     {
         const auto reserved_names = optional_reserved_field_names(out);
 
-        ctti::reflect(out, [&value, &reserved_names](auto field) {
+        ctti::reflect(out, [&value, &reserved_names, &ctx](auto field) {
             check_field_attributes<decltype(field)>();
 
             if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
@@ -608,18 +612,18 @@ try
 
                         Backend::for_each_field(value, [&](const auto& key, const auto& node) {
                             std::string key_value;
-                            Backend::deserialize(key_value, key);
+                            Backend::deserialize(key_value, key, ctx);
                             if (reserved_names->find(key_value) != reserved_names->end())
                                 return;
                             typename remove_cvref_t<decltype(extras)>::mapped_type mapped_value{};
-                            Backend::deserialize(mapped_value, node);
+                            Backend::deserialize(mapped_value, node, ctx);
                             extras.emplace(std::move(key_value), std::move(mapped_value));
                         });
                         return;
                     }
                     else if constexpr (decltype(field)::template has<attributes::flatten_t>())
                     {
-                        Backend::deserialize(field.value(), value);
+                        Backend::deserialize(field.value(), value, ctx);
                         return;
                     }
 
@@ -629,7 +633,9 @@ try
                         if (apply_missing_field_policy(field))
                             return;
 
-                        Backend::deserialize(field.value(), Backend::at_field(value, serialized_name(field)));
+                        Backend::deserialize(field.value(),
+                                             Backend::at_field(value, serialized_name(field)),
+                                             ctx);
                         return;
                     }
 
@@ -637,7 +643,7 @@ try
                     // If the node exists but is null and we also need to apply a default value.
                     if (Backend::is_null(node) && apply_null_field_policy(field))
                         return;
-                    Backend::deserialize(field.value(), node);
+                    Backend::deserialize(field.value(), node, ctx);
                 }
                 catch (deserialize_error& ex)
                 {
@@ -655,7 +661,7 @@ try
             throw deserialize_error{"sequence size is greater than declared struct's field count"};
         }
 
-        ctti::reflect(out, [&value, index = 0U](auto field) mutable {
+        ctti::reflect(out, [&value, &ctx, index = 0U](auto field) mutable {
             check_field_attributes<decltype(field)>();
 
             if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
@@ -673,7 +679,7 @@ try
                             "flatten fields are not supported in sequence deserialization"};
                     }
 
-                    Backend::deserialize(field.value(), Backend::at_index(value, index));
+                    Backend::deserialize(field.value(), Backend::at_index(value, index), ctx);
                     ++index;
                 }
                 catch (deserialize_error& ex)
@@ -698,13 +704,14 @@ catch (deserialize_error& ex)
     throw;
 }
 
-template <typename Backend, typename Enum, enable_if<std::is_enum<Enum>> = true>
-void deserialize_adl(Enum& out, const typename Backend::value_type& value)
+template <typename Backend, typename Enum, typename Context,
+          enable_if<std::is_enum<Enum>> = true>
+void deserialize_adl(Enum& out, const typename Backend::value_type& value, Context& ctx)
 {
     if constexpr (is_enum_reflectable_v<Enum>)
     {
         std::string text;
-        Backend::deserialize(text, value);
+        Backend::deserialize(text, value, ctx);
         if (auto enum_value = kl::from_string<Enum>(text))
         {
             out = *enum_value;
@@ -716,49 +723,53 @@ void deserialize_adl(Enum& out, const typename Backend::value_type& value)
     else
     {
         std::underlying_type_t<Enum> underlying_value{};
-        Backend::deserialize(underlying_value, value);
+        Backend::deserialize(underlying_value, value, ctx);
         out = static_cast<Enum>(underlying_value);
     }
 }
 
-template <typename Backend, typename Enum>
-void deserialize_adl(enum_set<Enum>& out, const typename Backend::value_type& value)
+template <typename Backend, typename Enum, typename Context>
+void deserialize_adl(enum_set<Enum>& out, const typename Backend::value_type& value,
+                     Context& ctx)
 {
     Backend::expect_sequence(value);
     out = {};
 
-    Backend::for_each_element(value, [&out](const auto& item) {
+    Backend::for_each_element(value, [&out, &ctx](const auto& item) {
         Enum e{};
-        Backend::deserialize(e, item);
+        Backend::deserialize(e, item, ctx);
         out |= e;
     });
 }
 
 namespace impl {
 
-template <typename Backend, typename Tuple, std::size_t... Is>
+template <typename Backend, typename Tuple, typename Context, std::size_t... Is>
 void deserialize_tuple(Tuple& out, const typename Backend::value_type& value,
-                       std::index_sequence<Is...>)
+                       Context& ctx, std::index_sequence<Is...>)
 {
-    (Backend::deserialize(std::get<Is>(out), Backend::at_index(value, Is)), ...);
+    (Backend::deserialize(std::get<Is>(out), Backend::at_index(value, Is), ctx), ...);
 }
 
 } // namespace impl
 
-template <typename Backend, typename... Ts>
-void deserialize_adl(std::tuple<Ts...>& out, const typename Backend::value_type& value)
+template <typename Backend, typename Context, typename... Ts>
+void deserialize_adl(std::tuple<Ts...>& out, const typename Backend::value_type& value,
+                     Context& ctx)
 {
     Backend::expect_sequence(value);
-    impl::deserialize_tuple<Backend>(out, value, std::make_index_sequence<sizeof...(Ts)>{});
+    impl::deserialize_tuple<Backend>(out, value, ctx,
+                                     std::make_index_sequence<sizeof...(Ts)>{});
 }
 
-template <typename Backend, typename T>
-void deserialize_adl(std::optional<T>& out, const typename Backend::value_type& value)
+template <typename Backend, typename T, typename Context>
+void deserialize_adl(std::optional<T>& out, const typename Backend::value_type& value,
+                     Context& ctx)
 {
     if (Backend::is_null(value))
         return out.reset();
     T element{};
-    Backend::deserialize(element, value);
+    Backend::deserialize(element, value, ctx);
     out = std::move(element);
 }
 

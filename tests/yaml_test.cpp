@@ -731,7 +731,9 @@ YAML::Node serialize_adl(kl::yaml::tree_tag, global_struct, Context& ctx)
     return kl::yaml::serialize("global_struct", ctx);
 }
 
-void deserialize_adl(kl::yaml::tree_tag, global_struct& out, const YAML::Node& value)
+template <typename Context>
+void deserialize_adl(kl::yaml::tree_tag, global_struct& out, const YAML::Node& value,
+                     Context&)
 {
     if (value.Scalar() != "global_struct")
         throw kl::serialization::deserialize_error{""};
@@ -746,7 +748,9 @@ YAML::Node serialize_adl(kl::yaml::tree_tag, none_t, Context&)
     return YAML::Node{};
 }
 
-void deserialize_adl(kl::yaml::tree_tag, none_t& out, const YAML::Node& value)
+template <typename Context>
+void deserialize_adl(kl::yaml::tree_tag, none_t& out, const YAML::Node& value,
+                     Context&)
 {
     out = value.IsNull() ? none_t{} : throw kl::serialization::deserialize_error{""};
 }
@@ -759,10 +763,11 @@ YAML::Node serialize_adl(kl::yaml::tree_tag, const value_wrapper<T>& t, Context&
     return kl::yaml::serialize(t.value, ctx);
 }
 
-template <typename T>
-void deserialize_adl(kl::yaml::tree_tag, value_wrapper<T>& out, const YAML::Node& value)
+template <typename T, typename Context>
+void deserialize_adl(kl::yaml::tree_tag, value_wrapper<T>& out, const YAML::Node& value,
+                     Context& ctx)
 {
-    out = value_wrapper<T>{kl::yaml::deserialize<T>(value)};
+    out = value_wrapper<T>{kl::yaml::deserialize<T>(value, ctx)};
 }
 } // namespace my
 
@@ -1111,9 +1116,11 @@ struct zxc
         //   return ret;
     }
 
-    friend void deserialize_adl(kl::yaml::tree_tag, zxc& z, const YAML::Node& value)
+    template <typename Context>
+    friend void deserialize_adl(kl::yaml::tree_tag, zxc& z, const YAML::Node& value,
+                                Context& ctx)
     {
-        kl::yaml::from_map(value)
+        kl::yaml::from_map(value, ctx)
             .extract("a", z.a)
             .extract("b", z.b)
             .extract("c", z.c)
@@ -1199,7 +1206,8 @@ array:
 
     int ctx;
     kl::yaml::view av;
-    kl::yaml::from_map(y).extract("ctx", ctx).extract("array", av);
+    kl::yaml::deserialize_context context;
+    kl::yaml::from_map(y, context).extract("ctx", ctx).extract("array", av);
     REQUIRE(ctx == 123);
     const auto& yseq = kl::yaml::at(y, "array");
     REQUIRE(yseq == av.value());
@@ -1207,7 +1215,7 @@ array:
     inner_t inn;
     kl::yaml::view view;
     int i;
-    kl::yaml::from_sequence(av.value())
+    kl::yaml::from_sequence(av.value(), context)
         .extract(inn)
         .extract(view, 1)
         .extract(i);
@@ -1216,10 +1224,10 @@ array:
     REQUIRE(i == 3);
 
     bool smth;
-    kl::yaml::from_map(view.value()).extract("something", smth);
+    kl::yaml::from_map(view.value(), context).extract("something", smth);
     REQUIRE(smth);
 
-    REQUIRE_THROWS_WITH(kl::yaml::from_sequence(av.value()).extract(smth, 2),
+    REQUIRE_THROWS_WITH(kl::yaml::from_sequence(av.value(), context).extract(smth, 2),
                         "yaml-cpp: error at line 6, column 5: bad conversion\n"
                         "error when deserializing element 2");
 }

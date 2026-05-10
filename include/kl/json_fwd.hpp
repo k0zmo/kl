@@ -21,6 +21,7 @@ using allocator = rapidjson::MemoryPoolAllocator<rapidjson::CrtAllocator>;
 
 class owning_serialize_context;
 class serialize_context;
+class deserialize_context;
 
 template <typename T>
 rapidjson::Document serialize(const T& obj);
@@ -31,8 +32,14 @@ rapidjson::Value serialize(const T& obj, Context& ctx);
 template <typename T>
 void deserialize(T& out, const rapidjson::Value& value);
 
+template <typename T, typename Context>
+void deserialize(T& out, const rapidjson::Value& value, Context& ctx);
+
 template <typename T>
 T deserialize(const rapidjson::Value& value);
+
+template <typename T, typename Context>
+T deserialize(const rapidjson::Value& value, Context& ctx);
 
 struct deserialize_error;
 struct parse_error;

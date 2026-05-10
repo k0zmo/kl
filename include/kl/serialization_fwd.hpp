@@ -73,18 +73,10 @@ struct backend_tag
     using backend_type = Backend;
 };
 
-// Maps a backend-specific value type back to its backend_tag.
-template <typename Value>
-struct backend_for_value;
-
 namespace detail {
 
 template <typename BackendIdentity>
 using backend_t = typename BackendIdentity::backend_type;
-
-template <typename Value>
-using backend_for_value_t =
-    typename backend_for_value<remove_cvref_t<Value>>::type;
 
 } // namespace detail
 
