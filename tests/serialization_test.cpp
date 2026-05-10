@@ -33,10 +33,10 @@ struct serializer<std::chrono::seconds>
         return serialization::serialize(t.count(), ctx);
     }
 
-    template <typename Value>
-    static void deserialize(std::chrono::seconds& out, const Value& value)
+    template <typename Value, typename Context>
+    static void deserialize(std::chrono::seconds& out, const Value& value, Context& ctx)
     {
-        out = std::chrono::seconds{serialization::deserialize<long long>(value)};
+        out = std::chrono::seconds{serialization::deserialize<long long>(value, ctx)};
     }
 
     template <typename Context>
@@ -343,10 +343,10 @@ struct serializer<custom_empty_value>
         return serialization::serialize(value.empty, ctx);
     }
 
-    template <typename Value>
-    static void deserialize(custom_empty_value& out, const Value& value)
+    template <typename Value, typename Context>
+    static void deserialize(custom_empty_value& out, const Value& value, Context& ctx)
     {
-        out.empty = serialization::deserialize<bool>(value);
+        out.empty = serialization::deserialize<bool>(value, ctx);
     }
 
     template <typename Context>
@@ -414,7 +414,10 @@ TEST_CASE("serialization - json and yaml backends coexist", "[serialization]")
         REQUIRE(json_value["values"].IsArray());
         CHECK(json_value["values"].Size() == 3);
 
-        auto json_out = kl::serialization::deserialize<serialization_record>(json_value);
+        kl::json::deserialize_context json_deserialize_ctx;
+        auto json_out =
+            kl::serialization::deserialize<serialization_record>(json_value,
+                                                                 json_deserialize_ctx);
         CHECK(json_out.i == 7);
         CHECK(json_out.s == "text");
         CHECK(json_out.values == std::vector<int>{1, 2, 3});
@@ -433,7 +436,10 @@ TEST_CASE("serialization - json and yaml backends coexist", "[serialization]")
         REQUIRE(yaml_value["values"].IsSequence());
         CHECK(yaml_value["values"].size() == 3);
 
-        auto yaml_out = kl::serialization::deserialize<serialization_record>(yaml_value);
+        kl::yaml::deserialize_context yaml_deserialize_ctx;
+        auto yaml_out =
+            kl::serialization::deserialize<serialization_record>(yaml_value,
+                                                                 yaml_deserialize_ctx);
         CHECK(yaml_out.i == 7);
         CHECK(yaml_out.s == "text");
         CHECK(yaml_out.values == std::vector<int>{1, 2, 3});
@@ -1271,7 +1277,8 @@ TEST_CASE("serialization - chrono duration serializer works with json and yaml",
     CHECK(json_out.sec == seconds{10});
     CHECK(json_out.secs == std::vector<seconds>{seconds{11}, seconds{12}});
 
-    json_out = kl::serialization::deserialize<chrono_test>(json_value);
+    kl::json::deserialize_context json_ctx;
+    json_out = kl::serialization::deserialize<chrono_test>(json_value, json_ctx);
     CHECK(json_out.t == 2);
     CHECK(json_out.sec == seconds{10});
     CHECK(json_out.secs == std::vector<seconds>{seconds{11}, seconds{12}});
@@ -1282,7 +1289,8 @@ TEST_CASE("serialization - chrono duration serializer works with json and yaml",
     CHECK(yaml_out.sec == seconds{10});
     CHECK(yaml_out.secs == std::vector<seconds>{seconds{11}, seconds{12}});
 
-    yaml_out = kl::serialization::deserialize<chrono_test>(yaml_value);
+    kl::yaml::deserialize_context yaml_ctx;
+    yaml_out = kl::serialization::deserialize<chrono_test>(yaml_value, yaml_ctx);
     CHECK(yaml_out.t == 2);
     CHECK(yaml_out.sec == seconds{10});
     CHECK(yaml_out.secs == std::vector<seconds>{seconds{11}, seconds{12}});

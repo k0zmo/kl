@@ -2,6 +2,8 @@
 
 #include "kl/json_fwd.hpp"
 #include "kl/serialization.hpp"
+#include "kl/serialization_error.hpp"
+#include "kl/serialization_fwd.hpp"
 #include "kl/utility.hpp"
 
 // Undefine Win32 macro
@@ -125,6 +127,10 @@ private:
     bool skip_null_fields_;
 };
 
+class deserialize_context : public tree_tag
+{
+};
+
 namespace detail {
 
 inline const rapidjson::Value& get_null_value()
@@ -246,10 +252,12 @@ private:
     rapidjson::Value value_;
 };
 
+template <typename Context>
 class object_extractor
 {
 public:
-    explicit object_extractor(const rapidjson::Value& value) : value_{value}
+    explicit object_extractor(const rapidjson::Value& value, Context& ctx)
+        : value_{value}, ctx_{ctx}
     {
         detail::expect_object(value_);
     }
@@ -259,7 +267,7 @@ public:
     {
         try
         {
-            json::deserialize(out, json::at(value_.GetObject(), member_name));
+            json::deserialize(out, json::at(value_.GetObject(), member_name), ctx_);
             return *this;
         }
         catch (serialization::deserialize_error& ex)
@@ -272,12 +280,15 @@ public:
 
 private:
     const rapidjson::Value& value_;
+    Context& ctx_;
 };
 
+template <typename Context>
 class array_extractor
 {
 public:
-    explicit array_extractor(const rapidjson::Value& value) : value_{value}
+    explicit array_extractor(const rapidjson::Value& value, Context& ctx)
+        : value_{value}, ctx_{ctx}
     {
         detail::expect_array(value_);
     }
@@ -294,7 +305,7 @@ public:
     {
         try
         {
-            json::deserialize(out, json::at(value_.GetArray(), index_));
+            json::deserialize(out, json::at(value_.GetArray(), index_), ctx_);
             ++index_;
             return *this;
         }
@@ -308,6 +319,7 @@ public:
 
 private:
     const rapidjson::Value& value_;
+    Context& ctx_;
     unsigned index_{};
 };
 } // namespace detail
@@ -324,14 +336,16 @@ auto to_object(Context& ctx)
     return detail::object_builder<Context>{ctx};
 }
 
-inline auto from_array(const rapidjson::Value& value)
+template <typename Context>
+auto from_array(const rapidjson::Value& value, Context& ctx)
 {
-    return detail::array_extractor{value};
+    return detail::array_extractor<Context>{value, ctx};
 }
 
-inline auto from_object(const rapidjson::Value& value)
+template <typename Context>
+auto from_object(const rapidjson::Value& value, Context& ctx)
 {
-    return detail::object_extractor{value};
+    return detail::object_extractor<Context>{value, ctx};
 }
 
 namespace detail {
@@ -405,10 +419,10 @@ struct json_tree_backend
         return json::serialize(value, ctx);
     }
 
-    template <typename T>
-    static void deserialize(T& out, const value_type& value)
+    template <typename T, typename Context>
+    static void deserialize(T& out, const value_type& value, Context& ctx)
     {
-        json::deserialize(out, value);
+        json::deserialize(out, value, ctx);
     }
 
     // Map stuff
@@ -634,17 +648,19 @@ rapidjson::Value serialize_adl(json::tree_tag, char (&str)[N], Context&)
 }
 
 // deserialize_adl implementation for more complex types (like seqs, maps, reflectable structs and enums)
-template <typename T>
-auto deserialize_adl(json::tree_tag, T& out, const rapidjson::Value& value)
-    -> decltype(detail::deserialize_adl<json::detail::json_tree_backend>(out, value), void())
+template <typename T, typename Context>
+auto deserialize_adl(json::tree_tag, T& out, const rapidjson::Value& value, Context& ctx)
+    -> decltype(detail::deserialize_adl<json::detail::json_tree_backend>(out, value, ctx), void())
 {
-    detail::deserialize_adl<json::detail::json_tree_backend>(out, value);
+    detail::deserialize_adl<json::detail::json_tree_backend>(out, value, ctx);
 }
 
 // deserialize_adl implementations for simple types
 
-template <typename Integral, enable_if<std::is_integral<Integral>> = true>
-void deserialize_adl(json::tree_tag, Integral& out, const rapidjson::Value& value)
+template <typename Integral, typename Context,
+          enable_if<std::is_integral<Integral>> = true>
+void deserialize_adl(json::tree_tag, Integral& out, const rapidjson::Value& value,
+                     Context&)
 {
     json::detail::expect_integral(value);
 
@@ -687,27 +703,29 @@ void deserialize_adl(json::tree_tag, Integral& out, const rapidjson::Value& valu
     json::detail::throw_lossy_conversion();
 }
 
-template <typename Floating, enable_if<std::is_floating_point<Floating>> = true>
-void deserialize_adl(json::tree_tag, Floating& out, const rapidjson::Value& value)
+template <typename Floating, typename Context, enable_if<std::is_floating_point<Floating>> = true>
+void deserialize_adl(json::tree_tag, Floating& out, const rapidjson::Value& value, Context&)
 {
     json::detail::expect_number(value);
     out = static_cast<Floating>(value.GetDouble());
 }
 
-inline void deserialize_adl(json::tree_tag, bool& out, const rapidjson::Value& value)
+template <typename Context>
+void deserialize_adl(json::tree_tag, bool& out, const rapidjson::Value& value, Context&)
 {
     json::detail::expect_boolean(value);
     out = value.GetBool();
 }
 
-inline void deserialize_adl(json::tree_tag, std::string& out, const rapidjson::Value& value)
+template <typename Context>
+void deserialize_adl(json::tree_tag, std::string& out, const rapidjson::Value& value, Context&)
 {
     json::detail::expect_string(value);
     out = {value.GetString(), static_cast<std::size_t>(value.GetStringLength())};
 }
 
-inline void deserialize_adl(json::tree_tag, std::string_view& out,
-                            const rapidjson::Value& value)
+template <typename Context>
+void deserialize_adl(json::tree_tag, std::string_view& out, const rapidjson::Value& value, Context&)
 {
     // This variant is unsafe because the lifetime of underlying string is tied
     // to the lifetime of the JSON's value. It may come in handy when writing
@@ -718,7 +736,8 @@ inline void deserialize_adl(json::tree_tag, std::string_view& out,
     out = {value.GetString(), static_cast<std::size_t>(value.GetStringLength())};
 }
 
-inline void deserialize_adl(json::tree_tag, json::view& out, const rapidjson::Value& value)
+template <typename Context>
+void deserialize_adl(json::tree_tag, json::view& out, const rapidjson::Value& value, Context&)
 {
     out = json::view{value};
 }
@@ -744,24 +763,12 @@ struct backend_traits<json::detail::json_tree_backend>
         return serialize_adl(json::tree_tag{}, obj, ctx);
     }
 
-    template <typename T>
-    static auto deserialize(T& out, const rapidjson::Value& value)
-        -> decltype(deserialize_adl(json::tree_tag{}, out, value), void())
+    template <typename T, typename Context>
+    static auto deserialize(T& out, const rapidjson::Value& value, Context& ctx)
+        -> decltype(deserialize_adl(json::tree_tag{}, out, value, ctx), void())
     {
-        deserialize_adl(json::tree_tag{}, out, value);
+        deserialize_adl(json::tree_tag{}, out, value, ctx);
     }
-};
-
-template <>
-struct backend_for_value<rapidjson::Value>
-{
-    using type = json::detail::json_tree_backend;
-};
-
-template <>
-struct backend_for_value<rapidjson::Document>
-{
-    using type = json::detail::json_tree_backend;
 };
 
 } // namespace kl::serialization
@@ -807,7 +814,14 @@ rapidjson::Value serialize(const T& obj, Context& ctx)
 template <typename T>
 void deserialize(T& out, const rapidjson::Value& value)
 {
-    serialization::deserialize(out, value);
+    deserialize_context ctx{};
+    json::deserialize(out, value, ctx);
+}
+
+template <typename T, typename Context>
+void deserialize(T& out, const rapidjson::Value& value, Context& ctx)
+{
+    serialization::detail::deserialize_with_backend<tree_tag>(out, value, ctx);
 }
 
 // Shorter version of deserialize which can't be overloaded. Only use to invoke
@@ -816,7 +830,17 @@ template <typename T>
 T deserialize(const rapidjson::Value& value)
 {
     static_assert(std::is_default_constructible_v<T>, "T must be default constructible");
-    return serialization::deserialize<T>(value);
+    deserialize_context ctx{};
+    return json::deserialize<T>(value, ctx);
+}
+
+template <typename T, typename Context>
+T deserialize(const rapidjson::Value& value, Context& ctx)
+{
+    static_assert(std::is_default_constructible_v<T>, "T must be default constructible");
+    T out;
+    json::deserialize(out, value, ctx);
+    return out;
 }
 } // namespace kl::json
 
