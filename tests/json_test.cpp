@@ -1205,3 +1205,25 @@ TEST_CASE("json: from_array and from_object", "[json][serialization]")
                         "type must be a boolean but is a kNumberType\n"
                         "error when deserializing element 2");
 }
+
+TEST_CASE("json serialize owns dynamic map keys", "[json][serialization]")
+{
+    std::map<std::string, int> source;
+    auto [it, inserted] = source.emplace("dynamic-key-that-must-be-copied", 7);
+    REQUIRE(inserted);
+
+    auto value = kl::json::serialize(source);
+
+    REQUIRE(value.IsObject());
+    REQUIRE(value.MemberCount() == 1);
+
+    auto member_it = value.MemberBegin();
+    REQUIRE(member_it != value.MemberEnd());
+
+    CHECK(std::string_view{member_it->name.GetString(), member_it->name.GetStringLength()} ==
+          "dynamic-key-that-must-be-copied");
+
+    // This should not point into the source map's string storage.
+    // With the current json_tree_backend::add_field implementation, it does.
+    CHECK(member_it->name.GetString() != it->first.c_str());
+}

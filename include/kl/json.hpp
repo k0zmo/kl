@@ -431,10 +431,20 @@ struct json_tree_backend
     static void expect_map(const value_type& value) { detail::expect_object(value); }
     static bool is_map(const value_type& value) { return value.IsObject(); }
 
-    template <typename Key, typename Context>
-    static void add_field(value_type& out, const Key& key, value_type value, Context& ctx)
+    template <typename Context>
+    static void add_field(value_type& out, const char* key, value_type value, Context& ctx)
     {
+        // For const char* key we assume it's a static-storage (like field.name() or rename() attribute)
         out.AddMember(rapidjson::StringRef(key), std::move(value), ctx.allocator());
+    }
+
+    template <typename Context>
+    static void add_field(value_type& out, const std::string& key, value_type value, Context& ctx)
+    {
+        rapidjson::Value name{key.c_str(),
+                              static_cast<rapidjson::SizeType>(key.size()),
+                              ctx.allocator()};
+        out.AddMember(std::move(name), std::move(value), ctx.allocator());
     }
 
     template <typename Visitor>
