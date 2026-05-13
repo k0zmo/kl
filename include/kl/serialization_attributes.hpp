@@ -115,7 +115,8 @@ constexpr aliases_t aliases(Names... names)
 }
 
 // Override the serialized/deserialized key name for a field
-constexpr rename_t rename(const char* name)
+template <std::size_t N>
+constexpr rename_t rename(const char (&name)[N])
 {
     return {name};
 }
