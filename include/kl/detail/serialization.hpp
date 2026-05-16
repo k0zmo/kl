@@ -12,6 +12,7 @@
 
 #include <cassert>
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <set>
 #include <stdexcept>
@@ -21,13 +22,6 @@
 #include <utility>
 
 namespace kl::serialization::detail {
-
-using string_set = std::set<std::string, std::less<>>;
-
-template <typename Key>
-inline constexpr bool can_find_reserved_name_v =
-    std::is_invocable_r_v<bool, std::less<>, const std::string&, const Key&> &&
-    std::is_invocable_r_v<bool, std::less<>, const Key&, const std::string&>;
 
 template <typename Attribute, typename Field>
 constexpr bool has_attribute(const Field&)
@@ -73,7 +67,7 @@ bool skip_serialized_field(const Value& value, Context& ctx)
 template <typename Field>
 constexpr void check_flatten_field()
 {
-    using value_type = remove_cvref_t<decltype(std::declval<Field>().value())>;
+    using value_type = typename Field::value_type;
 
     if constexpr (Field::template has<attributes::flatten_t>())
     {
@@ -85,7 +79,7 @@ constexpr void check_flatten_field()
 template <typename Field>
 constexpr void check_extra_fields_field()
 {
-    using value_type = remove_cvref_t<decltype(std::declval<Field>().value())>;
+    using value_type = typename Field::value_type;
 
     if constexpr (Field::template has<attributes::extra_fields_t>())
     {
@@ -172,6 +166,204 @@ const char* resolve_field_name(const typename Backend::value_type& value, const 
     return nullptr;
 }
 
+// Attribute filter passed to `reflect_type` for the compile-time
+// collision checks. The validator keeps only attributes that influence the
+// reflected key set or participation in a direction.
+struct validator_attribute_filter
+{
+    template <typename Attribute>
+    static constexpr bool keep() noexcept
+    {
+        return ctti::attribute_matches_v<Attribute, attributes::rename_t> ||
+               ctti::attribute_matches_v<Attribute, attributes::aliases_t> ||
+               ctti::attribute_matches_v<Attribute, attributes::flatten_t> ||
+               ctti::attribute_matches_v<Attribute, attributes::extra_fields_t> ||
+               ctti::attribute_matches_v<Attribute, attributes::skip_t>;
+    }
+};
+
+// Small fixed-capacity bag of string literals with constexpr uniqueness checks.
+template <std::size_t Capacity>
+struct cstr_name_set
+{
+    const char* data[Capacity > 0 ? Capacity : 1]{};
+    std::size_t size{0};
+
+    constexpr bool push_unique(const char* name)
+    {
+        for (std::size_t i = 0; i < size; ++i)
+        {
+            if (cstring_equal(data[i], name))
+                return false;
+        }
+        if (size >= Capacity)
+            throw "kl::serialization: reflected field name buffer overflow";
+        data[size++] = name;
+        return true;
+    }
+
+private:
+    constexpr bool cstring_equal(const char* a, const char* b) noexcept
+    {
+        while (*a && *a == *b)
+        {
+            ++a;
+            ++b;
+        }
+        return *a == *b;
+    }
+};
+
+template <typename Reflectable>
+struct serialize_field_names_validator
+{
+    static_assert(ctti::is_reflectable_v<Reflectable>);
+
+    static constexpr bool validate()
+    {
+        cstr_name_set<field_count<Reflectable>()> buf;
+        return collect_field_names<Reflectable>(buf);
+    }
+
+private:
+    template <typename T>
+    static constexpr std::size_t field_count()
+    {
+        std::size_t n = 0;
+        ctti::reflect_type<T, validator_attribute_filter>(
+            [&n](auto field) { n += count_field_contribution<decltype(field)>(); });
+        return n;
+    }
+
+    template <typename F>
+    static constexpr std::size_t count_field_contribution()
+    {
+        if constexpr (F::template has<attributes::skip_serialization_t>() ||
+                      F::template has<attributes::extra_fields_t>())
+        {
+            return 0;
+        }
+        else if constexpr (F::template has<attributes::flatten_t>())
+        {
+            static_assert(ctti::is_reflectable_v<typename F::value_type>,
+                          "serialization flatten field must be reflectable");
+            return field_count<typename F::value_type>();
+        }
+        else
+        {
+            return 1;
+        }
+    }
+
+    template <typename T, typename Buf>
+    static constexpr bool collect_field_names(Buf& buf)
+    {
+        bool result = true;
+        ctti::reflect_type<T, validator_attribute_filter>([&buf, &result](auto field) {
+            using F = decltype(field);
+            if constexpr (F::template has<attributes::skip_serialization_t>() ||
+                          F::template has<attributes::extra_fields_t>())
+            {
+            }
+            else if constexpr (F::template has<attributes::flatten_t>())
+            {
+                if (!collect_field_names<typename F::value_type>(buf))
+                    result = false;
+            }
+            else
+            {
+                if (!buf.push_unique(serialized_name(field)))
+                    result = false;
+            }
+        });
+        return result;
+    }
+};
+
+template <typename Reflectable>
+struct deserialize_field_names_validator
+{
+    static_assert(ctti::is_reflectable_v<Reflectable>);
+
+    static constexpr bool validate()
+    {
+        cstr_name_set<field_count<Reflectable>()> buf;
+        return collect_field_names<Reflectable>(buf);
+    }
+
+private:
+    template <typename T>
+    static constexpr std::size_t field_count()
+    {
+        std::size_t n = 0;
+        ctti::reflect_type<T, validator_attribute_filter>(
+            [&n](auto field) {
+                n += count_field_contribution<decltype(field)>();
+            });
+        return n;
+    }
+
+    template <typename F>
+    static constexpr std::size_t count_field_contribution()
+    {
+        if constexpr (F::template has<attributes::skip_deserialization_t>() ||
+                      F::template has<attributes::extra_fields_t>())
+        {
+            return 0;
+        }
+        else if constexpr (F::template has<attributes::flatten_t>())
+        {
+            static_assert(ctti::is_reflectable_v<typename F::value_type>,
+                          "serialization flatten field must be reflectable");
+            return field_count<typename F::value_type>();
+        }
+        else if constexpr (F::template has<attributes::aliases_t>())
+        {
+            return 1 + attributes::aliases_t::max_aliases;
+        }
+        else
+        {
+            return 1;
+        }
+    }
+
+    template <typename T, typename Buf>
+    static constexpr bool collect_field_names(Buf& buf)
+    {
+        bool result = true;
+        ctti::reflect_type<T, validator_attribute_filter>([&buf, &result](auto field) {
+            using F = decltype(field);
+            if constexpr (F::template has<attributes::skip_deserialization_t>() ||
+                          F::template has<attributes::extra_fields_t>())
+            {
+            }
+            else if constexpr (F::template has<attributes::flatten_t>())
+            {
+                if (!collect_field_names<typename F::value_type>(buf))
+                    result = false;
+            }
+            else
+            {
+                if (!buf.push_unique(serialized_name(field)))
+                    result = false;
+
+                if constexpr (F::template has<attributes::aliases_t>())
+                {
+                    const auto* aliases = field.template get<attributes::aliases_t>();
+                    for (const char* alias : *aliases)
+                    {
+                        if (!buf.push_unique(alias))
+                            result = false;
+                    }
+                }
+            }
+        });
+        return result;
+    }
+};
+
+using string_set = std::set<std::string, std::less<>>;
+
 template <typename Field>
 void collect_field_reserved_names(string_set& names, std::size_t& extra_fields_count,
                                   const Field& field)
@@ -188,9 +380,10 @@ void collect_field_reserved_names(string_set& names, std::size_t& extra_fields_c
     }
     else if constexpr (Field::template has<attributes::flatten_t>())
     {
-        ctti::reflect(field.value(), [&names, &extra_fields_count](auto nested_field) {
-            collect_field_reserved_names(names, extra_fields_count, nested_field);
-        });
+        ctti::reflect_type<typename Field::value_type>(
+            [&names, &extra_fields_count](auto nested_field) {
+                collect_field_reserved_names(names, extra_fields_count, nested_field);
+            });
     }
     else
     {
@@ -214,33 +407,43 @@ void collect_field_reserved_names(string_set& names, std::size_t& extra_fields_c
     }
 }
 
-// Build a list of field names from a reflectable struct that could be considered "extra fields"
-template <typename Reflectable>
-string_set reserved_field_names(const Reflectable& refl)
-{
-    string_set names;
-    std::size_t extra_fields_count = 0;
-    ctti::reflect(refl, [&names, &extra_fields_count](auto field) {
-        check_field_attributes<decltype(field)>();
-        collect_field_reserved_names(names, extra_fields_count, field);
-    });
-    return names;
-}
-
 // Build a list of field names but only if any of the fields has
 // extra_field or flatten attribute attached to it
 template <typename Reflectable>
-std::optional<string_set> optional_reserved_field_names(const Reflectable& refl)
+const string_set* reserved_field_names()
 {
-    if (!ctti::has_any_attribute<attributes::extra_fields_t, attributes::flatten_t>(refl))
-        return std::nullopt;
-    return reserved_field_names(refl);
+    if constexpr (ctti::has_any_attribute<Reflectable, attributes::extra_fields_t,
+                                          attributes::flatten_t>())
+    {
+        // Create (once per Reflectable type) a set<string>, consisting of 'reserved' field names
+        // that attributes extra_fields or flatten can't collide with
+        static const string_set names = [] {
+            string_set result;
+            std::size_t extra_fields_count = 0;
+            ctti::reflect_type<Reflectable>([&result, &extra_fields_count](auto field) {
+                check_field_attributes<decltype(field)>();
+                collect_field_reserved_names(result, extra_fields_count, field);
+            });
+            return result;
+        }();
+        return &names;
+    }
+    else
+    {
+        // if we dont have any extra_fields or flatten attributes - let's not pay the price for
+        // building a set of 'reserved' field names
+        return nullptr;
+    }
 }
 
 template <typename Key>
 void check_extra_field_key(const string_set& reserved_names, const Key& key)
 {
-    if constexpr (can_find_reserved_name_v<Key>)
+    static constexpr bool can_use_transparent_comparison =
+        std::is_invocable_r_v<bool, std::less<>, const std::string&, const Key&> &&
+        std::is_invocable_r_v<bool, std::less<>, const Key&, const std::string&>;
+
+    if constexpr (can_use_transparent_comparison)
     {
         if (reserved_names.find(key) != reserved_names.end())
         {
@@ -262,10 +465,10 @@ void check_extra_field_key(const string_set& reserved_names, const Key& key)
 
 template <typename Backend, typename Reflectable, typename Context>
 void dump_reflected_fields(const Reflectable& refl,
-                           const std::optional<string_set>& reserved_names,
+                           const string_set* reserved_names,
                            Context& ctx)
 {
-    ctti::reflect(refl, [&reserved_names, &ctx](auto field) {
+    ctti::reflect_object(refl, [&reserved_names, &ctx](auto field) {
         check_field_attributes<decltype(field)>();
 
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
@@ -303,10 +506,10 @@ void dump_reflected_fields(const Reflectable& refl,
 template <typename Backend, typename Reflectable, typename Context>
 void add_reflected_fields(typename Backend::value_type& out,
                           const Reflectable& refl,
-                          const std::optional<string_set>& reserved_names,
+                          const string_set* reserved_names,
                           Context& ctx)
 {
-    ctti::reflect(refl, [&out, &reserved_names, &ctx](auto field) {
+    ctti::reflect_object(refl, [&out, &reserved_names, &ctx](auto field) {
         check_field_attributes<decltype(field)>();
 
         if constexpr (!has_attribute<attributes::skip_serialization_t>(field))
@@ -381,8 +584,11 @@ template <typename Backend, typename Reflectable, typename Context,
           enable_if<ctti::is_reflectable<Reflectable>> = true>
 void dump_adl(const Reflectable& refl, Context& ctx)
 {
+    static_assert(serialize_field_names_validator<Reflectable>::validate(),
+                  "reflected serialization field name collision (duplicate canonical name)");
+    
     Backend::begin_map(ctx);
-    dump_reflected_fields<Backend>(refl, optional_reserved_field_names(refl), ctx);
+    dump_reflected_fields<Backend>(refl, reserved_field_names<Reflectable>(), ctx);
     Backend::end_map(ctx);
 }
 
@@ -403,7 +609,7 @@ void dump_adl(const enum_set<Enum>& set, Context& ctx)
                   "Only sets of reflectable enums are supported");
 
     Backend::begin_sequence(ctx);
-    for (const auto possible_value : reflect<Enum>().values())
+    for (const auto possible_value : reflect_enum<Enum>().values())
     {
         if (set.test(possible_value))
             Backend::dump(kl::to_string(possible_value), ctx);
@@ -472,8 +678,10 @@ template <typename Backend, typename Reflectable, typename Context,
           enable_if<ctti::is_reflectable<Reflectable>> = true>
 typename Backend::value_type serialize_adl(const Reflectable& refl, Context& ctx)
 {
+    static_assert(serialize_field_names_validator<Reflectable>::validate(),
+                  "reflected serialization field name collision (duplicate canonical name)");
     auto out = Backend::make_map();
-    add_reflected_fields<Backend>(out, refl, optional_reserved_field_names(refl), ctx);
+    add_reflected_fields<Backend>(out, refl, reserved_field_names<Reflectable>(), ctx);
     return out;
 }
 
@@ -492,7 +700,7 @@ typename Backend::value_type serialize_adl(const enum_set<Enum>& set, Context& c
     static_assert(is_enum_reflectable_v<Enum>, "Only sets of reflectable enums are supported");
 
     auto out = Backend::make_sequence();
-    for (const auto possible_value : reflect<Enum>().values())
+    for (const auto possible_value : reflect_enum<Enum>().values())
     {
         if (set.test(possible_value))
         {
@@ -593,11 +801,14 @@ void deserialize_adl(Reflectable& out, const typename Backend::value_type& value
                      Context& ctx)
 try
 {
+    static_assert(deserialize_field_names_validator<Reflectable>::validate(),
+                  "reflected deserialization field name collision (duplicate canonical name)");
+
     if (Backend::is_map(value))
     {
-        const auto reserved_names = optional_reserved_field_names(out);
+        const auto* reserved_names = reserved_field_names<Reflectable>();
 
-        ctti::reflect(out, [&value, &reserved_names, &ctx](auto field) {
+        ctti::reflect_object(out, [&value, &reserved_names, &ctx](auto field) {
             check_field_attributes<decltype(field)>();
 
             if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
@@ -661,7 +872,7 @@ try
             throw deserialize_error{"sequence size is greater than declared struct's field count"};
         }
 
-        ctti::reflect(out, [&value, &ctx, index = 0U](auto field) mutable {
+        ctti::reflect_object(out, [&value, &ctx, index = 0U](auto field) mutable {
             check_field_attributes<decltype(field)>();
 
             if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))

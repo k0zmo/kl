@@ -58,18 +58,18 @@ static std::optional<E> my_enum_from_string( std::string_view name ) noexcept
 static int count()
 {
     const auto dice = std::random_device{}();
-    const auto c = kl::reflect<abcd>().count();
+    const auto c = kl::reflect_enum<abcd>().count();
     return dice > std::numeric_limits<std::random_device::result_type>::max() / 2 ? c : c - 1;
 }
 
 TEST_CASE("enum reflector bench")
 {
     const auto c = count();
-    std::string v = kl::reflect<abcd>().to_string(abcd(c - 1));
+    std::string v = kl::reflect_enum<abcd>().to_string(abcd(c - 1));
 
     BENCHMARK("kl to_string")
     {
-        return kl::reflect<abcd>().to_string(abcd(c - 1));
+        return kl::reflect_enum<abcd>().to_string(abcd(c - 1));
     };
 
 #if defined(KL_BENCH_BOOST_DESCRIBE)
@@ -81,7 +81,7 @@ TEST_CASE("enum reflector bench")
 
     BENCHMARK("kl from_string")
     {
-        return kl::reflect<abcd>().from_string(v);
+        return kl::reflect_enum<abcd>().from_string(v);
     };
 
 #if defined(KL_BENCH_BOOST_DESCRIBE)

@@ -1,8 +1,9 @@
 #include "kl/ctti.hpp"
-#include "kl/serialization.hpp"
-#include "kl/serialization_attributes.hpp"
 #include "kl/json.hpp"
 #include "kl/reflect_struct.hpp"
+#include "kl/serialization.hpp"
+#include "kl/serialization_attributes.hpp"
+#include "kl/serialization_error.hpp"
 #include "kl/yaml.hpp"
 
 #include "input/typedefs.hpp"
@@ -214,50 +215,19 @@ struct explicit_string_key
     explicit operator std::string() const { return value; }
 };
 
-struct flattened_collision_inner_record
+struct directional_validation_record
 {
     int a{};
+    int skipped{};
+    int write_only{};
+    int read_only{};
 };
 
-KL_REFLECT_STRUCT(flattened_collision_inner_record, a)
-
-struct flattened_outer_collision_record
-{
-    int a{};
-    flattened_collision_inner_record inner;
-};
-
-KL_REFLECT_STRUCT(flattened_outer_collision_record,
+KL_REFLECT_STRUCT(directional_validation_record,
                   a,
-                  (inner, attr::flatten))
-
-struct flattened_sibling_collision_record
-{
-    flattened_collision_inner_record left;
-    flattened_collision_inner_record right;
-};
-
-KL_REFLECT_STRUCT(flattened_sibling_collision_record,
-                  (left, attr::flatten),
-                  (right, attr::flatten))
-
-struct flattened_alias_collision_inner_record
-{
-    int value{};
-};
-
-KL_REFLECT_STRUCT(flattened_alias_collision_inner_record,
-                  (value, attr::aliases("a")))
-
-struct flattened_alias_collision_outer_record
-{
-    int a{};
-    flattened_alias_collision_inner_record inner;
-};
-
-KL_REFLECT_STRUCT(flattened_alias_collision_outer_record,
-                  a,
-                  (inner, attr::flatten))
+                  (skipped, attr::rename("a"), attr::skip),
+                  (write_only, attr::skip_deserialization, attr::aliases("a")),
+                  (read_only, attr::skip_serialization, attr::aliases("ro")))
 
 struct defaulted_serialization_record
 {
@@ -355,6 +325,86 @@ struct serializer<custom_empty_value>
         serialization::dump(value.empty, ctx);
     }
 };
+
+template <typename T>
+using serialization_validator = kl::serialization::detail::serialize_field_names_validator<T>;
+template <typename T>
+using deserialization_validator = kl::serialization::detail::deserialize_field_names_validator<T>;
+
+struct rename_collision_record
+{
+    int a{};
+    int b{};
+};
+KL_REFLECT_STRUCT(rename_collision_record, a, (b, attr::rename("a")))
+static_assert(!serialization_validator<rename_collision_record>::validate());
+static_assert(!deserialization_validator<rename_collision_record>::validate());
+
+struct flattened_renamed_collision_record
+{
+    int a{};
+    int b{};
+};
+KL_REFLECT_STRUCT(flattened_renamed_collision_record, a, (b, attr::rename("c")))
+
+struct rename_plus_flattened_collision_record
+{
+    int c{};
+    flattened_renamed_collision_record inner{};
+};
+KL_REFLECT_STRUCT(rename_plus_flattened_collision_record, c, (inner, attr::flatten))
+static_assert(!serialization_validator<rename_plus_flattened_collision_record>::validate());
+static_assert(!deserialization_validator<rename_plus_flattened_collision_record>::validate());
+
+struct flattened_collision_inner_record
+{
+    int a{};
+};
+KL_REFLECT_STRUCT(flattened_collision_inner_record, a)
+static_assert(serialization_validator<flattened_collision_inner_record>::validate());
+static_assert(deserialization_validator<flattened_collision_inner_record>::validate());
+
+struct flattened_outer_collision_record
+{
+    int a{};
+    flattened_collision_inner_record inner;
+};
+KL_REFLECT_STRUCT(flattened_outer_collision_record,
+                  a,
+                  (inner, attr::flatten))
+static_assert(!serialization_validator<flattened_outer_collision_record>::validate());
+static_assert(!deserialization_validator<flattened_outer_collision_record>::validate());
+
+struct flattened_sibling_collision_record
+{
+    flattened_collision_inner_record left;
+    flattened_collision_inner_record right;
+};
+KL_REFLECT_STRUCT(flattened_sibling_collision_record,
+                  (left, attr::flatten),
+                  (right, attr::flatten))
+static_assert(!serialization_validator<flattened_sibling_collision_record>::validate());
+static_assert(!deserialization_validator<flattened_sibling_collision_record>::validate());
+
+struct flattened_alias_collision_inner_record
+{
+    int value{};
+};
+KL_REFLECT_STRUCT(flattened_alias_collision_inner_record,
+                  (value, attr::aliases("a")))
+static_assert(serialization_validator<flattened_alias_collision_inner_record>::validate());
+static_assert(deserialization_validator<flattened_alias_collision_inner_record>::validate());
+
+struct flattened_alias_collision_outer_record
+{
+    int a{};
+    flattened_alias_collision_inner_record inner;
+};
+KL_REFLECT_STRUCT(flattened_alias_collision_outer_record,
+                  a,
+                  (inner, attr::flatten))
+static_assert(serialization_validator<flattened_alias_collision_outer_record>::validate());
+static_assert(!deserialization_validator<flattened_alias_collision_outer_record>::validate());
 
 } // namespace kl::serialization
 
@@ -826,50 +876,40 @@ unknown: 2
                       "serialization only one extra_fields field is supported");
 }
 
-TEST_CASE("serialization - flatten rejects reflected name collisions", "[serialization]")
+TEST_CASE("serialization - reflected name validation respects direction",
+          "[serialization]")
 {
-    SECTION("outer and inner")
-    {
-        flattened_outer_collision_record record{1, {2}};
+    directional_validation_record record{1, 2, 3, 4};
 
-        CHECK_THROWS_WITH(kl::json::serialize(record),
-                          "serialization reflected field name collision: a");
-        CHECK_THROWS_WITH(kl::json::dump(record),
-                          "serialization reflected field name collision: a");
+    auto json_value = kl::json::serialize(record);
+    REQUIRE(json_value.IsObject());
+    CHECK(json_value.HasMember("a"));
+    CHECK(json_value.HasMember("write_only"));
+    CHECK(!json_value.HasMember("skipped"));
+    CHECK(!json_value.HasMember("read_only"));
 
-        rapidjson::Document json_value = R"({"a": 1})"_json;
-        CHECK_THROWS_WITH(kl::json::deserialize<flattened_outer_collision_record>(json_value),
-                          "serialization reflected field name collision: a");
+    rapidjson::Document json_input = R"({
+        "a": 10,
+        "ro": 40
+    })"_json;
+    auto json_out = kl::json::deserialize<directional_validation_record>(json_input);
+    CHECK(json_out.a == 10);
+    CHECK(json_out.read_only == 40);
 
-        CHECK_THROWS_WITH(kl::yaml::serialize(record),
-                          "serialization reflected field name collision: a");
-        CHECK_THROWS_WITH(kl::yaml::dump(record),
-                          "serialization reflected field name collision: a");
+    auto yaml_value = kl::yaml::serialize(record);
+    REQUIRE(yaml_value.IsMap());
+    CHECK(yaml_value["a"].as<int>() == 1);
+    CHECK(yaml_value["write_only"].as<int>() == 3);
+    CHECK(!yaml_value["skipped"]);
+    CHECK(!yaml_value["read_only"]);
 
-        auto yaml_value = R"(a: 1)"_yaml;
-        CHECK_THROWS_WITH(kl::yaml::deserialize<flattened_outer_collision_record>(yaml_value),
-                          "serialization reflected field name collision: a");
-    }
-
-    SECTION("inner and inner")
-    {
-        flattened_sibling_collision_record record{{1}, {2}};
-
-        CHECK_THROWS_WITH(kl::json::serialize(record),
-                          "serialization reflected field name collision: a");
-        CHECK_THROWS_WITH(kl::yaml::serialize(record),
-                          "serialization reflected field name collision: a");
-    }
-
-    SECTION("aliases")
-    {
-        flattened_alias_collision_outer_record record{1, {2}};
-
-        CHECK_THROWS_WITH(kl::json::serialize(record),
-                          "serialization reflected field name collision: a");
-        CHECK_THROWS_WITH(kl::yaml::serialize(record),
-                          "serialization reflected field name collision: a");
-    }
+    auto yaml_input = R"(
+a: 10
+ro: 40
+)"_yaml;
+    auto yaml_out = kl::yaml::deserialize<directional_validation_record>(yaml_input);
+    CHECK(yaml_out.a == 10);
+    CHECK(yaml_out.read_only == 40);
 }
 
 TEST_CASE("serialization - default value attribute", "[serialization]")

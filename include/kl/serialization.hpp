@@ -1,7 +1,7 @@
 #pragma once
 
-#include "kl/serialization_fwd.hpp"
-#include "kl/detail/serialization.hpp"
+#include "kl/serialization_fwd.hpp"    // IWYU pragma: export
+#include "kl/detail/serialization.hpp" // IWYU pragma: keep
 #include "kl/type_traits.hpp"
 #include "kl/utility.hpp"
 

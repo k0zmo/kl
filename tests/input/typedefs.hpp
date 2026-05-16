@@ -34,9 +34,9 @@ struct Manual
     int b = 416;
     double c = 2.71828;
 };
-template <typename Visitor, typename Self>
-constexpr void reflect_struct(Visitor&& vis, Self&& self,
-                              ::kl::ctti::record_class<Manual>)
+template <typename Factory, typename Visitor>
+constexpr void reflect_struct_fields(Factory&& factory, Visitor&& vis,
+                                     ::kl::ctti::record_class<Manual>)
 {
     vis(KL_ACCESSOR_FIELD_NAMED("Ar", object.a.r));
     vis(KL_ACCESSOR_FIELD_NAMED("Ad", object.a.d));
