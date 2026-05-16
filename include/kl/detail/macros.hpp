@@ -80,6 +80,21 @@
 
 #define KL_TUPLE_ENUM_POP_FRONT_COMMA_EMPTY(tuple_)
 
+// Expands tuple's tail (every element after the first) wrapping each entry
+// inside a nullary lambda that returns that entry, prefixed by a leading
+// comma. For (name, attr1, attr2) the expansion is
+//   , []{ return attr1; }, []{ return attr2; }
+#define KL_TUPLE_ENUM_POP_FRONT_LAMBDA_COMMA(tuple_)                           \
+    KL_IF(KL_TUPLE_SIZE_MINUS_ONE(tuple_),                                     \
+          KL_TUPLE_ENUM_POP_FRONT_LAMBDA_COMMA_IMPL,                           \
+          KL_TUPLE_ENUM_POP_FRONT_COMMA_EMPTY)(tuple_)
+
+#define KL_TUPLE_ENUM_POP_FRONT_LAMBDA_COMMA_IMPL(tuple_)                      \
+    KL_TUPLE_FOR_EACH(KL_TUPLE_POP_FRONT(tuple_), KL_LAMBDA_WRAP_COMMA_ENTRY)
+
+#define KL_LAMBDA_WRAP_COMMA_ENTRY(arg_)                                       \
+    , [] { return arg_; }
+
 // Append arg_ to the tuple_
 #define KL_TUPLE_PUSH_BACK(tuple_, arg_) BOOST_PP_TUPLE_PUSH_BACK(tuple_, arg_)
 

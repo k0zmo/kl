@@ -146,7 +146,7 @@ private:
 };
 
 template <typename Enum>
-constexpr enum_reflector<Enum> reflect() noexcept
+constexpr enum_reflector<Enum> reflect_enum() noexcept
 {
     static_assert(is_enum_reflectable_v<Enum>,
                   "E must be a reflectable enum - defined using "

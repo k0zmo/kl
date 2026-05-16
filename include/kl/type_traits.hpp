@@ -71,6 +71,16 @@ struct func_traits<F&> : func_traits<F> {};
 template <typename F>
 struct func_traits<F&&> : func_traits<F> {};
 
+template <auto Ptr>
+struct member_pointer_traits;
+
+template <typename Class, typename Value, Value Class::*Ptr>
+struct member_pointer_traits<Ptr>
+{
+    using value_type = Value;
+    using class_type = Class;
+};
+
 template <typename T>
 struct always_false : std::false_type {};
 
