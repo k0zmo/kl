@@ -129,14 +129,11 @@ bool apply_default_value(const Field& field)
 }
 
 template <typename Field>
-void validate_range(const Field& field)
+void validate_field(const Field& field)
 {
     field.visit_attributes([&](const auto& attr) {
         using attr_type = std::decay_t<decltype(attr)>;
 
-        // I would love to use something like
-        //   ctti::visit_attributes_if<is_range>(...)
-        // but it trips MSVC
         if constexpr (attributes::detail::is_range_v<attr_type>)
         {
             using field_type = remove_cvref_t<decltype(field.value())>;
@@ -157,6 +154,16 @@ void validate_range(const Field& field)
                                         std::to_string(attr.min) + ", " +
                                         std::to_string(attr.max) + "]"};
             }
+        }
+        else if constexpr (attributes::detail::is_validate_v<attr_type>)
+        {
+            using validator_type =
+                typename attributes::detail::is_validate<attr_type>::validator_type;
+            using value_reference = decltype(field.value());
+
+            static_assert(std::is_invocable_v<const validator_type&, value_reference>,
+                          "serialization validate attribute must be invocable with field value");
+            std::invoke(attr.validator, field.value());
         }
     });
 }
@@ -940,7 +947,7 @@ try
                         Backend::deserialize(field.value(),
                                              Backend::at_field(value, serialized_name(field)),
                                              ctx);
-                        validate_range(field);
+                        validate_field(field);
                         return;
                     }
 
@@ -949,7 +956,7 @@ try
                     if (Backend::is_null(node) && apply_null_field_policy(field))
                         return;
                     Backend::deserialize(field.value(), node, ctx);
-                    validate_range(field);
+                    validate_field(field);
                 }
                 catch (deserialize_error& ex)
                 {
@@ -987,7 +994,7 @@ try
                     }
 
                     Backend::deserialize(field.value(), Backend::at_index(value, index), ctx);
-                    validate_range(field);
+                    validate_field(field);
                     ++index;
                 }
                 catch (deserialize_error& ex)
