@@ -1137,6 +1137,29 @@ TEST_CASE("json::view - two-phase deserialization", "[json][serialization]")
     CHECK(kl::json::dump(objs) ==
           R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}})"
           R"(,{"type":"c","data":["d1",false,[1,2,3]]}])");
+    CHECK(kl::json::pretty_dump(objs) ==
+R"([
+    {
+        "type": "a",
+        "data": {
+            "f1": 3,
+            "f2": true,
+            "f3": "something"
+        }
+    },
+    {
+        "type": "c",
+        "data": [
+            "d1",
+            false,
+            [
+                1,
+                2,
+                3
+            ]
+        ]
+    }
+])");
 }
 
 namespace {

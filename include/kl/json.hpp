@@ -15,6 +15,7 @@
 #include <rapidjson/document.h>
 #include <rapidjson/error/error.h>
 #include <rapidjson/error/en.h>
+#include <rapidjson/prettywriter.h>
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
@@ -786,14 +787,25 @@ struct backend_traits<json::detail::json_tree_backend>
 // Top-level functions
 
 namespace kl::json {
+    
+
+template <typename T>
+std::string pretty_dump(const T& obj)
+{
+    rapidjson::StringBuffer buf;
+    rapidjson::PrettyWriter wrt{buf};
+    dump_context ctx{wrt};
+
+    json::dump(obj, ctx);
+    return {buf.GetString()};
+}
 
 template <typename T>
 std::string dump(const T& obj)
 {
-    using namespace rapidjson;
-    StringBuffer buf{};
-    Writer<StringBuffer> wrt{buf};
-    dump_context<Writer<StringBuffer>> ctx{wrt};
+    rapidjson::StringBuffer buf;
+    rapidjson::Writer wrt{buf};
+    dump_context ctx{wrt};
 
     json::dump(obj, ctx);
     return {buf.GetString()};
