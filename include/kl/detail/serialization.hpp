@@ -806,26 +806,42 @@ try
 
             if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
             {
-                try
+                using Field = decltype(field);
+                if constexpr (Field::template has<attributes::extra_fields_t>())
                 {
-                    if constexpr (decltype(field)::template has<attributes::extra_fields_t>())
-                    {
-                        assert(reserved_names);
-                        auto& extras = field.value();
-                        extras.clear();
+                    assert(reserved_names);
+                    auto& extras = field.value();
+                    extras.clear();
 
-                        Backend::for_each_field(value, [&](const auto& key, const auto& node) {
-                            std::string key_value;
+                    Backend::for_each_field(value, [&](const auto& key, const auto& node) {
+                        std::string key_value;
+                        bool key_deserialized = false;
+
+                        try
+                        {
                             Backend::deserialize(key_value, key, ctx);
+                            key_deserialized = true;
                             if (reserved_names->find(key_value) != reserved_names->end())
                                 return;
+
                             typename remove_cvref_t<decltype(extras)>::mapped_type mapped_value{};
                             Backend::deserialize(mapped_value, node, ctx);
                             extras.emplace(std::move(key_value), std::move(mapped_value));
-                        });
-                        return;
-                    }
-                    else if constexpr (decltype(field)::template has<attributes::flatten_t>())
+                        }
+                        catch (deserialize_error& ex)
+                        {
+                            std::string msg = "error when deserializing extra field ";
+                            msg += key_deserialized ? key_value : "key";
+                            ex.add(msg.c_str());
+                            throw;
+                        }
+                    });
+                    return;
+                }
+
+                try
+                {
+                    if constexpr (Field::template has<attributes::flatten_t>())
                     {
                         Backend::deserialize(field.value(), value, ctx);
                         return;

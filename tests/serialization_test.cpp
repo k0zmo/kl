@@ -828,6 +828,24 @@ TEST_CASE("serialization - extra fields attribute", "[serialization]")
 
         CHECK(kl::json::dump(json_out) ==
               R"({"a":1,"otherExtra":{"nested":true},"valueExtra":[1,2,3]})");
+
+        rapidjson::Document invalid_extra = R"({
+            "a": 1,
+            "badExtra": [1, 2, 3]
+        })"_json;
+
+        try
+        {
+            (void)kl::json::deserialize<int_extra_fields_record>(invalid_extra);
+            FAIL("expected deserialize_error");
+        }
+        catch (const kl::serialization::deserialize_error& ex)
+        {
+            const std::string message = ex.what();
+            CHECK(message.find("error when deserializing extra field badExtra") !=
+                  std::string::npos);
+            CHECK(message.find("error when deserializing field extra") == std::string::npos);
+        }
     }
 
     SECTION("yaml")
@@ -864,6 +882,26 @@ otherExtra:
 
         CHECK(kl::yaml::dump(yaml_out) ==
               "a: 1\notherExtra:\n  nested: true\nvalueExtra:\n  - 1\n  - 2\n  - 3");
+
+        auto invalid_extra = R"(
+a: 1
+badExtra:
+  - 1
+  - 2
+)"_yaml;
+
+        try
+        {
+            (void)kl::yaml::deserialize<int_extra_fields_record>(invalid_extra);
+            FAIL("expected deserialize_error");
+        }
+        catch (const kl::serialization::deserialize_error& ex)
+        {
+            const std::string message = ex.what();
+            CHECK(message.find("error when deserializing extra field badExtra") !=
+                  std::string::npos);
+            CHECK(message.find("error when deserializing field extra") == std::string::npos);
+        }
     }
 }
 
