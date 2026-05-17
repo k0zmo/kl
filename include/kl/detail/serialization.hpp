@@ -641,6 +641,12 @@ void dump_adl(const std::tuple<Ts...>& tuple, Context& ctx)
                               std::make_index_sequence<sizeof...(Ts)>{});
 }
 
+template <typename Backend, typename T, typename U, typename Context>
+void dump_adl(const std::pair<T, U>& pair, Context& ctx)
+{
+    impl::dump_tuple<Backend>(pair, ctx, std::make_index_sequence<2>{});
+}
+
 template <typename Backend, typename T, typename Context>
 void dump_adl(const std::optional<T>& opt, Context& ctx)
 {
@@ -732,6 +738,12 @@ template <typename Backend, typename... Ts, typename Context>
 typename Backend::value_type serialize_adl(const std::tuple<Ts...>& tuple, Context& ctx)
 {
     return impl::serialize_tuple<Backend>(tuple, ctx, std::make_index_sequence<sizeof...(Ts)>{});
+}
+
+template <typename Backend, typename T, typename U, typename Context>
+typename Backend::value_type serialize_adl(const std::pair<T, U>& pair, Context& ctx)
+{
+    return impl::serialize_tuple<Backend>(pair, ctx, std::make_index_sequence<2>{});
 }
 
 template <typename Backend, typename T, typename Context>
@@ -993,8 +1005,17 @@ void deserialize_adl(std::tuple<Ts...>& out, const typename Backend::value_type&
     Backend::expect_sequence(value);
     if (sizeof...(Ts) < Backend::size(value))
         throw deserialize_error{"sequence size is greater than declared tuple field count"};
-    impl::deserialize_tuple<Backend>(out, value, ctx,
-                                     std::make_index_sequence<sizeof...(Ts)>{});
+    impl::deserialize_tuple<Backend>(out, value, ctx, std::make_index_sequence<sizeof...(Ts)>{});
+}
+
+template <typename Backend, typename Context, typename T, typename U>
+void deserialize_adl(std::pair<T, U>& out, const typename Backend::value_type& value,
+                     Context& ctx)
+{
+    Backend::expect_sequence(value);
+    if (2 < Backend::size(value))
+        throw deserialize_error{"sequence size is greater than pair field count"};
+    impl::deserialize_tuple<Backend>(out, value, ctx, std::make_index_sequence<2>{});
 }
 
 template <typename Backend, typename T, typename Context>
