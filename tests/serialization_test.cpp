@@ -18,6 +18,8 @@
 #include <yaml-cpp/node/type.h>
 
 #include <chrono>
+#include <cstdint>
+#include <limits>
 #include <map>
 #include <optional>
 #include <string>
@@ -272,6 +274,16 @@ KL_REFLECT_STRUCT(ranged_serialization_record,
                   (port, attr::range(1, 65535)),
                   (ratio, attr::range(0.0, 1.0)),
                   (ascii, attr::range(0, 127)))
+
+struct half_ranged_serialization_record
+{
+    int non_negative{};
+    int at_most_ten{};
+};
+
+KL_REFLECT_STRUCT(half_ranged_serialization_record,
+                  (non_negative, attr::greater_equal(0)),
+                  (at_most_ten, attr::less_equal(10)))
 
 struct generic_adl_value
 {
@@ -1245,7 +1257,7 @@ TEST_CASE("serialization - range attribute", "[serialization]")
         })"_json;
 
         CHECK_THROWS_WITH(kl::json::deserialize<ranged_serialization_record>(ratio_too_high),
-                          "value is outside allowed range [0, 1]\n"
+                          "value is outside allowed range [0.000000, 1.000000]\n"
                           "error when deserializing field ratio\n"
                           "error when deserializing type " +
                               kl::ctti::name<ranged_serialization_record>());
@@ -1275,6 +1287,37 @@ TEST_CASE("serialization - range attribute", "[serialization]")
         CHECK(serialized["port"].GetInt() == 70000);
         CHECK(serialized["ratio"].GetDouble() == 2.0);
         CHECK(serialized["ascii"].GetDouble() == 250);
+
+        rapidjson::Document half_valid = R"({
+            "non_negative": 0,
+            "at_most_ten": 10
+        })"_json;
+        auto half_json_out =
+            kl::json::deserialize<half_ranged_serialization_record>(half_valid);
+        CHECK(half_json_out.non_negative == 0);
+        CHECK(half_json_out.at_most_ten == 10);
+
+        rapidjson::Document negative = R"({
+            "non_negative": -1,
+            "at_most_ten": 10
+        })"_json;
+        CHECK_THROWS_WITH(kl::json::deserialize<half_ranged_serialization_record>(negative),
+                          "value is outside allowed range [0, " +
+                              std::to_string((std::numeric_limits<int>::max)()) + "]\n"
+                          "error when deserializing field non_negative\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<half_ranged_serialization_record>());
+
+        rapidjson::Document too_large = R"({
+            "non_negative": 0,
+            "at_most_ten": 11
+        })"_json;
+        CHECK_THROWS_WITH(kl::json::deserialize<half_ranged_serialization_record>(too_large),
+                          "value is outside allowed range [" +
+                              std::to_string(std::numeric_limits<int>::lowest()) + ", 10]\n"
+                          "error when deserializing field at_most_ten\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<half_ranged_serialization_record>());
     }
 
     SECTION("yaml")
@@ -1308,7 +1351,7 @@ ascii: 65
 )"_yaml;
 
         CHECK_THROWS_WITH(kl::yaml::deserialize<ranged_serialization_record>(ratio_too_high),
-                          "value is outside allowed range [0, 1]\n"
+                          "value is outside allowed range [0.000000, 1.000000]\n"
                           "error when deserializing field ratio\n"
                           "error when deserializing type " +
                               kl::ctti::name<ranged_serialization_record>());
@@ -1330,6 +1373,37 @@ ascii: 150
         CHECK(serialized["port"].as<int>() == 70000);
         CHECK(serialized["ratio"].as<double>() == 2.0);
         CHECK(serialized["ascii"].as<std::uint8_t>() == 250);
+
+        auto half_valid = R"(
+non_negative: 0
+at_most_ten: 10
+)"_yaml;
+        auto half_yaml_out =
+            kl::yaml::deserialize<half_ranged_serialization_record>(half_valid);
+        CHECK(half_yaml_out.non_negative == 0);
+        CHECK(half_yaml_out.at_most_ten == 10);
+
+        auto negative = R"(
+non_negative: -1
+at_most_ten: 10
+)"_yaml;
+        CHECK_THROWS_WITH(kl::yaml::deserialize<half_ranged_serialization_record>(negative),
+                          "value is outside allowed range [0, " +
+                              std::to_string((std::numeric_limits<int>::max)()) + "]\n"
+                          "error when deserializing field non_negative\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<half_ranged_serialization_record>());
+
+        auto too_large = R"(
+non_negative: 0
+at_most_ten: 11
+)"_yaml;
+        CHECK_THROWS_WITH(kl::yaml::deserialize<half_ranged_serialization_record>(too_large),
+                          "value is outside allowed range [" +
+                              std::to_string(std::numeric_limits<int>::lowest()) + ", 10]\n"
+                          "error when deserializing field at_most_ten\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<half_ranged_serialization_record>());
     }
 }
 

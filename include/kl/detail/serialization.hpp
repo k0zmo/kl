@@ -11,7 +11,6 @@
 #include "kl/utility.hpp"
 
 #include <cassert>
-#include <charconv>
 #include <cstddef>
 #include <functional>
 #include <optional>
@@ -129,16 +128,6 @@ bool apply_default_value(const Field& field)
     return applied;
 }
 
-template <typename T>
-std::string range_bound_to_string(T value)
-{
-    std::array<char, 64> buffer{};
-    auto [ptr, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
-    if (ec == std::errc{})
-        return {buffer.data(), ptr};
-    return {};
-}
-
 template <typename Field>
 void validate_range(const Field& field)
 {
@@ -165,8 +154,8 @@ void validate_range(const Field& field)
             if (value < min || max < value)
             {
                 throw deserialize_error{"value is outside allowed range [" +
-                                        range_bound_to_string(attr.min) + ", " +
-                                        range_bound_to_string(attr.max) + "]"};
+                                        std::to_string(attr.min) + ", " +
+                                        std::to_string(attr.max) + "]"};
             }
         }
     });
