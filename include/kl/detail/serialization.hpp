@@ -429,6 +429,18 @@ const string_set* reserved_field_names()
     }
 }
 
+template <typename Reflectable>
+constexpr std::size_t sequence_deserializable_field_count()
+{
+    std::size_t n = 0;
+    ctti::reflect_type<Reflectable, validator_attribute_filter>([&n](auto field) {
+        using Field = decltype(field);
+        if constexpr (!Field::template has<attributes::skip_deserialization_t>())
+            ++n;
+    });
+    return n;
+}
+
 template <typename Key>
 void check_extra_field_key(const string_set& reserved_names, const Key& key)
 {
@@ -876,7 +888,8 @@ try
     }
     else if (Backend::is_sequence(value))
     {
-        if (Backend::size(value) > ctti::num_fields<Reflectable>())
+        constexpr auto max_sequence_size = sequence_deserializable_field_count<Reflectable>();
+        if (max_sequence_size < Backend::size(value))
         {
             throw deserialize_error{"sequence size is greater than declared struct's field count"};
         }
@@ -978,6 +991,8 @@ void deserialize_adl(std::tuple<Ts...>& out, const typename Backend::value_type&
                      Context& ctx)
 {
     Backend::expect_sequence(value);
+    if (sizeof...(Ts) < Backend::size(value))
+        throw deserialize_error{"sequence size is greater than declared tuple field count"};
     impl::deserialize_tuple<Backend>(out, value, ctx,
                                      std::make_index_sequence<sizeof...(Ts)>{});
 }
