@@ -267,7 +267,7 @@ TEST_CASE("json", "[json][serialization]")
 
         j = R"([7, 13, "rgb", 1, true])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
-                            "type must be a boolean but is a kNumberType");
+                            "sequence size is greater than declared tuple field count");
     }
 
     SECTION("serialize different types and 'modes' for enums")
@@ -611,6 +611,13 @@ TEST_CASE("json", "[json][serialization]")
                             "error when deserializing element 1\n"
                             "error when deserializing type " +
                                 kl::ctti::name<inner_t>());
+
+        j = R"([1,2,3])"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<skipped_deserialization_sequence_test>(j),
+            "sequence size is greater than declared struct's field count\n"
+            "error when deserializing type " +
+                kl::ctti::name<skipped_deserialization_sequence_test>());
     }
 
     SECTION("deserialize to struct from an array - tail optional fields")
@@ -619,6 +626,12 @@ TEST_CASE("json", "[json][serialization]")
         auto obj = json::deserialize<optional_test>(j);
         REQUIRE(obj.non_opt == 234);
         REQUIRE(!obj.opt);
+
+        j = R"([1,2])"_json;
+        auto skipped = json::deserialize<skipped_deserialization_sequence_test>(j);
+        REQUIRE(skipped.a == 1);
+        REQUIRE(skipped.skipped == 13);
+        REQUIRE(skipped.b == 2);
     }
 
     SECTION("deserialize floating-point number to int")
@@ -671,6 +684,16 @@ TEST_CASE("json", "[json][serialization]")
         REQUIRE(std::get<0>(t) == 4);
         REQUIRE(std::get<1>(t));
         REQUIRE(!std::get<2>(t).has_value());
+
+        j = R"([4,true,"value"])"_json;
+        t = json::deserialize<tuple_t>(j);
+        REQUIRE(std::get<0>(t) == 4);
+        REQUIRE(std::get<1>(t));
+        REQUIRE(std::get<2>(t) == "value");
+
+        j = R"([4,true,"value","extra"])"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<tuple_t>(j),
+                            "sequence size is greater than declared tuple field count");
     }
 
     SECTION("unsigned: check 32")

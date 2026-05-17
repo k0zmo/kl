@@ -3,6 +3,7 @@
 #include "kl/enum_set.hpp"
 #include "kl/reflect_enum.hpp"
 #include "kl/reflect_struct.hpp"
+#include "kl/serialization_attributes.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -20,6 +21,17 @@ struct optional_test
     std::optional<int> opt;
 };
 KL_REFLECT_STRUCT(optional_test, non_opt, opt)
+
+struct skipped_deserialization_sequence_test
+{
+    int a{};
+    int skipped{13};
+    int b{};
+};
+KL_REFLECT_STRUCT(skipped_deserialization_sequence_test,
+                  a,
+                  (skipped, kl::serialization::attributes::skip_deserialization),
+                  b)
 
 struct inner_t
 {

@@ -602,6 +602,13 @@ tup:
                             "error when deserializing element 1\n"
                             "error when deserializing type " +
                                 kl::ctti::name<inner_t>());
+
+        y = "[1,2,3]"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<skipped_deserialization_sequence_test>(y),
+            "sequence size is greater than declared struct's field count\n"
+            "error when deserializing type " +
+                kl::ctti::name<skipped_deserialization_sequence_test>());
     }
 
     SECTION("deserialize to struct from an array - tail optional fields")
@@ -610,6 +617,12 @@ tup:
         auto obj = yaml::deserialize<optional_test>(y);
         REQUIRE(obj.non_opt == 234);
         REQUIRE(!obj.opt);
+
+        y = "[1,2]"_yaml;
+        auto skipped = yaml::deserialize<skipped_deserialization_sequence_test>(y);
+        REQUIRE(skipped.a == 1);
+        REQUIRE(skipped.skipped == 13);
+        REQUIRE(skipped.b == 2);
     }
 
     SECTION("deserialize floating-point number to int")
@@ -664,6 +677,16 @@ tup:
         REQUIRE(std::get<0>(t) == 4);
         REQUIRE(std::get<1>(t));
         REQUIRE(!std::get<2>(t).has_value());
+
+        y = R"([4,true,value])"_yaml;
+        t = yaml::deserialize<tuple_t>(y);
+        REQUIRE(std::get<0>(t) == 4);
+        REQUIRE(std::get<1>(t));
+        REQUIRE(std::get<2>(t) == "value");
+
+        y = R"([4,true,value,extra])"_yaml;
+        REQUIRE_THROWS_WITH(yaml::deserialize<tuple_t>(y),
+                            "sequence size is greater than declared tuple field count");
     }
 
     SECTION("to std containers")
