@@ -408,6 +408,48 @@ static_assert(!deserialization_validator<flattened_alias_collision_outer_record>
 
 } // namespace kl::serialization
 
+namespace {
+
+struct non_literal_default_value_record
+{
+    int a{};
+    std::string s{};
+};
+KL_REFLECT_STRUCT(non_literal_default_value_record,
+                  a,
+                  (s, attr::default_value(std::string{"x"})))
+
+struct extra_fields_with_non_literal_default_value_record
+{
+    int a{};
+    std::string s{};
+    std::map<std::string, int> extra;
+};
+KL_REFLECT_STRUCT(extra_fields_with_non_literal_default_value_record,
+                  a,
+                  (s, attr::default_value(std::string{"x"})),
+                  (extra, attr::extra_fields))
+
+struct flattened_non_literal_default_value_record
+{
+    int b{};
+    std::string s{};
+};
+KL_REFLECT_STRUCT(flattened_non_literal_default_value_record,
+                  b,
+                  (s, attr::default_value(std::string{"x"})))
+
+struct flatten_with_non_literal_default_value_record
+{
+    int a{};
+    flattened_non_literal_default_value_record inner;
+};
+KL_REFLECT_STRUCT(flatten_with_non_literal_default_value_record,
+                  a,
+                  (inner, attr::flatten))
+
+} // namespace
+
 TEST_CASE("serialization - json and yaml backends coexist", "[serialization]")
 {
     serialization_record record{7, "text", {1, 2, 3}};
@@ -926,6 +968,48 @@ TEST_CASE("serialization - default value attribute", "[serialization]")
         CHECK(json_out.label == "default-label");
         CHECK(json_out.renamed == 7);
         CHECK(json_out.aliased == 9);
+
+        rapidjson::Document non_literal_missing = R"({
+            "a": 1
+        })"_json;
+        auto non_literal_json =
+            kl::json::deserialize<non_literal_default_value_record>(non_literal_missing);
+        CHECK(non_literal_json.a == 1);
+        CHECK(non_literal_json.s == "x");
+
+        rapidjson::Document extra_non_literal_missing = R"({
+            "a": 2,
+            "bonus": 3
+        })"_json;
+        auto extra_non_literal_json =
+            kl::json::deserialize<extra_fields_with_non_literal_default_value_record>(
+                extra_non_literal_missing);
+        CHECK(extra_non_literal_json.a == 2);
+        CHECK(extra_non_literal_json.s == "x");
+        CHECK(extra_non_literal_json.extra == std::map<std::string, int>{{"bonus", 3}});
+
+        auto serialized_extra_non_literal = kl::json::serialize(extra_non_literal_json);
+        REQUIRE(serialized_extra_non_literal.IsObject());
+        CHECK(serialized_extra_non_literal["a"].GetInt() == 2);
+        CHECK(serialized_extra_non_literal["s"].GetString() == std::string{"x"});
+        CHECK(serialized_extra_non_literal["bonus"].GetInt() == 3);
+
+        rapidjson::Document flattened_non_literal_missing = R"({
+            "a": 4,
+            "b": 5
+        })"_json;
+        auto flattened_non_literal_json =
+            kl::json::deserialize<flatten_with_non_literal_default_value_record>(
+                flattened_non_literal_missing);
+        CHECK(flattened_non_literal_json.a == 4);
+        CHECK(flattened_non_literal_json.inner.b == 5);
+        CHECK(flattened_non_literal_json.inner.s == "x");
+
+        auto serialized_flattened_non_literal = kl::json::serialize(flattened_non_literal_json);
+        REQUIRE(serialized_flattened_non_literal.IsObject());
+        CHECK(serialized_flattened_non_literal["a"].GetInt() == 4);
+        CHECK(serialized_flattened_non_literal["b"].GetInt() == 5);
+        CHECK(serialized_flattened_non_literal["s"].GetString() == std::string{"x"});
 
         rapidjson::Document nulls = R"({
             "id": 2,

@@ -166,21 +166,13 @@ const char* resolve_field_name(const typename Backend::value_type& value, const 
     return nullptr;
 }
 
-// Attribute filter passed to `reflect_type` for the compile-time
-// collision checks. The validator keeps only attributes that influence the
-// reflected key set or participation in a direction.
-struct validator_attribute_filter
-{
-    template <typename Attribute>
-    static constexpr bool keep() noexcept
-    {
-        return ctti::attribute_matches_v<Attribute, attributes::rename_t> ||
-               ctti::attribute_matches_v<Attribute, attributes::aliases_t> ||
-               ctti::attribute_matches_v<Attribute, attributes::flatten_t> ||
-               ctti::attribute_matches_v<Attribute, attributes::extra_fields_t> ||
-               ctti::attribute_matches_v<Attribute, attributes::skip_t>;
-    }
-};
+using validator_attribute_filter =
+    ctti::any_attribute_filter<attributes::rename_t,
+                               attributes::aliases_t,
+                               attributes::flatten_t,
+                               attributes::extra_fields_t,
+                               attributes::skip_serialization_t,
+                               attributes::skip_deserialization_t>;
 
 // Small fixed-capacity bag of string literals with constexpr uniqueness checks.
 template <std::size_t Capacity>
@@ -380,7 +372,7 @@ void collect_field_reserved_names(string_set& names, std::size_t& extra_fields_c
     }
     else if constexpr (Field::template has<attributes::flatten_t>())
     {
-        ctti::reflect_type<typename Field::value_type>(
+        ctti::reflect_type<typename Field::value_type, validator_attribute_filter>(
             [&names, &extra_fields_count](auto nested_field) {
                 collect_field_reserved_names(names, extra_fields_count, nested_field);
             });
@@ -420,10 +412,11 @@ const string_set* reserved_field_names()
         static const string_set names = [] {
             string_set result;
             std::size_t extra_fields_count = 0;
-            ctti::reflect_type<Reflectable>([&result, &extra_fields_count](auto field) {
-                check_field_attributes<decltype(field)>();
-                collect_field_reserved_names(result, extra_fields_count, field);
-            });
+            ctti::reflect_type<Reflectable, validator_attribute_filter>(
+                [&result, &extra_fields_count](auto field) {
+                    check_field_attributes<decltype(field)>();
+                    collect_field_reserved_names(result, extra_fields_count, field);
+                });
             return result;
         }();
         return &names;
