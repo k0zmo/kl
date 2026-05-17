@@ -180,6 +180,18 @@ TEST_CASE("yaml", "[yaml][serialization]")
         CHECK(y[3].as<bool>() == true);
     }
 
+    SECTION("serialize pair")
+    {
+        auto t = std::make_pair(13, colour_space::lab);
+        auto y = yaml::serialize(t);
+
+        REQUIRE(y.IsSequence());
+
+        REQUIRE(y.size() == 2);
+        CHECK(y[0].as<int>() == 13);
+        CHECK(y[1].as<std::string>() == "lab");
+    }
+
     SECTION("deserialize simple - wrong types")
     {
         YAML::Node null{};
@@ -239,6 +251,29 @@ TEST_CASE("yaml", "[yaml][serialization]")
         REQUIRE(std::get<3>(obj) == true);
 
         y = R"([7, 13, hls])"_yaml;
+        REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
+                            "type must be a scalar but is a Null");
+
+        y = "7, 13, rgb, 1, true"_yaml;
+        REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
+                            "type must be a sequence but is a Scalar");
+    }
+
+    SECTION("deserialize pair")
+    {
+        auto t = std::make_pair(13, colour_space::lab);
+        auto y = yaml::serialize(t);
+
+        auto obj = yaml::deserialize<decltype(t)>(y);
+        REQUIRE(std::get<0>(obj) == 13);
+        REQUIRE(std::get<1>(obj) == colour_space::lab);
+
+        y = "[7, rgb]"_yaml;
+        obj = yaml::deserialize<decltype(t)>(y);
+        REQUIRE(std::get<0>(obj) == 7);
+        REQUIRE(std::get<1>(obj) == colour_space::rgb);
+
+        y = R"([7])"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
                             "type must be a scalar but is a Null");
 

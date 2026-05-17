@@ -199,6 +199,19 @@ TEST_CASE("json", "[json][serialization]")
         REQUIRE(arr[2] == "lab");
         REQUIRE(arr[3] == true);
     }
+    
+    SECTION("serialize pair")
+    {
+        auto t = std::make_pair(13, colour_space::lab);
+        auto j = json::serialize(t);
+
+        REQUIRE(j.IsArray());
+        auto arr = j.GetArray();
+
+        REQUIRE(arr.Size() == 2);
+        REQUIRE(arr[0] == 13);
+        REQUIRE(arr[1] == "lab");
+    }
 
     SECTION("deserialize simple - wrong types")
     {
@@ -268,6 +281,29 @@ TEST_CASE("json", "[json][serialization]")
         j = R"([7, 13, "rgb", 1, true])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
                             "sequence size is greater than declared tuple field count");
+    }
+
+    SECTION("deserialize pair")
+    {
+        auto t = std::make_pair(13, colour_space::lab);
+        auto j = json::serialize(t);
+
+        auto obj = json::deserialize<decltype(t)>(j);
+        REQUIRE(std::get<0>(obj) == 13);
+        REQUIRE(std::get<1>(obj) == colour_space::lab);
+
+        j = R"([7, "rgb"])"_json;
+        obj = json::deserialize<decltype(t)>(j);
+        REQUIRE(std::get<0>(obj) == 7);
+        REQUIRE(std::get<1>(obj) == colour_space::rgb);
+
+        j = R"([7])"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
+                            "type must be a string but is a kNullType");
+
+        j = R"([7, 13, "rgb", 1, true])"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
+                            "sequence size is greater than pair field count");
     }
 
     SECTION("serialize different types and 'modes' for enums")
