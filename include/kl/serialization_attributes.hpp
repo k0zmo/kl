@@ -18,6 +18,14 @@ struct skip_if_empty_t {};
 struct flatten_t {};
 struct extra_fields_t {};
 
+// Inclusive numeric bounds checked during deserialization.
+template <typename T>
+struct range_t
+{
+    T min;
+    T max;
+};
+
 // Wraps a default value to assign when the input field is missing or null
 template <typename T>
 struct default_value_t
@@ -25,10 +33,10 @@ struct default_value_t
     T value;
 };
 
-// This is needed so we can query attributes by 'shape' (is it default_value<T>?)
-// instead of requiring exact type match
 namespace detail {
 
+// This is needed so we can query attributes by 'shape' (is it default_value<T>?)
+// instead of requiring exact type match
 template <typename T>
 struct is_default_value : std::false_type {};
 
@@ -40,6 +48,19 @@ struct is_default_value<default_value_t<T>> : std::true_type
 
 template <typename T>
 inline constexpr bool is_default_value_v = is_default_value<T>::value;
+
+// Similar for range attribute
+template <typename T>
+struct is_range : std::false_type {};
+
+template <typename T>
+struct is_range<range_t<T>> : std::true_type
+{
+    using value_type = T;
+};
+
+template <typename T>
+inline constexpr bool is_range_v = is_range<T>::value;
 } // namespace detail
 
 // Holds a set of alternative input key names accepted during deserialization
@@ -105,6 +126,16 @@ template <typename T>
 constexpr default_value_t<std::decay_t<T>> default_value(T&& value)
 {
     return {std::forward<T>(value)};
+}
+
+// Deserialization only. Require an integral/floating value to be within inclusive bounds.
+template <typename Min, typename Max>
+constexpr auto range(Min min, Max max)
+{
+    using value_type = std::common_type_t<Min, Max>;
+    static_assert(std::is_arithmetic_v<value_type> && !std::is_same_v<value_type, bool>,
+                  "serialization range bounds must be integral or floating-point values");
+    return range_t<value_type>{static_cast<value_type>(min), static_cast<value_type>(max)};
 }
 
 // Deserialization only. Accept any of the given names as input key aliases

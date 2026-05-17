@@ -11,6 +11,7 @@
 #include "kl/utility.hpp"
 
 #include <cassert>
+#include <charconv>
 #include <cstddef>
 #include <functional>
 #include <optional>
@@ -126,6 +127,49 @@ bool apply_default_value(const Field& field)
     });
 
     return applied;
+}
+
+template <typename T>
+std::string range_bound_to_string(T value)
+{
+    std::array<char, 64> buffer{};
+    auto [ptr, ec] = std::to_chars(buffer.data(), buffer.data() + buffer.size(), value);
+    if (ec == std::errc{})
+        return {buffer.data(), ptr};
+    return {};
+}
+
+template <typename Field>
+void validate_range(const Field& field)
+{
+    field.visit_attributes([&](const auto& attr) {
+        using attr_type = std::decay_t<decltype(attr)>;
+
+        // I would love to use something like
+        //   ctti::visit_attributes_if<is_range>(...)
+        // but it trips MSVC
+        if constexpr (attributes::detail::is_range_v<attr_type>)
+        {
+            using field_type = remove_cvref_t<decltype(field.value())>;
+            using range_type = typename attributes::detail::is_range<attr_type>::value_type;
+
+            static_assert(std::is_arithmetic_v<field_type> && !std::is_same_v<field_type, bool>,
+                          "serialization range attribute requires an integral or floating-point "
+                          "field");
+
+            using common_type = std::common_type_t<field_type, range_type>;
+            const auto value = static_cast<common_type>(field.value());
+            const auto min = static_cast<common_type>(attr.min);
+            const auto max = static_cast<common_type>(attr.max);
+
+            if (value < min || max < value)
+            {
+                throw deserialize_error{"value is outside allowed range [" +
+                                        range_bound_to_string(attr.min) + ", " +
+                                        range_bound_to_string(attr.max) + "]"};
+            }
+        }
+    });
 }
 
 template <typename Field>
@@ -907,6 +951,7 @@ try
                         Backend::deserialize(field.value(),
                                              Backend::at_field(value, serialized_name(field)),
                                              ctx);
+                        validate_range(field);
                         return;
                     }
 
@@ -915,6 +960,7 @@ try
                     if (Backend::is_null(node) && apply_null_field_policy(field))
                         return;
                     Backend::deserialize(field.value(), node, ctx);
+                    validate_range(field);
                 }
                 catch (deserialize_error& ex)
                 {
@@ -952,6 +998,7 @@ try
                     }
 
                     Backend::deserialize(field.value(), Backend::at_index(value, index), ctx);
+                    validate_range(field);
                     ++index;
                 }
                 catch (deserialize_error& ex)
