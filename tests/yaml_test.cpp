@@ -14,6 +14,7 @@
 
 #include <yaml-cpp/yaml.h>
 
+#include <array>
 #include <cstdint>
 #include <deque>
 #include <list>
@@ -747,6 +748,13 @@ tup:
             std::unordered_map<std::string, inner_t>{{"inner", inner_t{}}});
         REQUIRE(y5.IsMap());
         REQUIRE(y5.size() == 1);
+
+        auto y6 = yaml::serialize(std::array{1, 2, 3});
+        REQUIRE(y6.IsSequence());
+        REQUIRE(y6.size() == 3);
+        REQUIRE(y6[0].as<int>() == 1);
+        REQUIRE(y6[1].as<int>() == 2);
+        REQUIRE(y6[2].as<int>() == 3);
     }
 
     SECTION("from std containers")
@@ -780,6 +788,19 @@ tup:
         REQUIRE(umap.count("inner") == 1);
         REQUIRE(umap["inner"].d == Catch::Approx(3));
         REQUIRE(umap["inner"].r == 3648);
+
+        auto y3 = "[1,2,3]"_yaml;
+        auto array = yaml::deserialize<std::array<int, 3>>(y3);
+        REQUIRE(array == std::array{1, 2, 3});
+
+        y3 = "[1,2,3,4]"_yaml;
+        REQUIRE_THROWS_WITH((yaml::deserialize<std::array<int, 3>>(y3)),
+                            "sequence size is greater than declared range field count");
+
+        y3 = "[1]"_yaml;
+        auto optional_array = yaml::deserialize<std::array<std::optional<int>, 2>>(y3);
+        REQUIRE(optional_array[0] == 1);
+        REQUIRE(!optional_array[1]);
     }
 }
 
