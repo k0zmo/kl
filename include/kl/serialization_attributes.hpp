@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <limits>
 #include <type_traits>
 #include <utility>
 
@@ -136,6 +137,28 @@ constexpr auto range(Min min, Max max)
     static_assert(std::is_arithmetic_v<value_type> && !std::is_same_v<value_type, bool>,
                   "serialization range bounds must be integral or floating-point values");
     return range_t<value_type>{static_cast<value_type>(min), static_cast<value_type>(max)};
+}
+
+// Deserialization only. Require an integral/floating value to be greater than or equal to min.
+template <typename Min>
+constexpr auto greater_equal(Min min)
+{
+    using value_type = std::decay_t<Min>;
+    static_assert(std::is_arithmetic_v<value_type> && !std::is_same_v<value_type, bool>,
+                  "serialization range bounds must be integral or floating-point values");
+    return range_t<value_type>{static_cast<value_type>(min),
+                               (std::numeric_limits<value_type>::max)()};
+}
+
+// Deserialization only. Require an integral/floating value to be less than or equal to max.
+template <typename Max>
+constexpr auto less_equal(Max max)
+{
+    using value_type = std::decay_t<Max>;
+    static_assert(std::is_arithmetic_v<value_type> && !std::is_same_v<value_type, bool>,
+                  "serialization range bounds must be integral or floating-point values");
+    return range_t<value_type>{std::numeric_limits<value_type>::lowest(),
+                               static_cast<value_type>(max)};
 }
 
 // Deserialization only. Accept any of the given names as input key aliases
