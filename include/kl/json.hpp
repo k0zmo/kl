@@ -833,6 +833,15 @@ rapidjson::Value serialize(const T& obj, Context& ctx)
     return serialization::detail::serialize_with_backend<tree_tag>(obj, ctx);
 }
 
+inline rapidjson::Document parse(std::string_view text)
+{
+    rapidjson::Document doc;
+    rapidjson::ParseResult ok = doc.Parse(text.data(), text.length());
+    if (!ok)
+        throw kl::serialization::parse_error{rapidjson::GetParseError_En(ok.Code())};
+    return doc;
+}
+
 template <typename T>
 void deserialize(T& out, const rapidjson::Value& value)
 {
@@ -868,9 +877,5 @@ T deserialize(const rapidjson::Value& value, Context& ctx)
 
 inline rapidjson::Document operator""_json(const char* s, std::size_t len)
 {
-    rapidjson::Document doc;
-    rapidjson::ParseResult ok = doc.Parse(s, len);
-    if (!ok)
-        throw kl::serialization::parse_error{rapidjson::GetParseError_En(ok.Code())};
-    return doc;
+    return kl::json::parse({s, len});
 }

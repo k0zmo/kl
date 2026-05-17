@@ -638,6 +638,18 @@ YAML::Node serialize(const T& obj, Context& ctx)
     return serialization::detail::serialize_with_backend<tree_tag>(obj, ctx);
 }
 
+inline YAML::Node parse(const char* text)
+{
+    try
+    {
+        return YAML::Load(text);
+    }
+    catch (const YAML::Exception& ex)
+    {
+        throw kl::serialization::parse_error{ex.what()};
+    }
+}
+
 template <typename T>
 void deserialize(T& out, const YAML::Node& value)
 {
@@ -673,12 +685,5 @@ T deserialize(const YAML::Node& value, Context& ctx)
 
 inline YAML::Node operator""_yaml(const char* s, std::size_t)
 {
-    try
-    {
-        return YAML::Load(s);
-    }
-    catch (const YAML::Exception& ex)
-    {
-        throw kl::serialization::parse_error{ex.what()};
-    }
+    return kl::yaml::parse(s);
 }
