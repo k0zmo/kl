@@ -261,6 +261,18 @@ KL_REFLECT_STRUCT(allow_missing_serialization_record,
                   (default_then_allowed, attr::default_value(31), attr::allow_missing),
                   (allowed_then_default, attr::allow_missing, attr::default_value(32)))
 
+struct ranged_serialization_record
+{
+    int port{};
+    double ratio{};
+    std::uint8_t ascii{};
+};
+
+KL_REFLECT_STRUCT(ranged_serialization_record,
+                  (port, attr::range(1, 65535)),
+                  (ratio, attr::range(0.0, 1.0)),
+                  (ascii, attr::range(0, 127)))
+
 struct generic_adl_value
 {
     int value;
@@ -1196,6 +1208,128 @@ count: ~
 
         CHECK_THROWS_AS(kl::yaml::deserialize<allow_missing_serialization_record>(null),
                         kl::serialization::deserialize_error);
+    }
+}
+
+TEST_CASE("serialization - range attribute", "[serialization]")
+{
+    SECTION("json")
+    {
+        rapidjson::Document valid = R"({
+            "port": 1,
+            "ratio": 1.0,
+            "ascii": 65
+        })"_json;
+
+        auto json_out = kl::json::deserialize<ranged_serialization_record>(valid);
+        CHECK(json_out.port == 1);
+        CHECK(json_out.ratio == 1.0);
+        CHECK(json_out.ascii == 65);
+
+        rapidjson::Document port_too_low = R"({
+            "port": 0,
+            "ratio": 0.5,
+            "ascii": 65
+        })"_json;
+
+        CHECK_THROWS_WITH(kl::json::deserialize<ranged_serialization_record>(port_too_low),
+                          "value is outside allowed range [1, 65535]\n"
+                          "error when deserializing field port\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<ranged_serialization_record>());
+
+        rapidjson::Document ratio_too_high = R"({
+            "port": 1234,
+            "ratio": 1.5,
+            "ascii": 65
+        })"_json;
+
+        CHECK_THROWS_WITH(kl::json::deserialize<ranged_serialization_record>(ratio_too_high),
+                          "value is outside allowed range [0, 1]\n"
+                          "error when deserializing field ratio\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<ranged_serialization_record>());
+
+        rapidjson::Document ascii_to_high = R"({
+            "port": 1234,
+            "ratio": 1.0,
+            "ascii": 150
+        })"_json;
+
+        CHECK_THROWS_WITH(kl::json::deserialize<ranged_serialization_record>(ascii_to_high),
+                          "value is outside allowed range [0, 127]\n"
+                          "error when deserializing field ascii\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<ranged_serialization_record>());
+
+        rapidjson::Document sequence_port_too_low = R"([0, 0.5, 70])"_json;
+        CHECK_THROWS_WITH(kl::json::deserialize<ranged_serialization_record>(
+                              sequence_port_too_low),
+                          "value is outside allowed range [1, 65535]\n"
+                          "error when deserializing element 0\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<ranged_serialization_record>());
+
+        auto serialized = kl::json::serialize(ranged_serialization_record{70000, 2.0, 250});
+        REQUIRE(serialized.IsObject());
+        CHECK(serialized["port"].GetInt() == 70000);
+        CHECK(serialized["ratio"].GetDouble() == 2.0);
+        CHECK(serialized["ascii"].GetDouble() == 250);
+    }
+
+    SECTION("yaml")
+    {
+        auto valid = R"(
+port: 65535
+ratio: 0.0
+ascii: 65
+)"_yaml;
+
+        auto yaml_out = kl::yaml::deserialize<ranged_serialization_record>(valid);
+        CHECK(yaml_out.port == 65535);
+        CHECK(yaml_out.ratio == 0.0);
+
+        auto port_too_low = R"(
+port: 0
+ratio: 0.5
+ascii: 65
+)"_yaml;
+
+        CHECK_THROWS_WITH(kl::yaml::deserialize<ranged_serialization_record>(port_too_low),
+                          "value is outside allowed range [1, 65535]\n"
+                          "error when deserializing field port\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<ranged_serialization_record>());
+
+        auto ratio_too_high = R"(
+port: 1234
+ratio: 1.5
+ascii: 65
+)"_yaml;
+
+        CHECK_THROWS_WITH(kl::yaml::deserialize<ranged_serialization_record>(ratio_too_high),
+                          "value is outside allowed range [0, 1]\n"
+                          "error when deserializing field ratio\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<ranged_serialization_record>());
+
+        auto ascii_too_high = R"(
+port: 1234
+ratio: 0.5
+ascii: 150
+)"_yaml;
+
+        CHECK_THROWS_WITH(kl::yaml::deserialize<ranged_serialization_record>(ascii_too_high),
+                          "value is outside allowed range [0, 127]\n"
+                          "error when deserializing field ascii\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<ranged_serialization_record>());
+
+        auto serialized = kl::yaml::serialize(ranged_serialization_record{70000, 2.0, 250});
+        REQUIRE(serialized.IsMap());
+        CHECK(serialized["port"].as<int>() == 70000);
+        CHECK(serialized["ratio"].as<double>() == 2.0);
+        CHECK(serialized["ascii"].as<std::uint8_t>() == 250);
     }
 }
 
