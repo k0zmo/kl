@@ -311,7 +311,7 @@ constexpr void reflect_object(Reflected&& r, Visitor&& v)
 }
 
 // Default attribute filter that retains every attribute
-struct keep_all_attributes
+struct all_attributes_filter
 {
     template <typename>
     static constexpr bool keep() noexcept
@@ -320,7 +320,20 @@ struct keep_all_attributes
     }
 };
 
-template <typename Reflected, typename Filter = keep_all_attributes,
+template <typename... QueryAttributes>
+struct any_attribute_filter
+{
+    template <typename Attribute>
+    static constexpr bool keep() noexcept
+    {
+        if constexpr (sizeof...(QueryAttributes) == 0)
+            return false;
+        else
+            return (attribute_matches_v<QueryAttributes, Attribute> || ...);
+    }
+};
+
+template <typename Reflected, typename Filter = all_attributes_filter,
           typename Visitor>
 constexpr void reflect_type(Visitor&& v)
 {
@@ -347,14 +360,20 @@ constexpr std::size_t num_fields() noexcept
 template <typename Reflectable, typename... Attributes>
 constexpr bool has_any_attribute()
 {
+    static_assert(sizeof...(Attributes) > 0,
+                  "has_any_attribute requires at least one attribute type");
+
+    // Reflect only queried attribute types so constexpr scans don't instantiate
+    // unrelated attributes whose values are runtime-only.
     bool result = false;
-    ctti::reflect_type<Reflectable>([&result](auto field) {
-        using field_type = decltype(field);
-        if constexpr((field_type::template has<Attributes>() || ...))
-        {
-            result = true;
-        }
-    });
+    ctti::reflect_type<Reflectable, any_attribute_filter<Attributes...>>(
+        [&result](auto field) {
+            using field_type = decltype(field);
+            if constexpr((field_type::template has<Attributes>() || ...))
+            {
+                result = true;
+            }
+        });
     return result;
 }
 
