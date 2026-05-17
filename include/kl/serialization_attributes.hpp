@@ -27,6 +27,12 @@ struct range_t
     T max;
 };
 
+template <typename Validator>
+struct validate_t
+{
+    Validator validator;
+};
+
 // Wraps a default value to assign when the input field is missing or null
 template <typename T>
 struct default_value_t
@@ -62,6 +68,18 @@ struct is_range<range_t<T>> : std::true_type
 
 template <typename T>
 inline constexpr bool is_range_v = is_range<T>::value;
+
+template <typename T>
+struct is_validate : std::false_type {};
+
+template <typename T>
+struct is_validate<validate_t<T>> : std::true_type
+{
+    using validator_type = T;
+};
+
+template <typename T>
+inline constexpr bool is_validate_v = is_validate<T>::value;
 } // namespace detail
 
 // Holds a set of alternative input key names accepted during deserialization
@@ -159,6 +177,14 @@ constexpr auto less_equal(Max max)
                   "serialization range bounds must be integral or floating-point values");
     return range_t<value_type>{std::numeric_limits<value_type>::lowest(),
                                static_cast<value_type>(max)};
+}
+
+// Deserialization only. Run a user-provided validator after successful field deserialization.
+// The validator must return void and throw deserialize_error when validation fails.
+template <typename Validator>
+constexpr validate_t<std::decay_t<Validator>> validate(Validator&& validator)
+{
+    return {std::forward<Validator>(validator)};
 }
 
 // Deserialization only. Accept any of the given names as input key aliases

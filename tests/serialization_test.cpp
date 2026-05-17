@@ -285,6 +285,22 @@ KL_REFLECT_STRUCT(half_ranged_serialization_record,
                   (non_negative, attr::greater_equal(0)),
                   (at_most_ten, attr::less_equal(10)))
 
+struct custom_validated_serialization_record
+{
+    std::string name;
+    int even{};
+};
+
+KL_REFLECT_STRUCT(custom_validated_serialization_record,
+                  (name, attr::validate([](const std::string& value) {
+                      if (value.empty())
+                          throw kl::serialization::deserialize_error{"name must not be empty"};
+                  })),
+                  (even, attr::validate([](int value) {
+                      if (value % 2 != 0)
+                          throw kl::serialization::deserialize_error{"value must be even"};
+                  })))
+
 struct generic_adl_value
 {
     int value;
@@ -1404,6 +1420,93 @@ at_most_ten: 11
                           "error when deserializing field at_most_ten\n"
                           "error when deserializing type " +
                               kl::ctti::name<half_ranged_serialization_record>());
+    }
+}
+
+TEST_CASE("serialization - custom validate attribute", "[serialization]")
+{
+    SECTION("json")
+    {
+        rapidjson::Document valid = R"({
+            "name": "abc",
+            "even": 4
+        })"_json;
+
+        auto json_out = kl::json::deserialize<custom_validated_serialization_record>(valid);
+        CHECK(json_out.name == "abc");
+        CHECK(json_out.even == 4);
+
+        rapidjson::Document empty_name = R"({
+            "name": "",
+            "even": 4
+        })"_json;
+        CHECK_THROWS_WITH(
+            kl::json::deserialize<custom_validated_serialization_record>(empty_name),
+            "name must not be empty\n"
+            "error when deserializing field name\n"
+            "error when deserializing type " +
+                kl::ctti::name<custom_validated_serialization_record>());
+
+        rapidjson::Document odd = R"({
+            "name": "abc",
+            "even": 3
+        })"_json;
+        CHECK_THROWS_WITH(kl::json::deserialize<custom_validated_serialization_record>(odd),
+                          "value must be even\n"
+                          "error when deserializing field even\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<custom_validated_serialization_record>());
+
+        rapidjson::Document sequence_odd = R"(["abc", 3])"_json;
+        CHECK_THROWS_WITH(
+            kl::json::deserialize<custom_validated_serialization_record>(sequence_odd),
+            "value must be even\n"
+            "error when deserializing element 1\n"
+            "error when deserializing type " +
+                kl::ctti::name<custom_validated_serialization_record>());
+
+        auto serialized = kl::json::serialize(custom_validated_serialization_record{"", 3});
+        REQUIRE(serialized.IsObject());
+        CHECK(serialized["name"].GetString() == std::string{});
+        CHECK(serialized["even"].GetInt() == 3);
+    }
+
+    SECTION("yaml")
+    {
+        auto valid = R"(
+name: abc
+even: 4
+)"_yaml;
+
+        auto yaml_out = kl::yaml::deserialize<custom_validated_serialization_record>(valid);
+        CHECK(yaml_out.name == "abc");
+        CHECK(yaml_out.even == 4);
+
+        auto empty_name = R"(
+name: ""
+even: 4
+)"_yaml;
+        CHECK_THROWS_WITH(
+            kl::yaml::deserialize<custom_validated_serialization_record>(empty_name),
+            "name must not be empty\n"
+            "error when deserializing field name\n"
+            "error when deserializing type " +
+                kl::ctti::name<custom_validated_serialization_record>());
+
+        auto odd = R"(
+name: abc
+even: 3
+)"_yaml;
+        CHECK_THROWS_WITH(kl::yaml::deserialize<custom_validated_serialization_record>(odd),
+                          "value must be even\n"
+                          "error when deserializing field even\n"
+                          "error when deserializing type " +
+                              kl::ctti::name<custom_validated_serialization_record>());
+
+        auto serialized = kl::yaml::serialize(custom_validated_serialization_record{"", 3});
+        REQUIRE(serialized.IsMap());
+        CHECK(serialized["name"].as<std::string>() == "");
+        CHECK(serialized["even"].as<int>() == 3);
     }
 }
 
