@@ -17,6 +17,7 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
+#include <array>
 #include <cstdint>
 #include <deque>
 #include <list>
@@ -771,6 +772,13 @@ TEST_CASE("json", "[json][serialization]")
             std::unordered_map<std::string, inner_t>{{"inner", inner_t{}}});
         REQUIRE(j5.IsObject());
         REQUIRE(j5.MemberCount() == 1);
+
+        auto j6 = json::serialize(std::array{1, 2, 3});
+        REQUIRE(j6.IsArray());
+        REQUIRE(j6.Size() == 3);
+        REQUIRE(j6[0] == 1);
+        REQUIRE(j6[1] == 2);
+        REQUIRE(j6[2] == 3);
     }
 
     SECTION("from std containers")
@@ -804,6 +812,19 @@ TEST_CASE("json", "[json][serialization]")
         REQUIRE(umap.count("inner") == 1);
         REQUIRE(umap["inner"].d == Catch::Approx(3));
         REQUIRE(umap["inner"].r == 3648);
+
+        auto j3 = R"([1,2,3])"_json;
+        auto array = json::deserialize<std::array<int, 3>>(j3);
+        REQUIRE(array == std::array{1, 2, 3});
+
+        j3 = R"([1,2,3,4])"_json;
+        REQUIRE_THROWS_WITH((json::deserialize<std::array<int, 3>>(j3)),
+                            "sequence size is greater than declared range field count");
+
+        j3 = R"([1])"_json;
+        auto optional_array = json::deserialize<std::array<std::optional<int>, 2>>(j3);
+        REQUIRE(optional_array[0] == 1);
+        REQUIRE(!optional_array[1]);
     }
 }
 

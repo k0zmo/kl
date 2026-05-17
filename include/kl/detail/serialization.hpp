@@ -812,6 +812,33 @@ void deserialize_adl(GrowableRange& out, const typename Backend::value_type& val
     });
 }
 
+template <typename Backend, typename FixedSizeRange, typename Context,
+          enable_if<std::negation<::kl::detail::is_map_alike<FixedSizeRange>>,
+                    ::kl::detail::is_fixed_size_range<FixedSizeRange>> = true>
+void deserialize_adl(FixedSizeRange& out, const typename Backend::value_type& value,
+                     Context& ctx)
+{
+    Backend::expect_sequence(value);
+    if (out.size() < Backend::size(value))
+        throw deserialize_error{"sequence size is greater than declared range field count"};
+
+    std::size_t index = 0;
+    for (auto& element : out)
+    {
+        try
+        {
+            Backend::deserialize(element, Backend::at_index(value, index), ctx);
+            ++index;
+        }
+        catch (deserialize_error& ex)
+        {
+            std::string msg = "error when deserializing element " + std::to_string(index);
+            ex.add(msg.c_str());
+            throw;
+        }
+    }
+}
+
 template <typename Backend, typename Reflectable, typename Context,
           enable_if<ctti::is_reflectable<Reflectable>> = true>
 void deserialize_adl(Reflectable& out, const typename Backend::value_type& value,

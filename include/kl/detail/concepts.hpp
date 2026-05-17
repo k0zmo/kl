@@ -16,6 +16,7 @@ KL_VALID_EXPR_HELPER(
 KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
 KL_VALID_EXPR_HELPER(has_begin, std::declval<const T&>().begin())
 KL_VALID_EXPR_HELPER(has_end, std::declval<const T&>().end())
+KL_VALID_EXPR_HELPER(has_size, std::declval<const T&>().size())
 
 template <typename T>
 struct is_range
@@ -29,6 +30,14 @@ struct is_growable_range
         is_range<T>,
         has_value_type<T>,
         has_push_back<T>> {};
+
+template <typename T>
+struct is_fixed_size_range
+    : std::conjunction<
+        is_range<T>,
+        has_value_type<T>,
+        has_size<T>,
+        std::negation<has_push_back<T>>> {};
 
 template <typename T>
 struct is_map_alike
