@@ -17,6 +17,7 @@ set(test_files
     range_test.cpp
     reflect_enum_test.cpp
     reflect_struct_test.cpp
+    resource_test.cpp
     signal_test.cpp
     split_test.cpp
     stream_join_test.cpp

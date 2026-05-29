@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <typeinfo>
 #include <utility>
 
@@ -37,13 +38,13 @@ public:
     }
 
     template <typename Attribute>
-    static constexpr bool has()
+    static constexpr bool has() noexcept
     {
         return (attribute_matches_v<Attribute, Attributes> || ...);
     }
 
     template <typename Attribute>
-    constexpr const Attribute* get() const
+    constexpr const Attribute* get() const noexcept
     {
         return get_impl<Attribute, 0>();
     }
@@ -117,7 +118,7 @@ public:
 
     using detail::field_base<Object, Attributes...>::field_base;
 
-    constexpr decltype(auto) value() const { return ((this->object()).*Ptr); }
+    constexpr decltype(auto) value() const noexcept { return ((this->object()).*Ptr); }
 };
 
 // We can't use CTAD deduction guides for class template with non-deduced
@@ -145,7 +146,11 @@ public:
     {
     }
 
-    constexpr decltype(auto) value() const { return accessor_(this->object()); }
+    constexpr decltype(auto) value() const
+        noexcept(std::is_nothrow_invocable_v<const Accessor&, Object&>)
+    {
+        return accessor_(this->object());
+    }
 
 private:
     Accessor accessor_;
