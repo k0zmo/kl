@@ -134,28 +134,7 @@ void validate_field(const Field& field)
     field.visit_attributes([&](const auto& attr) {
         using attr_type = std::decay_t<decltype(attr)>;
 
-        if constexpr (attributes::detail::is_range_v<attr_type>)
-        {
-            using field_type = remove_cvref_t<decltype(field.value())>;
-            using range_type = typename attributes::detail::is_range<attr_type>::value_type;
-
-            static_assert(std::is_arithmetic_v<field_type> && !std::is_same_v<field_type, bool>,
-                          "serialization range attribute requires an integral or floating-point "
-                          "field");
-
-            using common_type = std::common_type_t<field_type, range_type>;
-            const auto value = static_cast<common_type>(field.value());
-            const auto min = static_cast<common_type>(attr.min);
-            const auto max = static_cast<common_type>(attr.max);
-
-            if (value < min || max < value)
-            {
-                throw deserialize_error{"value is outside allowed range [" +
-                                        std::to_string(attr.min) + ", " +
-                                        std::to_string(attr.max) + "]"};
-            }
-        }
-        else if constexpr (attributes::detail::is_validate_v<attr_type>)
+        if constexpr (attributes::detail::is_validate_v<attr_type>)
         {
             using validator_type =
                 typename attributes::detail::is_validate<attr_type>::validator_type;

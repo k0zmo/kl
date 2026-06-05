@@ -1,7 +1,8 @@
 #pragma once
 
+#include "kl/serialization_error.hpp"
+
 #include <cstddef>
-#include <limits>
 #include <type_traits>
 #include <utility>
 
@@ -18,14 +19,6 @@ struct allow_missing_t {};
 struct skip_if_empty_t {};
 struct flatten_t {};
 struct extra_fields_t {};
-
-// Inclusive numeric bounds checked during deserialization.
-template <typename T>
-struct range_t
-{
-    T min;
-    T max;
-};
 
 template <typename Validator>
 struct validate_t
@@ -56,18 +49,7 @@ struct is_default_value<default_value_t<T>> : std::true_type
 template <typename T>
 inline constexpr bool is_default_value_v = is_default_value<T>::value;
 
-// Similar for range attribute
-template <typename T>
-struct is_range : std::false_type {};
-
-template <typename T>
-struct is_range<range_t<T>> : std::true_type
-{
-    using value_type = T;
-};
-
-template <typename T>
-inline constexpr bool is_range_v = is_range<T>::value;
+// Similar for validate attribute
 
 template <typename T>
 struct is_validate : std::false_type {};
@@ -147,44 +129,49 @@ constexpr default_value_t<std::decay_t<T>> default_value(T&& value)
     return {std::forward<T>(value)};
 }
 
-// Deserialization only. Require an integral/floating value to be within inclusive bounds.
-template <typename Min, typename Max>
-constexpr auto range(Min min, Max max)
-{
-    using value_type = std::common_type_t<Min, Max>;
-    static_assert(std::is_arithmetic_v<value_type> && !std::is_same_v<value_type, bool>,
-                  "serialization range bounds must be integral or floating-point values");
-    return range_t<value_type>{static_cast<value_type>(min), static_cast<value_type>(max)};
-}
-
-// Deserialization only. Require an integral/floating value to be greater than or equal to min.
-template <typename Min>
-constexpr auto greater_equal(Min min)
-{
-    using value_type = std::decay_t<Min>;
-    static_assert(std::is_arithmetic_v<value_type> && !std::is_same_v<value_type, bool>,
-                  "serialization range bounds must be integral or floating-point values");
-    return range_t<value_type>{static_cast<value_type>(min),
-                               (std::numeric_limits<value_type>::max)()};
-}
-
-// Deserialization only. Require an integral/floating value to be less than or equal to max.
-template <typename Max>
-constexpr auto less_equal(Max max)
-{
-    using value_type = std::decay_t<Max>;
-    static_assert(std::is_arithmetic_v<value_type> && !std::is_same_v<value_type, bool>,
-                  "serialization range bounds must be integral or floating-point values");
-    return range_t<value_type>{std::numeric_limits<value_type>::lowest(),
-                               static_cast<value_type>(max)};
-}
-
 // Deserialization only. Run a user-provided validator after successful field deserialization.
 // The validator must return void and throw deserialize_error when validation fails.
 template <typename Validator>
 constexpr validate_t<std::decay_t<Validator>> validate(Validator&& validator)
 {
     return {std::forward<Validator>(validator)};
+}
+
+// Deserialization only. Require a value to be within inclusive bounds.
+template <typename Min, typename Max>
+constexpr auto range(Min min, Max max)
+{
+    return validate([min, max](const auto& value){
+        if (value < min || value > max)
+        {
+            throw deserialize_error{"value is outside allowed range [" + std::to_string(min) +
+                                    ", " + std::to_string(max) + "]"};
+        }
+    });
+}
+
+// Deserialization only. Require a value to be greater than or equal to min.
+template <typename Min>
+constexpr auto greater_equal(Min min)
+{
+    return validate([min](const auto& value){
+        if (value < min)
+        {
+            throw deserialize_error{"value is less than allowed limit of " + std::to_string(min)};
+        }
+    });
+}
+
+// Deserialization only. Require a value to be less than or equal to max.
+template <typename Max>
+constexpr auto less_equal(Max max)
+{
+    return validate([max](const auto& value){
+        if (value > max)
+        {
+            throw deserialize_error{"value is greater than allowed limit of " + std::to_string(max)};
+        }
+    });
 }
 
 // Deserialization only. Accept any of the given names as input key aliases

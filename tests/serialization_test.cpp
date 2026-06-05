@@ -1318,8 +1318,7 @@ TEST_CASE("serialization - range attribute", "[serialization]")
             "at_most_ten": 10
         })"_json;
         CHECK_THROWS_WITH(kl::json::deserialize<half_ranged_serialization_record>(negative),
-                          "value is outside allowed range [0, " +
-                              std::to_string((std::numeric_limits<int>::max)()) + "]\n"
+                          "value is less than allowed limit of 0\n"
                           "error when deserializing field non_negative\n"
                           "error when deserializing type " +
                               kl::ctti::name<half_ranged_serialization_record>());
@@ -1329,8 +1328,7 @@ TEST_CASE("serialization - range attribute", "[serialization]")
             "at_most_ten": 11
         })"_json;
         CHECK_THROWS_WITH(kl::json::deserialize<half_ranged_serialization_record>(too_large),
-                          "value is outside allowed range [" +
-                              std::to_string(std::numeric_limits<int>::lowest()) + ", 10]\n"
+                          "value is greater than allowed limit of 10\n"
                           "error when deserializing field at_most_ten\n"
                           "error when deserializing type " +
                               kl::ctti::name<half_ranged_serialization_record>());
@@ -1404,8 +1402,7 @@ non_negative: -1
 at_most_ten: 10
 )"_yaml;
         CHECK_THROWS_WITH(kl::yaml::deserialize<half_ranged_serialization_record>(negative),
-                          "value is outside allowed range [0, " +
-                              std::to_string((std::numeric_limits<int>::max)()) + "]\n"
+                          "value is less than allowed limit of 0\n"
                           "error when deserializing field non_negative\n"
                           "error when deserializing type " +
                               kl::ctti::name<half_ranged_serialization_record>());
@@ -1415,8 +1412,7 @@ non_negative: 0
 at_most_ten: 11
 )"_yaml;
         CHECK_THROWS_WITH(kl::yaml::deserialize<half_ranged_serialization_record>(too_large),
-                          "value is outside allowed range [" +
-                              std::to_string(std::numeric_limits<int>::lowest()) + ", 10]\n"
+                          "value is greater than allowed limit of 10\n"
                           "error when deserializing field at_most_ten\n"
                           "error when deserializing type " +
                               kl::ctti::name<half_ranged_serialization_record>());
