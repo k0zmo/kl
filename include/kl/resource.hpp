@@ -1,5 +1,6 @@
 #pragma once
 
+#include "kl/serialization.hpp"
 #include "kl/utility.hpp"
 #include "kl/ctti.hpp"
 
@@ -9,7 +10,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
-#include <optional>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -230,7 +231,8 @@ Result visit_node(Node node, path_view path, Visitor&& visitor)
     }
     else
     {
-        std::optional<Result> result;
+        // We can't use optional here as it trips over with rapidjson types, at least with MSVC's STL
+        std::unique_ptr<Result> result;
 
         ctti::reflect_object(node.value(), [&](auto field) {
             if (result)
@@ -241,9 +243,10 @@ Result visit_node(Node node, path_view path, Visitor&& visitor)
             if (path.front() != field.name())
                 return;
 
-            result = visit_node<Result>(field_node<decltype(field)>{field},
-                                        path.drop_front(),
-                                        std::forward<Visitor>(visitor));
+            result = std::make_unique<Result>(
+                visit_node<Result>(field_node<decltype(field)>{field},
+                                   path.drop_front(),
+                                   std::forward<Visitor>(visitor)));
         }); 
 
         if (result)
@@ -261,6 +264,35 @@ Result visit_at_path(T& object, path_view path, Visitor&& visitor)
     return detail::visit_node<Result>(detail::root_node<T>{object},
                                       path,
                                       std::forward<Visitor>(visitor));
+}
+
+template <typename T, typename Context>
+auto dump_at_path(const T& obj, path_view path, Context& ctx)
+    -> decltype(kl::serialization::dump(obj, ctx))
+{
+    using return_type = decltype(kl::serialization::dump(obj, ctx));
+    return kl::resources::visit_at_path<return_type>(obj, path, [&](auto field) {
+        return kl::serialization::dump(field.value(), ctx);
+    });
+}
+
+template <typename T, typename Context>
+auto serialize_at_path(const T& obj, path_view path, Context& ctx)
+    -> decltype(kl::serialization::serialize(obj, ctx))
+{
+    using return_type = decltype(kl::serialization::serialize(obj, ctx));
+    return kl::resources::visit_at_path<return_type>(obj, path, [&](auto field) {
+        return kl::serialization::serialize(field.value(), ctx);
+    });
+}
+
+template <typename T, typename Value, typename Context>
+void deserialize_at_path(T& obj, path_view path, const Value& value, Context& ctx)
+{
+    kl::resources::visit_at_path<int>(obj, path, [&](auto field) {
+        kl::serialization::deserialize(field.value(), value, ctx);
+        return 1; // Dummy value, doesn't matter
+    });
 }
 
 } // namespace kl::resources
