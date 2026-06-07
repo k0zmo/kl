@@ -23,13 +23,22 @@ namespace attributes {
 
 struct read_only_t {};
 struct subtree_read_only_t {};
-struct id_field_t {};
+//struct id_field_t {};
 
+// Marks the field as immutable (but not its descendants)
 inline constexpr read_only_t read_only{};
+
+// Marks all the child fields as immutable (but not the field itself)
 inline constexpr subtree_read_only_t subtree_read_only{};
-inline constexpr id_field_t id_field{};
+
+//inline constexpr id_field_t id_field{};
 
 } // namespace attributes
+
+struct access_context
+{
+    bool subtree_read_only = false;
+};
 
 // FIXME: Use something more sophisticated
 class path_view
@@ -217,19 +226,14 @@ struct root_node
 };
 
 template <typename Result, typename Node, typename Visitor>
-Result visit_node(Node node, path_view path, Visitor&& visitor)
+Result visit_node(Node node, path_view path, access_context& ctx, Visitor&& visitor)
 {
     if (path.empty())
-        return visitor(node);
+        return std::forward<Visitor>(visitor)(node, ctx);
 
     using value_type = std::decay_t<decltype(node.value())>;
 
-    if constexpr (!kl::ctti::is_reflectable_v<value_type>)
-    {
-        // Leaf values are valid targets, but the remaining path cannot be traversed.
-        throw path_not_traversable_error{};
-    }
-    else
+    if constexpr (kl::ctti::is_reflectable_v<value_type>)
     {
         // We can't use optional here as it trips over with rapidjson types, at least with MSVC's STL
         std::unique_ptr<Result> result;
@@ -243,10 +247,17 @@ Result visit_node(Node node, path_view path, Visitor&& visitor)
             if (path.front() != field.name())
                 return;
 
+            const auto subtree_read_only_before = ctx.subtree_read_only;
+            ctx.subtree_read_only = ctx.subtree_read_only ||
+                                    Node::template has_attribute<attributes::subtree_read_only_t>();
+
             result = std::make_unique<Result>(
                 visit_node<Result>(field_node<decltype(field)>{field},
                                    path.drop_front(),
+                                   ctx,
                                    std::forward<Visitor>(visitor)));
+
+            ctx.subtree_read_only = subtree_read_only_before;
         }); 
 
         if (result)
@@ -254,15 +265,20 @@ Result visit_node(Node node, path_view path, Visitor&& visitor)
 
         throw path_segment_not_found_error {};
     }
+    else
+    {
+        // The remaining path cannot be traversed.
+        throw path_not_traversable_error{};
+    }
 }
 
-}
+} // namespace detail
 
 template <typename Result, typename T, typename Visitor>
 Result visit_at_path(T& object, path_view path, Visitor&& visitor)
 {
-    return detail::visit_node<Result>(detail::root_node<T>{object},
-                                      path,
+    access_context ctx;
+    return detail::visit_node<Result>(detail::root_node<T>{object}, path, ctx,
                                       std::forward<Visitor>(visitor));
 }
 
@@ -271,9 +287,10 @@ auto dump_at_path(const T& obj, path_view path, Context& ctx)
     -> decltype(kl::serialization::dump(obj, ctx))
 {
     using return_type = decltype(kl::serialization::dump(obj, ctx));
-    return kl::resources::visit_at_path<return_type>(obj, path, [&](auto field) {
-        return kl::serialization::dump(field.value(), ctx);
-    });
+    return kl::resources::visit_at_path<return_type>(
+        obj, path, [&](auto field, [[maybe_unused]] auto& access_ctx) {
+            return kl::serialization::dump(field.value(), ctx);
+        });
 }
 
 template <typename T, typename Context>
@@ -281,18 +298,92 @@ auto serialize_at_path(const T& obj, path_view path, Context& ctx)
     -> decltype(kl::serialization::serialize(obj, ctx))
 {
     using return_type = decltype(kl::serialization::serialize(obj, ctx));
-    return kl::resources::visit_at_path<return_type>(obj, path, [&](auto field) {
-        return kl::serialization::serialize(field.value(), ctx);
-    });
+    return kl::resources::visit_at_path<return_type>(
+        obj, path, [&](auto field, [[maybe_unused]] auto& access_ctx) {
+            return kl::serialization::serialize(field.value(), ctx);
+        });
 }
 
 template <typename T, typename Value, typename Context>
 void deserialize_at_path(T& obj, path_view path, const Value& value, Context& ctx)
 {
-    kl::resources::visit_at_path<int>(obj, path, [&](auto field) {
-        kl::serialization::deserialize(field.value(), value, ctx);
-        return 1; // Dummy value, doesn't matter
-    });
+    (void)kl::resources::visit_at_path<int>(
+        obj, path, [&](auto field, [[maybe_unused]] auto& access_ctx) {
+            kl::serialization::deserialize(field.value(), value, ctx);
+            return 1; // Dummy value, doesn't matter
+        });
+}
+
+// HTTP-like verbs for kl::resources::resource
+
+// Based on HTTP status codes so it's easy to map one to another
+enum class status_code
+{
+    ok = 200,
+    not_found = 404,
+    method_not_allowed = 405
+};
+
+struct operation_result
+{
+    status_code status;
+    std::string body;
+};
+
+template <typename T, typename Dumper>
+operation_result get(const resource<T>& r, path_view path, Dumper&& dumper)
+{
+    try
+    {
+        return kl::resources::visit_at_path<operation_result>(
+            r.value, path, [&](auto node, [[maybe_unused]] auto& access_ctx) {
+                return operation_result{status_code::ok, dumper(node.value())};
+            });
+    }
+    catch (const path_segment_not_found_error& ex)
+    {
+        return operation_result{status_code::not_found, {}};
+    }
+    catch (const path_not_traversable_error& ex)
+    {
+        return operation_result{status_code::not_found, {}};
+    }
+}
+
+template <typename T, typename Value, typename Context>
+operation_result put(resource<T>& r, path_view path, const Value& value, Context& ctx)
+{
+    try
+    {
+        auto result = kl::resources::visit_at_path<operation_result>(
+            r.value, path, [&](auto node, auto& access_ctx) {
+                constexpr bool is_read_only =
+                    decltype(node)::template has_attribute<attributes::read_only_t>();
+                if (is_read_only || access_ctx.subtree_read_only)
+                    return operation_result{status_code::method_not_allowed, {}};
+
+                using node_value_type = std::decay_t<decltype(node.value())>;
+
+                auto candidate = node.value();
+                kl::serialization::deserialize(candidate, value, ctx);
+                node.value() = std::move(candidate);
+
+                r.state.modifications.notify_changed(
+                    path, kl::ctti::is_reflectable_v<node_value_type>);
+
+                return operation_result{status_code::ok, {}};
+            });
+
+        return result;
+    }
+    catch (const path_segment_not_found_error& ex)
+    {
+        return operation_result{status_code::not_found, {}};
+    }
+    catch (const path_not_traversable_error& ex)
+    {
+        return operation_result{status_code::not_found, {}};
+    }
 }
 
 } // namespace kl::resources

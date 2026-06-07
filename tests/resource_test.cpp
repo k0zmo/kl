@@ -26,12 +26,38 @@ struct B
 };
 KL_REFLECT_STRUCT(B, i, b, str, a)
 
+struct AccessInner
+{
+    int value;
+    int read_only_value;
+};
+KL_REFLECT_STRUCT(AccessInner,
+                  value,
+                  (read_only_value, kl::resources::attributes::read_only))
+
+struct AccessRoot
+{
+    int value;
+    AccessInner inner;
+    AccessInner read_only_inner;
+    AccessInner subtree_read_only_inner;
+    AccessInner fully_read_only_inner;
+};
+KL_REFLECT_STRUCT(AccessRoot,
+                  value,
+                  inner,
+                  (read_only_inner, kl::resources::attributes::read_only),
+                  (subtree_read_only_inner, kl::resources::attributes::subtree_read_only),
+                  (fully_read_only_inner,
+                   kl::resources::attributes::read_only,
+                   kl::resources::attributes::subtree_read_only))
+
 template <typename T>
 auto dump_json(const T& obj, kl::resources::path_view path)
 {
-    return kl::resources::visit_at_path<std::string>(obj, path, [&](auto field) {
-        return kl::json::dump(field.value());
-    });
+    return kl::resources::visit_at_path<std::string>(
+        obj, path,
+        [&](auto field, [[maybe_unused]] auto& ctx) { return kl::json::dump(field.value()); });
 }
 
 } // namespace
@@ -41,40 +67,176 @@ TEST_CASE("resource", "[resource]")
     B b{1, false, "Test", {42, true, 3.14, "Hello world!"}};
     auto res = kl::resources::make_resource(b);
 
-    CHECK(dump_json(res.value, {}) ==
-          R"({"i":1,"b":false,"str":"Test","a":{"i":42,"b":true,"d":3.14,"str":"Hello world!"}})");
-    CHECK(dump_json(res.value, {"str"}) == R"("Test")");
-    CHECK(dump_json(res.value, {"a"}) == R"({"i":42,"b":true,"d":3.14,"str":"Hello world!"})");
-    CHECK(dump_json(res.value, {"a", "i"}) == "42");
-    CHECK(dump_json(res.value, {"a", "str"}) == "\"Hello world!\"");
-    CHECK_THROWS_AS(dump_json(res.value, {"a", "str1"}),
-                    kl::resources::path_segment_not_found_error);
-    CHECK_THROWS_AS(dump_json(res.value, {"c"}), kl::resources::path_segment_not_found_error);
-    CHECK_THROWS_AS(dump_json(res.value, {"a", "str", "x"}),
-                    kl::resources::path_not_traversable_error);
+    SECTION("dumps values at path")
+    {
+        CHECK(dump_json(res.value, {}) ==
+              R"({"i":1,"b":false,"str":"Test","a":{"i":42,"b":true,"d":3.14,"str":"Hello world!"}})");
+        CHECK(dump_json(res.value, {"str"}) == R"("Test")");
+        CHECK(dump_json(res.value, {"a"}) ==
+              R"({"i":42,"b":true,"d":3.14,"str":"Hello world!"})");
+        CHECK(dump_json(res.value, {"a", "i"}) == "42");
+        CHECK(dump_json(res.value, {"a", "str"}) == "\"Hello world!\"");
+    }
 
-    kl::json::owning_serialize_context serctx;
-    auto json = kl::resources::serialize_at_path(res.value, {"a", "str"}, serctx);
-    CHECK(kl::json::dump(json) == "\"Hello world!\"");
+    SECTION("reports invalid paths")
+    {
+        CHECK_THROWS_AS(dump_json(res.value, {"a", "str1"}),
+                        kl::resources::path_segment_not_found_error);
+        CHECK_THROWS_AS(dump_json(res.value, {"c"}),
+                        kl::resources::path_segment_not_found_error);
+        CHECK_THROWS_AS(dump_json(res.value, {"a", "str", "x"}),
+                        kl::resources::path_not_traversable_error);
+    }
 
-    auto a1j = R"({"i":13,"b":false,"d":2.72,"str":"byebye"})"_json;
-    kl::json::deserialize_context dectx;
-    kl::resources::deserialize_at_path(res.value, {"a"}, a1j, dectx);
-    CHECK(res.value.a.i == 13);
-    CHECK(res.value.a.b == false);
-    CHECK(res.value.a.d == 2.72);
-    CHECK(res.value.a.str == "byebye");
-    CHECK(res.value.i == 1);
-    CHECK(res.value.b == false);
-    CHECK(res.value.str == "Test");
+    SECTION("serializes value at path")
+    {
+        kl::json::owning_serialize_context serctx;
+        auto json = kl::resources::serialize_at_path(res.value, {"a", "str"}, serctx);
+        CHECK(kl::json::dump(json) == "\"Hello world!\"");
+    }
 
-    auto strj = R"("updated")"_json;
-    kl::resources::deserialize_at_path(res.value, {"a", "str"}, strj, dectx);
-    CHECK(res.value.a.str == "updated");
-    CHECK(dump_json(res.value, {"a", "str"}) == R"("updated")");
+    SECTION("deserializes value at path")
+    {
+        auto a1j = R"({"i":13,"b":false,"d":2.72,"str":"byebye"})"_json;
+        kl::json::deserialize_context dectx;
+        kl::resources::deserialize_at_path(res.value, {"a"}, a1j, dectx);
+        CHECK(res.value.a.i == 13);
+        CHECK(res.value.a.b == false);
+        CHECK(res.value.a.d == 2.72);
+        CHECK(res.value.a.str == "byebye");
+        CHECK(res.value.i == 1);
+        CHECK(res.value.b == false);
+        CHECK(res.value.str == "Test");
+
+        auto strj = R"("updated")"_json;
+        kl::resources::deserialize_at_path(res.value, {"a", "str"}, strj, dectx);
+        CHECK(res.value.a.str == "updated");
+        CHECK(dump_json(res.value, {"a", "str"}) == R"("updated")");
+    }
 }
 
-TEST_CASE("resource modification tracker marks paths and ancestors", "[resource]")
+TEST_CASE("resource get", "[resource]")
+{
+    B b{1, false, "Test", {42, true, 3.14, "Hello world!"}};
+    auto res = kl::resources::make_resource(b);
+    auto dumper = [](const auto& value) { return kl::json::dump(value); };
+
+    SECTION("returns serialized value at path")
+    {
+        const auto root = kl::resources::get(res, {}, dumper);
+        CHECK(root.status == kl::resources::status_code::ok);
+        CHECK(root.body ==
+              R"({"i":1,"b":false,"str":"Test","a":{"i":42,"b":true,"d":3.14,"str":"Hello world!"}})");
+
+        const auto nested = kl::resources::get(res, {"a", "str"}, dumper);
+        CHECK(nested.status == kl::resources::status_code::ok);
+        CHECK(nested.body == R"("Hello world!")");
+    }
+
+    SECTION("returns not found for missing path")
+    {
+        const auto result = kl::resources::get(res, {"a", "missing"}, dumper);
+
+        CHECK(result.status == kl::resources::status_code::not_found);
+        CHECK(result.body.empty());
+    }
+
+    SECTION("returns not found when path is not traversable")
+    {
+        const auto result = kl::resources::get(res, {"a", "str", "x"}, dumper);
+
+        CHECK(result.status == kl::resources::status_code::not_found);
+        CHECK(result.body.empty());
+    }
+}
+
+TEST_CASE("resource put", "[resource]")
+{
+    kl::json::deserialize_context ctx;
+
+    SECTION("updates writable scalar path")
+    {
+        B b{1, false, "Test", {42, true, 3.14, "Hello world!"}};
+        auto res = kl::resources::make_resource(b);
+        auto value = R"(99)"_json;
+
+        const auto result = kl::resources::put(res, {"a", "i"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(result.body.empty());
+        CHECK(res.value.a.i == 99);
+        CHECK(res.state.modifications.changed_at({"a", "i"}) ==
+              kl::resources::modification_tracker::generation{2});
+        CHECK(res.state.modifications.changed_at({"a"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("marks reflectable path replacements as subtree changes")
+    {
+        AccessRoot root{};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"value":7,"read_only_value":8})"_json;
+
+        const auto result = kl::resources::put(res, {"inner"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(result.body.empty());
+        CHECK(res.value.inner.value == 7);
+        CHECK(res.value.inner.read_only_value == 8);
+        CHECK(res.state.modifications.changed_at({"inner", "value"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("rejects read-only paths")
+    {
+        AccessRoot root{};
+        root.inner.read_only_value = 4;
+        auto res = kl::resources::make_resource(root);
+        auto value = R"(9)"_json;
+
+        const auto result =
+            kl::resources::put(res, {"inner", "read_only_value"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.value.inner.read_only_value == 4);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns not found for missing path")
+    {
+        AccessRoot root{};
+        root.value = 3;
+        auto res = kl::resources::make_resource(root);
+        auto value = R"(9)"_json;
+
+        const auto result = kl::resources::put(res, {"missing"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::not_found);
+        CHECK(result.body.empty());
+        CHECK(res.value.value == 3);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns not found when path is not traversable")
+    {
+        B b{1, false, "Test", {42, true, 3.14, "Hello world!"}};
+        auto res = kl::resources::make_resource(b);
+        auto value = R"(9)"_json;
+
+        const auto result = kl::resources::put(res, {"a", "str", "x"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::not_found);
+        CHECK(result.body.empty());
+        CHECK(res.value.a.str == "Hello world!");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+}
+
+TEST_CASE("resource modification tracker", "[resource]")
 {
     kl::resources::modification_tracker tracker;
 
@@ -84,38 +246,71 @@ TEST_CASE("resource modification tracker marks paths and ancestors", "[resource]
     CHECK(tracker.changed_at({"settings", "video"}) == never_changed);
     CHECK_FALSE(tracker.changed_since({"settings", "video"}, never_changed));
 
-    const auto width_changed = tracker.notify_changed({"settings", "video", "width"});
-    CHECK(width_changed == kl::resources::modification_tracker::generation{2});
-    CHECK(tracker.current() == width_changed);
+    SECTION("marks paths and ancestors")
+    {
+        const auto width_changed = tracker.notify_changed({"settings", "video", "width"});
+        CHECK(width_changed == kl::resources::modification_tracker::generation{2});
+        CHECK(tracker.current() == width_changed);
 
-    CHECK(tracker.changed_at({}) == width_changed);
-    CHECK(tracker.changed_at({"settings"}) == width_changed);
-    CHECK(tracker.changed_at({"settings", "video"}) == width_changed);
-    CHECK(tracker.changed_at({"settings", "video", "width"}) == width_changed);
+        CHECK(tracker.changed_at({}) == width_changed);
+        CHECK(tracker.changed_at({"settings"}) == width_changed);
+        CHECK(tracker.changed_at({"settings", "video"}) == width_changed);
+        CHECK(tracker.changed_at({"settings", "video", "width"}) == width_changed);
 
-    CHECK(tracker.changed_at({"settings", "video", "height"}) == never_changed);
-    CHECK(tracker.changed_at({"settings", "audio"}) == never_changed);
-    CHECK(tracker.changed_since({"settings", "video"}, never_changed));
-    CHECK_FALSE(tracker.changed_since({"settings", "video"}, width_changed));
+        CHECK(tracker.changed_at({"settings", "video", "height"}) == never_changed);
+        CHECK(tracker.changed_at({"settings", "audio"}) == never_changed);
+        CHECK(tracker.changed_since({"settings", "video"}, never_changed));
+        CHECK_FALSE(tracker.changed_since({"settings", "video"}, width_changed));
+    }
+
+    SECTION("handles subtree replacement")
+    {
+        const auto width_changed = tracker.notify_changed({"settings", "video", "width"});
+        const auto video_replaced = tracker.notify_changed({"settings", "video"}, true);
+
+        CHECK(video_replaced == kl::resources::modification_tracker::generation{3});
+        CHECK(tracker.changed_at({}) == video_replaced);
+        CHECK(tracker.changed_at({"settings"}) == video_replaced);
+        CHECK(tracker.changed_at({"settings", "video"}) == video_replaced);
+
+        CHECK(tracker.changed_at({"settings", "video", "width"}) == video_replaced);
+        CHECK(tracker.changed_at({"settings", "video", "height"}) == video_replaced);
+        CHECK(tracker.changed_at({"settings", "video", "nested", "leaf"}) ==
+              video_replaced);
+
+        CHECK(tracker.changed_at({"settings", "audio"}) ==
+              kl::resources::modification_tracker::generation{0});
+        CHECK(tracker.changed_since({"settings", "video", "width"}, width_changed));
+    }
 }
 
-TEST_CASE("resource modification tracker handles subtree replacement", "[resource]")
+TEST_CASE("resource traversal reports write access constraints", "[resource]")
 {
-    kl::resources::modification_tracker tracker;
+    AccessRoot root{};
 
-    const auto width_changed = tracker.notify_changed({"settings", "video", "width"});
-    const auto video_replaced = tracker.notify_changed({"settings", "video"}, true);
+    auto direct_write_forbidden_at_path = [](auto& obj, kl::resources::path_view path) {
+        return kl::resources::visit_at_path<
+            bool>(obj, path, [](auto node, kl::resources::access_context ctx) {
+            return ctx.subtree_read_only ||
+                   decltype(node)::template has_attribute<kl::resources::attributes::read_only_t>();
+        });
+    };
 
-    CHECK(video_replaced == kl::resources::modification_tracker::generation{3});
-    CHECK(tracker.changed_at({}) == video_replaced);
-    CHECK(tracker.changed_at({"settings"}) == video_replaced);
-    CHECK(tracker.changed_at({"settings", "video"}) == video_replaced);
+    CHECK_FALSE(direct_write_forbidden_at_path(root, {}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, {"value"}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, {"inner"}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, {"inner", "value"}));
 
-    CHECK(tracker.changed_at({"settings", "video", "width"}) == video_replaced);
-    CHECK(tracker.changed_at({"settings", "video", "height"}) == video_replaced);
-    CHECK(tracker.changed_at({"settings", "video", "nested", "leaf"}) == video_replaced);
+    CHECK(direct_write_forbidden_at_path(root, {"inner", "read_only_value"}));
 
-    CHECK(tracker.changed_at({"settings", "audio"}) ==
-          kl::resources::modification_tracker::generation{0});
-    CHECK(tracker.changed_since({"settings", "video", "width"}, width_changed));
+    CHECK(direct_write_forbidden_at_path(root, {"read_only_inner"}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, {"read_only_inner", "value"}));
+
+    CHECK_FALSE(direct_write_forbidden_at_path(root, {"subtree_read_only_inner"}));
+    CHECK(direct_write_forbidden_at_path(root, {"subtree_read_only_inner", "value"}));
+    CHECK(direct_write_forbidden_at_path(root,
+                                         {"subtree_read_only_inner", "read_only_value"}));
+
+    CHECK(direct_write_forbidden_at_path(root, {"fully_read_only_inner"}));
+    CHECK(direct_write_forbidden_at_path(root, {"fully_read_only_inner", "value"}));
 }
