@@ -236,12 +236,6 @@ void validate_candidate_impl(T&, Context&, ::kl::priority_tag<0>)
     // No .validate or validate_resource function defined
 }
 
-template <typename T, typename Context>
-void validate_candidate(T& value, Context& ctx)
-{
-    validate_candidate_impl(value, ctx, ::kl::priority_tag<2>{});
-}
-
 template <typename T>
 struct optional_traits
 {
@@ -254,6 +248,19 @@ struct optional_traits<std::optional<T>>
     static constexpr bool is_optional = true;
     using value_type = T;
 };
+
+template <typename T, typename Context>
+void validate_candidate(T& value, Context& ctx)
+{
+    validate_candidate_impl(value, ctx, ::kl::priority_tag<2>{});
+    if constexpr (optional_traits<T>::is_optional)
+    {
+        // We validate both optional<T> and T: the former can validate nullability,
+        // while the latter keeps its own type invariants.
+        if (value)
+            validate_candidate(*value, ctx);
+    }
+}
 
 template <typename Field>
 struct field_node

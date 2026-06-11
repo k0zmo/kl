@@ -88,6 +88,12 @@ struct MemberValidated
 };
 KL_REFLECT_STRUCT(MemberValidated, min, max)
 
+struct OptionalValidatedRoot
+{
+    std::optional<MemberValidated> maybe_limits;
+};
+KL_REFLECT_STRUCT(OptionalValidatedRoot, maybe_limits)
+
 struct AdlValidated
 {
     int value;
@@ -368,6 +374,23 @@ TEST_CASE("resource put", "[resource]")
         CHECK(result.body == "min must be less than or equal to max");
         CHECK(res.value.min == 1);
         CHECK(res.value.max == 5);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns conflict when optional contained member validation fails")
+    {
+        auto res =
+            kl::resources::make_resource(OptionalValidatedRoot{MemberValidated{1, 5}});
+        auto value = R"({"min":10,"max":2})"_json;
+
+        const auto result = kl::resources::put(res, {"maybe_limits"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "min must be less than or equal to max");
+        REQUIRE(res.value.maybe_limits.has_value());
+        CHECK(res.value.maybe_limits->min == 1);
+        CHECK(res.value.maybe_limits->max == 5);
         CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{1});
     }
