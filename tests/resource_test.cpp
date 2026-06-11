@@ -6,6 +6,7 @@
 
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace {
 
@@ -93,6 +94,13 @@ struct OptionalValidatedRoot
     std::optional<MemberValidated> maybe_limits;
 };
 KL_REFLECT_STRUCT(OptionalValidatedRoot, maybe_limits)
+
+struct CollectionRoot
+{
+    std::vector<A> items;
+    std::vector<int> values;
+};
+KL_REFLECT_STRUCT(CollectionRoot, items, values)
 
 struct AdlValidated
 {
@@ -201,6 +209,56 @@ TEST_CASE("resource get", "[resource]")
 
         CHECK(result.status == kl::resources::status_code::not_found);
         CHECK(result.body.empty());
+    }
+}
+
+TEST_CASE("resource indexed collection traversal", "[resource]")
+{
+    CollectionRoot root{
+        {
+            A{1, true, 1.5, "first"},
+            A{2, false, 2.5, "second"},
+        },
+        {7, 8, 9},
+    };
+    auto res = kl::resources::make_resource(root);
+    auto dumper = [](const auto& value) { return kl::json::dump(value); };
+
+    SECTION("serializes collection element by index")
+    {
+        CHECK(dump_json(res.value, {"items", "0"}) ==
+              R"({"i":1,"b":true,"d":1.5,"str":"first"})");
+        CHECK(dump_json(res.value, {"items", "1", "str"}) == R"("second")");
+        CHECK(dump_json(res.value, {"values", "2"}) == "9");
+
+        kl::json::owning_serialize_context ctx;
+        auto json = kl::resources::serialize_at_path(res.value, {"items", "1", "i"}, ctx);
+        CHECK(kl::json::dump(json) == "2");
+    }
+
+    SECTION("get returns collection element by index")
+    {
+        const auto element = kl::resources::get(res, {"items", "0"}, dumper);
+        CHECK(element.status == kl::resources::status_code::ok);
+        CHECK(element.body == R"({"i":1,"b":true,"d":1.5,"str":"first"})");
+
+        const auto leaf = kl::resources::get(res, {"items", "1", "str"}, dumper);
+        CHECK(leaf.status == kl::resources::status_code::ok);
+        CHECK(leaf.body == R"("second")");
+    }
+
+    SECTION("reports invalid collection index paths")
+    {
+        CHECK_THROWS_AS(dump_json(res.value, {"items", "2"}),
+                        kl::resources::path_segment_not_found_error);
+        CHECK_THROWS_AS(dump_json(res.value, {"items", "abc"}),
+                        kl::resources::path_segment_not_found_error);
+        CHECK_THROWS_AS(dump_json(res.value, {"values", "0", "x"}),
+                        kl::resources::path_not_traversable_error);
+
+        const auto missing = kl::resources::get(res, {"items", "2"}, dumper);
+        CHECK(missing.status == kl::resources::status_code::not_found);
+        CHECK(missing.body.empty());
     }
 }
 

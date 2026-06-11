@@ -2,19 +2,22 @@
 
 #include "kl/serialization.hpp"
 #include "kl/serialization_error.hpp"
+#include "kl/type_traits.hpp"
 #include "kl/utility.hpp"
 #include "kl/ctti.hpp"
 
 #include <exception>
-#include <gsl/span>
 
+#include <charconv>
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
 #include <memory>
 #include <optional>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -297,6 +300,61 @@ struct root_node
     }
 };
 
+template <typename T>
+struct element_node
+{
+    T& value_;
+
+    decltype(auto) value() const noexcept
+    {
+        return value_;
+    }
+
+    template <typename Attribute>
+    static constexpr bool has_attribute() noexcept
+    {
+        // Collection elements have no field attributes of their own.
+        return false;
+    }
+};
+
+template <typename T>
+struct is_string_like : std::false_type {};
+
+template <typename Char, typename Traits, typename Allocator>
+struct is_string_like<std::basic_string<Char, Traits, Allocator>> : std::true_type
+{
+};
+
+template <typename Char, typename Traits>
+struct is_string_like<std::basic_string_view<Char, Traits>> : std::true_type
+{
+};
+
+KL_VALID_EXPR_HELPER(has_at, std::declval<T&>().at(std::declval<std::size_t>()))
+
+template <typename T>
+struct is_index_traversable
+    : std::conjunction<has_at<T>, std::negation<is_string_like<std::decay_t<T>>>>
+{
+};
+
+inline bool parse_index(std::string_view text, std::size_t& out)
+{
+    if (text.empty())
+        return false;
+
+    std::size_t value = 0;
+    const auto* first = text.data();
+    const auto* last = first + text.size();
+    const auto [ptr, ec] = std::from_chars(first, last, value);
+    if (ec != std::errc{} || ptr != last)
+        return false;
+
+    out = value;
+    return true;
+}
+
 template <typename Result, typename Node, typename Visitor>
 Result visit_node(Node node, path_view path, access_context& ctx, Visitor&& visitor)
 {
@@ -336,6 +394,34 @@ Result visit_node(Node node, path_view path, access_context& ctx, Visitor&& visi
             return std::move(*result);
 
         throw path_segment_not_found_error {};
+    }
+    else if constexpr (is_index_traversable<value_type>::value)
+    {
+        std::size_t index = 0;
+        if (!parse_index(path.front(), index))
+            throw path_segment_not_found_error{};
+
+        access_context child_ctx = ctx;
+        child_ctx.subtree_read_only =
+            child_ctx.subtree_read_only ||
+            Node::template has_attribute<attributes::subtree_read_only_t>();
+
+        auto& element = [&]() -> decltype(auto) {
+            try
+            {
+                return node.value().at(index);
+            }
+            catch (const std::out_of_range&)
+            {
+                throw path_segment_not_found_error{};
+            }
+        }();
+
+        return visit_node<Result>(
+            element_node<std::remove_reference_t<decltype(element)>>{element},
+            path.drop_front(),
+            child_ctx,
+            std::forward<Visitor>(visitor));
     }
     else
     {
