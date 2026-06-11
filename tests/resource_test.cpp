@@ -234,6 +234,39 @@ TEST_CASE("resource put", "[resource]")
         CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{1});
     }
+
+    SECTION("returns bad request when value cannot be deserialized")
+    {
+        B b{1, false, "Test", {42, true, 3.14, "Hello world!"}};
+        auto res = kl::resources::make_resource(b);
+        auto value = R"("not an int")"_json;
+
+        const auto result = kl::resources::put(res, {"a", "i"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::bad_request);
+        CHECK(result.body.empty());
+        CHECK(res.value.a.i == 42);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("preserves old value when partial deserialization fails")
+    {
+        B b{1, false, "Test", {42, true, 3.14, "Hello world!"}};
+        auto res = kl::resources::make_resource(b);
+        auto value = R"({"i":13,"b":"not a bool","d":2.72,"str":"updated"})"_json;
+
+        const auto result = kl::resources::put(res, {"a"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::bad_request);
+        CHECK(result.body.empty());
+        CHECK(res.value.a.i == 42);
+        CHECK(res.value.a.b);
+        CHECK(res.value.a.d == 3.14);
+        CHECK(res.value.a.str == "Hello world!");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
 }
 
 TEST_CASE("resource modification tracker", "[resource]")

@@ -320,6 +320,7 @@ void deserialize_at_path(T& obj, path_view path, const Value& value, Context& ct
 enum class status_code
 {
     ok = 200,
+    bad_request = 400,
     not_found = 404,
     method_not_allowed = 405
 };
@@ -383,6 +384,10 @@ operation_result put(resource<T>& r, path_view path, const Value& value, Context
     catch (const path_not_traversable_error& ex)
     {
         return operation_result{status_code::not_found, {}};
+    }
+    catch (const kl::serialization::deserialize_error& ex)
+    {
+        return operation_result{status_code::bad_request, {}};
     }
 }
 
