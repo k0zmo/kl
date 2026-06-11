@@ -187,6 +187,30 @@ TEST_CASE("resource put", "[resource]")
               kl::resources::modification_tracker::generation{2});
     }
 
+    SECTION("replaces root and marks subtree changed")
+    {
+        B b{1, false, "Test", {42, true, 3.14, "Hello world!"}};
+        auto res = kl::resources::make_resource(b);
+        auto value =
+            R"({"i":2,"b":true,"str":"Root","a":{"i":13,"b":false,"d":2.72,"str":"Nested"}})"_json;
+
+        const auto result = kl::resources::put(res, {}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(result.body.empty());
+        CHECK(res.value.i == 2);
+        CHECK(res.value.b);
+        CHECK(res.value.str == "Root");
+        CHECK(res.value.a.i == 13);
+        CHECK_FALSE(res.value.a.b);
+        CHECK(res.value.a.d == 2.72);
+        CHECK(res.value.a.str == "Nested");
+        CHECK(res.state.modifications.changed_at({}) ==
+              kl::resources::modification_tracker::generation{2});
+        CHECK(res.state.modifications.changed_at({"a", "str"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
     SECTION("rejects read-only paths")
     {
         AccessRoot root{};
@@ -200,6 +224,23 @@ TEST_CASE("resource put", "[resource]")
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
         CHECK(res.value.inner.read_only_value == 4);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("rejects subtree read-only descendants")
+    {
+        AccessRoot root{};
+        root.subtree_read_only_inner.value = 4;
+        auto res = kl::resources::make_resource(root);
+        auto value = R"(9)"_json;
+
+        const auto result =
+            kl::resources::put(res, {"subtree_read_only_inner", "value"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.value.subtree_read_only_inner.value == 4);
         CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{1});
     }
