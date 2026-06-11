@@ -52,6 +52,31 @@ KL_REFLECT_STRUCT(AccessRoot,
                    kl::resources::attributes::read_only,
                    kl::resources::attributes::subtree_read_only))
 
+struct MemberValidated
+{
+    int min;
+    int max;
+
+    void validate(kl::json::deserialize_context&) const
+    {
+        if (min > max)
+            throw kl::resources::validation_error{"min must be less than or equal to max"};
+    }
+};
+KL_REFLECT_STRUCT(MemberValidated, min, max)
+
+struct AdlValidated
+{
+    int value;
+};
+KL_REFLECT_STRUCT(AdlValidated, value)
+
+void validate_resource(const AdlValidated& value, kl::json::deserialize_context&)
+{
+    if (value.value == 13)
+        throw kl::resources::validation_error{"13 is not allowed"};
+}
+
 template <typename T>
 auto dump_json(const T& obj, kl::resources::path_view path)
 {
@@ -305,6 +330,35 @@ TEST_CASE("resource put", "[resource]")
         CHECK(res.value.a.b);
         CHECK(res.value.a.d == 3.14);
         CHECK(res.value.a.str == "Hello world!");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns conflict when member validation fails")
+    {
+        auto res = kl::resources::make_resource(MemberValidated{1, 5});
+        auto value = R"({"min":10,"max":2})"_json;
+
+        const auto result = kl::resources::put(res, {}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "min must be less than or equal to max");
+        CHECK(res.value.min == 1);
+        CHECK(res.value.max == 5);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns conflict when ADL validation fails")
+    {
+        auto res = kl::resources::make_resource(AdlValidated{7});
+        auto value = R"({"value":13})"_json;
+
+        const auto result = kl::resources::put(res, {}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "13 is not allowed");
+        CHECK(res.value.value == 7);
         CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{1});
     }

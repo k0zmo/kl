@@ -188,7 +188,57 @@ struct path_segment_not_found_error : resource_error
     }
 };
 
+struct validation_error : resource_error
+{
+    explicit validation_error(const char* message)
+        : validation_error(std::string(message))
+    {
+    }
+
+    explicit validation_error(std::string message) noexcept
+        : message_(std::move(message))
+    {
+    }
+
+    const char* what() const noexcept override
+    {
+        return message_.c_str();
+    }
+
+private:
+    std::string message_;
+};
+
 namespace detail {
+
+// Makes the ADL customization point name visible while remaining non-callable for (value, ctx).
+void validate_resource();
+
+template <typename T, typename Context>
+auto validate_candidate_impl(T& value, Context& ctx, ::kl::priority_tag<2>)
+    -> decltype(value.validate(ctx), void())
+{
+    value.validate(ctx);
+}
+
+template <typename T, typename Context>
+auto validate_candidate_impl(T& value, Context& ctx, ::kl::priority_tag<1>)
+    -> decltype(validate_resource(value, ctx), void())
+{
+    validate_resource(value, ctx);
+}
+
+template <typename T, typename Context>
+void validate_candidate_impl(T&, Context&, ::kl::priority_tag<0>)
+{
+    // No .validate or validate_resource function defined
+}
+
+template <typename T, typename Context>
+void validate_candidate(T& value, Context& ctx)
+{
+    validate_candidate_impl(value, ctx, ::kl::priority_tag<2>{});
+}
 
 template <typename Field>
 struct field_node
@@ -322,7 +372,8 @@ enum class status_code
     ok = 200,
     bad_request = 400,
     not_found = 404,
-    method_not_allowed = 405
+    method_not_allowed = 405,
+    conflict = 409
 };
 
 struct operation_result
@@ -367,6 +418,7 @@ operation_result put(resource<T>& r, path_view path, const Value& value, Context
 
                 auto candidate = node.value();
                 kl::serialization::deserialize(candidate, value, ctx);
+                detail::validate_candidate(candidate, ctx);
                 node.value() = std::move(candidate);
 
                 r.state.modifications.notify_changed(
@@ -384,6 +436,10 @@ operation_result put(resource<T>& r, path_view path, const Value& value, Context
     catch (const path_not_traversable_error& ex)
     {
         return operation_result{status_code::not_found, {}};
+    }
+    catch (const validation_error& ex)
+    {
+        return operation_result{status_code::conflict, ex.what()};
     }
     catch (const kl::serialization::deserialize_error& ex)
     {
