@@ -4,6 +4,7 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <optional>
 #include <string>
 
 namespace {
@@ -30,6 +31,15 @@ struct AccessInner
 {
     int value;
     int read_only_value;
+
+    bool _validate_true = true;
+
+    template <typename Context>
+    void validate_resource(Context&) const
+    {
+        if (!_validate_true)
+            throw kl::resources::validation_error("validate failed");
+    }
 };
 KL_REFLECT_STRUCT(AccessInner,
                   value,
@@ -52,12 +62,25 @@ KL_REFLECT_STRUCT(AccessRoot,
                    kl::resources::attributes::read_only,
                    kl::resources::attributes::subtree_read_only))
 
+struct OptionalRoot
+{
+    std::optional<int> maybe_value;
+    std::optional<AccessInner> maybe_inner;
+    int value;
+    std::optional<int> read_only_maybe_value;
+};
+KL_REFLECT_STRUCT(OptionalRoot,
+                  maybe_value,
+                  maybe_inner,
+                  value,
+                  (read_only_maybe_value, kl::resources::attributes::read_only))
+
 struct MemberValidated
 {
     int min;
     int max;
 
-    void validate(kl::json::deserialize_context&) const
+    void validate_resource(kl::json::deserialize_context&) const
     {
         if (min > max)
             throw kl::resources::validation_error{"min must be less than or equal to max"};
@@ -359,6 +382,100 @@ TEST_CASE("resource put", "[resource]")
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "13 is not allowed");
         CHECK(res.value.value == 7);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+}
+
+TEST_CASE("resource delete", "[resource]")
+{
+    kl::json::deserialize_context ctx;
+
+    SECTION("clears nullable scalar path")
+    {
+        OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"maybe_value"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::no_content);
+        CHECK(result.body.empty());
+        CHECK_FALSE(res.value.maybe_value.has_value());
+        CHECK(res.state.modifications.changed_at({"maybe_value"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("clears nullable reflectable path and marks subtree changed")
+    {
+        OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"maybe_inner"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::no_content);
+        CHECK(result.body.empty());
+        CHECK_FALSE(res.value.maybe_inner.has_value());
+        CHECK(res.state.modifications.changed_at({"maybe_inner"}) ==
+              kl::resources::modification_tracker::generation{2});
+        CHECK(res.state.modifications.changed_at({"maybe_inner", "value"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("validation rejects a deletion")
+    {
+        OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
+        auto res = kl::resources::make_resource(root);
+        res.value.maybe_inner->_validate_true = false;
+
+        const auto result = kl::resources::del(res, {"maybe_inner"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "validate failed");
+        REQUIRE(res.value.maybe_inner.has_value());
+        CHECK(res.value.maybe_inner->value == 1);
+        CHECK(res.value.maybe_inner->read_only_value == 2);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("rejects non-nullable paths")
+    {
+        OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"value"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.value.value == 42);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("rejects read-only nullable paths")
+    {
+        OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"read_only_maybe_value"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.read_only_maybe_value.has_value());
+        CHECK(*res.value.read_only_maybe_value == 7);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns not found for missing path")
+    {
+        OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"missing"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::not_found);
+        CHECK(result.body.empty());
         CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{1});
     }

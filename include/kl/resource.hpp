@@ -1,6 +1,7 @@
 #pragma once
 
 #include "kl/serialization.hpp"
+#include "kl/serialization_error.hpp"
 #include "kl/utility.hpp"
 #include "kl/ctti.hpp"
 
@@ -11,6 +12,7 @@
 #include <cstdint>
 #include <initializer_list>
 #include <memory>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <type_traits>
@@ -216,9 +218,9 @@ void validate_resource();
 
 template <typename T, typename Context>
 auto validate_candidate_impl(T& value, Context& ctx, ::kl::priority_tag<2>)
-    -> decltype(value.validate(ctx), void())
+    -> decltype(value.validate_resource(ctx), void())
 {
-    value.validate(ctx);
+    value.validate_resource(ctx);
 }
 
 template <typename T, typename Context>
@@ -239,6 +241,19 @@ void validate_candidate(T& value, Context& ctx)
 {
     validate_candidate_impl(value, ctx, ::kl::priority_tag<2>{});
 }
+
+template <typename T>
+struct optional_traits
+{
+    static constexpr bool is_optional = false;
+};
+
+template <typename T>
+struct optional_traits<std::optional<T>>
+{
+    static constexpr bool is_optional = true;
+    using value_type = T;
+};
 
 template <typename Field>
 struct field_node
@@ -370,6 +385,7 @@ void deserialize_at_path(T& obj, path_view path, const Value& value, Context& ct
 enum class status_code
 {
     ok = 200,
+    no_content = 204,
     bad_request = 400,
     not_found = 404,
     method_not_allowed = 405,
@@ -384,67 +400,115 @@ struct operation_result
 
 template <typename T, typename Dumper>
 operation_result get(const resource<T>& r, path_view path, Dumper&& dumper)
+try
 {
-    try
-    {
-        return kl::resources::visit_at_path<operation_result>(
-            r.value, path, [&](auto node, [[maybe_unused]] auto& access_ctx) {
-                return operation_result{status_code::ok, dumper(node.value())};
-            });
-    }
-    catch (const path_segment_not_found_error& ex)
-    {
-        return operation_result{status_code::not_found, {}};
-    }
-    catch (const path_not_traversable_error& ex)
-    {
-        return operation_result{status_code::not_found, {}};
-    }
+    return kl::resources::visit_at_path<operation_result>(
+        r.value, path, [&](auto node, [[maybe_unused]] auto& access_ctx) {
+            return operation_result{status_code::ok, dumper(node.value())};
+        });
+}
+catch (const path_segment_not_found_error& ex)
+{
+    return operation_result{status_code::not_found, {}};
+}
+catch (const path_not_traversable_error& ex)
+{
+    return operation_result{status_code::not_found, {}};
 }
 
 template <typename T, typename Value, typename Context>
 operation_result put(resource<T>& r, path_view path, const Value& value, Context& ctx)
+try
 {
-    try
-    {
-        auto result = kl::resources::visit_at_path<operation_result>(
-            r.value, path, [&](auto node, auto& access_ctx) {
-                constexpr bool is_read_only =
-                    decltype(node)::template has_attribute<attributes::read_only_t>();
-                if (is_read_only || access_ctx.subtree_read_only)
-                    return operation_result{status_code::method_not_allowed, {}};
+    auto result = kl::resources::visit_at_path<operation_result>(
+        r.value, path, [&](auto node, auto& access_ctx) {
+            constexpr bool is_read_only =
+                decltype(node)::template has_attribute<attributes::read_only_t>();
+            if (is_read_only || access_ctx.subtree_read_only)
+                return operation_result{status_code::method_not_allowed, {}};
 
-                using node_value_type = std::decay_t<decltype(node.value())>;
+            using node_value_type = std::decay_t<decltype(node.value())>;
 
+            auto candidate = node.value();
+            kl::serialization::deserialize(candidate, value, ctx);
+            detail::validate_candidate(candidate, ctx);
+            node.value() = std::move(candidate);
+
+            r.state.modifications.notify_changed(
+                path, kl::ctti::is_reflectable_v<node_value_type>);
+
+            return operation_result{status_code::ok, {}};
+        });
+
+    return result;
+}
+catch (const path_segment_not_found_error& ex)
+{
+    return operation_result{status_code::not_found, {}};
+}
+catch (const path_not_traversable_error& ex)
+{
+    return operation_result{status_code::not_found, {}};
+}
+catch (const validation_error& ex)
+{
+    return operation_result{status_code::conflict, ex.what()};
+}
+catch (const kl::serialization::deserialize_error& ex)
+{
+    return operation_result{status_code::bad_request, {}};
+}
+
+template <typename T, typename Context>
+operation_result del(resource<T>& r, path_view path, Context& ctx)
+try
+{
+    auto result = kl::resources::visit_at_path<operation_result>(
+        r.value, path, [&](auto node, auto& access_ctx) {
+            constexpr bool is_read_only =
+                decltype(node)::template has_attribute<attributes::read_only_t>();
+            if (is_read_only || access_ctx.subtree_read_only)
+                return operation_result{status_code::method_not_allowed, {}};
+
+            using node_value_type = std::decay_t<decltype(node.value())>;
+            using optional_traits = detail::optional_traits<node_value_type>;
+
+            if constexpr (optional_traits::is_optional)
+            {
                 auto candidate = node.value();
-                kl::serialization::deserialize(candidate, value, ctx);
+                // Allow T (not optional<T>) to veto deletion
+                if (candidate)
+                    detail::validate_candidate(*candidate, ctx);
+                candidate.reset();
+                // This is most likely no-op since candidate is optional<T>, not T
                 detail::validate_candidate(candidate, ctx);
                 node.value() = std::move(candidate);
 
                 r.state.modifications.notify_changed(
-                    path, kl::ctti::is_reflectable_v<node_value_type>);
+                    path, kl::ctti::is_reflectable_v<typename optional_traits::value_type>);
 
-                return operation_result{status_code::ok, {}};
-            });
+                return operation_result{status_code::no_content, {}};
+            }
+            else
+            {
+                return operation_result{status_code::method_not_allowed, {}};
+            }
+        });
 
-        return result;
-    }
-    catch (const path_segment_not_found_error& ex)
-    {
-        return operation_result{status_code::not_found, {}};
-    }
-    catch (const path_not_traversable_error& ex)
-    {
-        return operation_result{status_code::not_found, {}};
-    }
-    catch (const validation_error& ex)
-    {
-        return operation_result{status_code::conflict, ex.what()};
-    }
-    catch (const kl::serialization::deserialize_error& ex)
-    {
-        return operation_result{status_code::bad_request, {}};
-    }
+    return result;
 }
+catch (const path_segment_not_found_error& ex)
+{
+    return operation_result{status_code::not_found, {}};
+}
+catch (const path_not_traversable_error& ex)
+{
+    return operation_result{status_code::not_found, {}};
+}
+catch (const validation_error& ex)
+{
+    return operation_result{status_code::conflict, ex.what()};
+}
+
 
 } // namespace kl::resources
