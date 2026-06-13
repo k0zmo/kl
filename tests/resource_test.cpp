@@ -4,11 +4,15 @@
 
 #include <catch2/catch_test_macros.hpp>
 
+#include <cstddef>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
+
+namespace attr = kl::resources::attributes;
 
 struct A
 {
@@ -44,7 +48,7 @@ struct AccessInner
 };
 KL_REFLECT_STRUCT(AccessInner,
                   value,
-                  (read_only_value, kl::resources::attributes::read_only))
+                  (read_only_value, attr::read_only))
 
 struct AccessRoot
 {
@@ -57,11 +61,9 @@ struct AccessRoot
 KL_REFLECT_STRUCT(AccessRoot,
                   value,
                   inner,
-                  (read_only_inner, kl::resources::attributes::read_only),
-                  (subtree_read_only_inner, kl::resources::attributes::subtree_read_only),
-                  (fully_read_only_inner,
-                   kl::resources::attributes::read_only,
-                   kl::resources::attributes::subtree_read_only))
+                  (read_only_inner, attr::read_only),
+                  (subtree_read_only_inner, attr::subtree_read_only),
+                  (fully_read_only_inner, attr::read_only, attr::subtree_read_only))
 
 struct OptionalRoot
 {
@@ -74,7 +76,7 @@ KL_REFLECT_STRUCT(OptionalRoot,
                   maybe_value,
                   maybe_inner,
                   value,
-                  (read_only_maybe_value, kl::resources::attributes::read_only))
+                  (read_only_maybe_value, attr::read_only))
 
 struct MemberValidated
 {
@@ -101,6 +103,32 @@ struct CollectionRoot
     std::vector<int> values;
 };
 KL_REFLECT_STRUCT(CollectionRoot, items, values)
+
+struct IntKeyedItem
+{
+    int id;
+    std::string name;
+    std::optional<std::string> note;
+};
+KL_REFLECT_STRUCT(IntKeyedItem, id, name, note)
+
+struct KeyedCollectionRoot
+{
+    std::vector<A> string_items;
+    std::vector<IntKeyedItem> int_items;
+};
+KL_REFLECT_STRUCT(KeyedCollectionRoot,
+                  (string_items, attr::child_key<&A::str>),
+                  (int_items, attr::child_key<&IntKeyedItem::id>))
+
+bool resource_key_matches(const IntKeyedItem&, int key, std::string_view segment)
+{
+    std::size_t index = 0;
+    if (!kl::resources::detail::parse_index(segment, index))
+        return false;
+
+    return key == static_cast<int>(index);
+}
 
 struct AdlValidated
 {
@@ -259,6 +287,100 @@ TEST_CASE("resource indexed collection traversal", "[resource]")
         const auto missing = kl::resources::get(res, {"items", "2"}, dumper);
         CHECK(missing.status == kl::resources::status_code::not_found);
         CHECK(missing.body.empty());
+    }
+}
+
+TEST_CASE("resource keyed collection traversal", "[resource]")
+{
+    KeyedCollectionRoot root{
+        {
+            A{1, true, 1.5, "first"},
+            A{2, false, 2.5, "second"},
+        },
+        {
+            IntKeyedItem{7, "seven", "lucky"},
+            IntKeyedItem{13, "thirteen", "prime"},
+        },
+    };
+    auto res = kl::resources::make_resource(root);
+    auto dumper = [](const auto& value) { return kl::json::dump(value); };
+
+    SECTION("serializes collection element by key")
+    {
+        CHECK(dump_json(res.value, {"string_items", "second"}) ==
+              R"({"i":2,"b":false,"d":2.5,"str":"second"})");
+        CHECK(dump_json(res.value, {"string_items", "second", "i"}) == "2");
+    }
+
+    SECTION("get returns collection element by key")
+    {
+        const auto element = kl::resources::get(res, {"string_items", "first"}, dumper);
+        CHECK(element.status == kl::resources::status_code::ok);
+        CHECK(element.body == R"({"i":1,"b":true,"d":1.5,"str":"first"})");
+
+        const auto leaf =
+            kl::resources::get(res, {"string_items", "second", "str"}, dumper);
+        CHECK(leaf.status == kl::resources::status_code::ok);
+        CHECK(leaf.body == R"("second")");
+    }
+
+    SECTION("put updates collection element by key")
+    {
+        kl::json::deserialize_context ctx;
+        auto value = R"(42)"_json;
+
+        const auto result =
+            kl::resources::put(res, {"string_items", "second", "i"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(result.body.empty());
+        CHECK(res.value.string_items[0].i == 1);
+        CHECK(res.value.string_items[1].i == 42);
+        CHECK(res.state.modifications.changed_at({"string_items", "second", "i"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("keyed collections do not fall back to index traversal")
+    {
+        CHECK_THROWS_AS(dump_json(res.value, {"string_items", "0"}),
+                        kl::resources::path_segment_not_found_error);
+
+        const auto missing = kl::resources::get(res, {"string_items", "0"}, dumper);
+        CHECK(missing.status == kl::resources::status_code::not_found);
+        CHECK(missing.body.empty());
+    }
+
+    SECTION("get returns collection element through ADL key matcher")
+    {
+        const auto element = kl::resources::get(res, {"int_items", "13"}, dumper);
+        CHECK(element.status == kl::resources::status_code::ok);
+        CHECK(element.body == R"({"id":13,"name":"thirteen","note":"prime"})");
+
+        const auto leaf = kl::resources::get(res, {"int_items", "7", "name"}, dumper);
+        CHECK(leaf.status == kl::resources::status_code::ok);
+        CHECK(leaf.body == R"("seven")");
+    }
+
+    SECTION("delete clears nullable field through ADL key matcher")
+    {
+        kl::json::deserialize_context ctx;
+
+        const auto result = kl::resources::del(res, {"int_items", "13", "note"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::no_content);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.int_items[0].note.has_value());
+        CHECK_FALSE(res.value.int_items[1].note.has_value());
+        CHECK(res.state.modifications.changed_at({"int_items", "13", "note"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("get returns not found when custom matcher rejects the segment")
+    {
+        const auto result = kl::resources::get(res, {"int_items", "not-an-int"}, dumper);
+
+        CHECK(result.status == kl::resources::status_code::not_found);
+        CHECK(result.body.empty());
     }
 }
 
@@ -618,7 +740,7 @@ TEST_CASE("resource traversal reports write access constraints", "[resource]")
         return kl::resources::visit_at_path<
             bool>(obj, path, [](auto node, kl::resources::access_context ctx) {
             return ctx.subtree_read_only ||
-                   decltype(node)::template has_attribute<kl::resources::attributes::read_only_t>();
+                   decltype(node)::template has_attribute<attr::read_only_t>();
         });
     };
 

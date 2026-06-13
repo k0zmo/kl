@@ -14,6 +14,7 @@ KL_VALID_EXPR_HELPER(
     has_push_back,
     std::declval<T&>().push_back(std::declval<typename T::value_type&>()))
 KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
+KL_VALID_EXPR_HELPER(has_at, std::declval<T&>().at(0U))
 KL_VALID_EXPR_HELPER(has_begin, std::declval<const T&>().begin())
 KL_VALID_EXPR_HELPER(has_end, std::declval<const T&>().end())
 KL_VALID_EXPR_HELPER(has_size, std::declval<const T&>().size())
