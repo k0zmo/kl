@@ -876,6 +876,9 @@ TEST_CASE("resource modification tracker", "[resource]")
         CHECK(tracker.changed_at({"settings", "audio"}) == never_changed);
         CHECK(tracker.changed_since({"settings", "video"}, never_changed));
         CHECK_FALSE(tracker.changed_since({"settings", "video"}, width_changed));
+
+        const auto audio_changed = tracker.notify_changed({"settings", "audio"});
+        CHECK_FALSE(tracker.changed_since({"settings", "video", "width"}, audio_changed));
     }
 
     SECTION("handles subtree replacement")

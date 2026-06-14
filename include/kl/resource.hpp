@@ -83,7 +83,7 @@ public:
 
     bool changed_since(path_view path, generation old) const
     {
-        return changed_at(path) != old;
+        return underlying_cast(changed_at(path)) > underlying_cast(old);
     }
 
 private:

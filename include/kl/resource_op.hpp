@@ -128,7 +128,7 @@ struct field_node
 {
     Field field_;
 
-    decltype(auto) value() const noexcept
+    decltype(auto) value() const noexcept(noexcept(field_.value()))
     {
         return field_.value();
     }
@@ -399,11 +399,11 @@ try
             return operation_result{status_code::ok, dumper(node.value())};
         });
 }
-catch (const path_segment_not_found_error& ex)
+catch (const path_segment_not_found_error&)
 {
     return operation_result{status_code::not_found, {}};
 }
-catch (const path_not_traversable_error& ex)
+catch (const path_not_traversable_error&)
 {
     return operation_result{status_code::not_found, {}};
 }
@@ -434,11 +434,11 @@ try
 
     return result;
 }
-catch (const path_segment_not_found_error& ex)
+catch (const path_segment_not_found_error&)
 {
     return operation_result{status_code::not_found, {}};
 }
-catch (const path_not_traversable_error& ex)
+catch (const path_not_traversable_error&)
 {
     return operation_result{status_code::not_found, {}};
 }
@@ -446,7 +446,7 @@ catch (const validation_error& ex)
 {
     return operation_result{status_code::conflict, ex.what()};
 }
-catch (const kl::serialization::deserialize_error& ex)
+catch (const kl::serialization::deserialize_error&)
 {
     return operation_result{status_code::bad_request, {}};
 }
@@ -484,11 +484,11 @@ try
 
     return result;
 }
-catch (const path_segment_not_found_error& ex)
+catch (const path_segment_not_found_error&)
 {
     return operation_result{status_code::not_found, {}};
 }
-catch (const path_not_traversable_error& ex)
+catch (const path_not_traversable_error&)
 {
     return operation_result{status_code::not_found, {}};
 }
@@ -500,7 +500,7 @@ catch (const validation_error& ex)
 {
     return operation_result{status_code::conflict, ex.what()};
 }
-catch (const kl::serialization::deserialize_error& ex)
+catch (const kl::serialization::deserialize_error&)
 {
     return operation_result{status_code::bad_request, {}};
 }
@@ -543,11 +543,11 @@ try
 
     return result;
 }
-catch (const path_segment_not_found_error& ex)
+catch (const path_segment_not_found_error&)
 {
     return operation_result{status_code::not_found, {}};
 }
-catch (const path_not_traversable_error& ex)
+catch (const path_not_traversable_error&)
 {
     return operation_result{status_code::not_found, {}};
 }
