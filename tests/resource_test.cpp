@@ -1,4 +1,5 @@
 #include "kl/resource.hpp"
+#include "kl/resource_op.hpp"
 #include "kl/reflect_struct.hpp"
 #include "kl/json.hpp"
 

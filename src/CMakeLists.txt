@@ -19,6 +19,8 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/reflect_enum.hpp
     ${kl_SOURCE_DIR}/include/kl/reflect_struct.hpp
     ${kl_SOURCE_DIR}/include/kl/resource.hpp
+    ${kl_SOURCE_DIR}/include/kl/resource_attributes.hpp
+    ${kl_SOURCE_DIR}/include/kl/resource_op.hpp
     ${kl_SOURCE_DIR}/include/kl/serialization.hpp
     ${kl_SOURCE_DIR}/include/kl/serialization_attributes.hpp
     ${kl_SOURCE_DIR}/include/kl/serialization_error.hpp
