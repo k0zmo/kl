@@ -1,4 +1,5 @@
 #include "kl/resource.hpp"
+#include "kl/resource_attributes.hpp"
 #include "kl/resource_op.hpp"
 #include "kl/reflect_struct.hpp"
 #include "kl/json.hpp"
@@ -102,8 +103,27 @@ struct CollectionRoot
 {
     std::vector<A> items;
     std::vector<int> values;
+    std::vector<A> read_only_items{};
+    std::vector<A> subtree_read_only_items{};
 };
-KL_REFLECT_STRUCT(CollectionRoot, items, values)
+KL_REFLECT_STRUCT(CollectionRoot,
+                  items,
+                  values,
+                  (read_only_items, attr::read_only),
+                  (subtree_read_only_items, attr::subtree_read_only))
+
+struct CollectionAccessInner
+{
+    std::vector<A> items;
+};
+KL_REFLECT_STRUCT(CollectionAccessInner, items)
+
+struct CollectionAccessRoot
+{
+    CollectionAccessInner subtree_read_only_inner;
+};
+KL_REFLECT_STRUCT(CollectionAccessRoot,
+                  (subtree_read_only_inner, attr::subtree_read_only))
 
 struct IntKeyedItem
 {
@@ -586,6 +606,152 @@ TEST_CASE("resource put", "[resource]")
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "13 is not allowed");
         CHECK(res.value.value == 7);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+}
+
+TEST_CASE("resource post", "[resource]")
+{
+    kl::json::deserialize_context ctx;
+
+    SECTION("appends to unkeyed collection")
+    {
+        CollectionRoot root{
+            {
+                A{1, true, 1.5, "first"},
+                A{2, false, 2.5, "second"},
+            },
+            {7, 8, 9},
+        };
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
+
+        const auto result = kl::resources::post(res, {"items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::created);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.items.size() == 3);
+        CHECK(res.value.items[2].i == 3);
+        CHECK(res.value.items[2].str == "third");
+        CHECK(res.state.modifications.changed_at({"items"}) ==
+              kl::resources::modification_tracker::generation{2});
+        CHECK(res.state.modifications.changed_at({"items", "2", "str"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("appends to keyed collection")
+    {
+        KeyedCollectionRoot root{
+            {
+                A{1, true, 1.5, "first"},
+                A{2, false, 2.5, "second"},
+            },
+            {
+                IntKeyedItem{7, "seven", "lucky"},
+                IntKeyedItem{13, "thirteen", "prime"},
+            },
+        };
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
+
+        const auto result = kl::resources::post(res, {"string_items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::created);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.string_items.size() == 3);
+        CHECK(res.value.string_items[2].str == "third");
+        CHECK(res.state.modifications.changed_at({"string_items", "third", "i"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("rejects duplicate keyed children")
+    {
+        KeyedCollectionRoot root{
+            {
+                A{1, true, 1.5, "first"},
+                A{2, false, 2.5, "second"},
+            },
+            {
+                IntKeyedItem{7, "seven", "lucky"},
+                IntKeyedItem{13, "thirteen", "prime"},
+            },
+        };
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"i":9,"b":true,"d":9.5,"str":"second"})"_json;
+
+        const auto result = kl::resources::post(res, {"string_items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "duplicate child key");
+        REQUIRE(res.value.string_items.size() == 2);
+        CHECK(res.value.string_items[1].i == 2);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns bad request when value cannot be deserialized")
+    {
+        CollectionRoot root{
+            {
+                A{1, true, 1.5, "first"},
+            },
+            {7, 8, 9},
+        };
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"i":"bad","b":true,"d":3.5,"str":"third"})"_json;
+
+        const auto result = kl::resources::post(res, {"items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::bad_request);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.items.size() == 1);
+        CHECK(res.value.items[0].str == "first");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("rejects scalar paths")
+    {
+        AccessRoot root{};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"(9)"_json;
+
+        const auto result = kl::resources::post(res, {"value"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("rejects read-only collections")
+    {
+        CollectionRoot root{};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
+
+        const auto result = kl::resources::post(res, {"read_only_items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.value.read_only_items.empty());
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("rejects descendants of subtree read-only fields")
+    {
+        CollectionAccessRoot root{};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
+
+        const auto result =
+            kl::resources::post(res, {"subtree_read_only_inner", "items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.value.subtree_read_only_inner.items.empty());
         CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{1});
     }

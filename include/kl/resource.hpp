@@ -183,4 +183,12 @@ private:
     std::string message_;
 };
 
+struct duplicate_child_key_error : resource_error
+{
+    const char* what() const noexcept override
+    {
+        return "duplicate child key";
+    }
+};
+
 } // namespace kl::resources

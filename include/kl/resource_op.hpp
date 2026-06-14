@@ -104,6 +104,25 @@ bool key_matches(const Element& element, const Key& key, std::string_view segmen
     return impl::key_matches(element, key, segment, kl::priority_tag<1>{});
 }
 
+template <typename Node, typename Element>
+void check_duplicate_child_key(Node node, const Element& candidate)
+{
+    if constexpr (Node::template has_attribute<attributes::child_key_base_t>())
+    {
+        node.visit_attributes([&](const auto& attr) {
+            using attribute_type = std::decay_t<decltype(attr)>;
+            if constexpr (attributes::detail::is_child_key_v<attribute_type>)
+            {
+                for (const auto& element : node.value())
+                {
+                    if (element.*attribute_type::ptr == candidate.*attribute_type::ptr)
+                        throw duplicate_child_key_error{};
+                }
+            }
+        });
+    }
+}
+
 template <typename Field>
 struct field_node
 {
@@ -357,6 +376,7 @@ void deserialize_at_path(T& obj, path_view path, const Value& value, Context& ct
 enum class status_code
 {
     ok = 200,
+    created = 201,
     no_content = 204,
     bad_request = 400,
     not_found = 404,
@@ -421,6 +441,60 @@ catch (const path_segment_not_found_error& ex)
 catch (const path_not_traversable_error& ex)
 {
     return operation_result{status_code::not_found, {}};
+}
+catch (const validation_error& ex)
+{
+    return operation_result{status_code::conflict, ex.what()};
+}
+catch (const kl::serialization::deserialize_error& ex)
+{
+    return operation_result{status_code::bad_request, {}};
+}
+
+template <typename T, typename Value, typename Context>
+operation_result post(resource<T>& r, path_view path, const Value& value, Context& ctx)
+try
+{
+    auto result = kl::resources::visit_at_path<operation_result>(
+        r.value, path, [&](auto node, auto& access_ctx) {
+            constexpr bool is_read_only =
+                decltype(node)::template has_attribute<attributes::read_only_t>();
+            if (is_read_only || access_ctx.subtree_read_only)
+                return operation_result{status_code::method_not_allowed, {}};
+
+            using collection_type = std::decay_t<decltype(node.value())>;
+            if constexpr (kl::detail::is_growable_range<collection_type>::value)
+            {
+                using element_type = typename collection_type::value_type;
+
+                element_type candidate{};
+                kl::serialization::deserialize(candidate, value, ctx);
+                detail::check_duplicate_child_key(node, candidate);
+                detail::validate_candidate(candidate, ctx);
+                node.value().push_back(std::move(candidate));
+                r.state.modifications.notify_changed(path, true);
+
+                return operation_result{status_code::created, {}};
+            }
+            else
+            {
+                return operation_result{status_code::method_not_allowed, {}};
+            }
+        });
+
+    return result;
+}
+catch (const path_segment_not_found_error& ex)
+{
+    return operation_result{status_code::not_found, {}};
+}
+catch (const path_not_traversable_error& ex)
+{
+    return operation_result{status_code::not_found, {}};
+}
+catch (const duplicate_child_key_error& ex)
+{
+    return operation_result{status_code::conflict, ex.what()};
 }
 catch (const validation_error& ex)
 {
