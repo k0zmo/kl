@@ -17,6 +17,7 @@
 #include <string_view>
 #include <system_error>
 #include <type_traits>
+#include <utility>
 
 namespace kl::resources {
 
@@ -98,29 +99,16 @@ void validate_candidate(T& value, Context& ctx)
     }
 }
 
+template <typename T, typename Context>
+void validate_self(T& value, Context& ctx)
+{
+    impl::validate_candidate(value, ctx, kl::priority_tag<2>{});
+}
+
 template <typename Element, typename Key>
 bool key_matches(const Element& element, const Key& key, std::string_view segment)
 {
     return impl::key_matches(element, key, segment, kl::priority_tag<1>{});
-}
-
-template <typename Node, typename Element>
-void check_duplicate_child_key(Node node, const Element& candidate)
-{
-    if constexpr (Node::template has_attribute<attributes::child_key_base_t>())
-    {
-        node.visit_attributes([&](const auto& attr) {
-            using attribute_type = std::decay_t<decltype(attr)>;
-            if constexpr (attributes::detail::is_child_key_v<attribute_type>)
-            {
-                for (const auto& element : node.value())
-                {
-                    if (element.*attribute_type::ptr == candidate.*attribute_type::ptr)
-                        throw duplicate_child_key_error{};
-                }
-            }
-        });
-    }
 }
 
 template <typename Field>
@@ -197,8 +185,118 @@ inline constexpr bool is_index_traversable_v =
     kl::detail::has_at_v<T> && !is_string_like<std::decay_t<T>>::value;
 
 template <typename T>
-inline constexpr bool is_key_traversable_v =
+inline constexpr bool is_non_string_range_v =
    kl::detail::is_range<T>::value && !is_string_like<std::decay_t<T>>::value;
+
+template <typename T>
+inline constexpr bool is_key_traversable_v = is_non_string_range_v<T>;
+
+template <typename T>
+inline constexpr bool is_postable_range_v =
+    is_non_string_range_v<T> &&
+    kl::detail::has_value_type_v<T> &&
+    kl::detail::has_push_back_v<T> &&
+    kl::detail::has_pop_back_v<T>;
+
+template <typename T, typename Context>
+void validate_tree(T& value, Context& ctx)
+{
+    validate_self(value, ctx);
+
+    using value_type = std::decay_t<T>;
+    if constexpr (optional_traits<value_type>::is_optional)
+    {
+        if (value)
+            validate_tree(*value, ctx);
+    }
+    else if constexpr (kl::ctti::is_reflectable_v<value_type>)
+    {
+        ctti::reflect_object(value, [&](auto field) {
+            validate_tree(field.value(), ctx);
+        });
+    }
+    else if constexpr (is_non_string_range_v<value_type>)
+    {
+        for (auto& element : value)
+            validate_tree(element, ctx);
+    }
+}
+
+template <typename T>
+class rollback_value
+{
+public:
+    explicit rollback_value(T& value)
+        : value_{value}, old_value_{std::move_if_noexcept(value)}
+    {
+    }
+
+    rollback_value(const rollback_value&) = delete;
+    rollback_value& operator=(const rollback_value&) = delete;
+
+    ~rollback_value() noexcept(std::is_nothrow_move_assignable_v<T>)
+    {
+        if (!committed_)
+            value_ = std::move(old_value_);
+    }
+
+    void commit() noexcept
+    {
+        committed_ = true;
+    }
+
+private:
+    T& value_;
+    T old_value_;
+    bool committed_ = false;
+};
+
+template <typename T>
+class pop_back_rollback
+{
+public:
+    explicit pop_back_rollback(T& value) noexcept
+        : value_{value}
+    {
+    }
+
+    pop_back_rollback(const pop_back_rollback&) = delete;
+    pop_back_rollback& operator=(const pop_back_rollback&) = delete;
+
+    ~pop_back_rollback() noexcept(noexcept(std::declval<T&>().pop_back()))
+    {
+        if (!committed_)
+            value_.pop_back();
+    }
+
+    void commit() noexcept
+    {
+        committed_ = true;
+    }
+
+private:
+    T& value_;
+    bool committed_ = false;
+};
+
+template <typename Node, typename Element>
+void check_duplicate_child_key(Node node, const Element& candidate)
+{
+    if constexpr (Node::template has_attribute<attributes::child_key_base_t>())
+    {
+        node.visit_attributes([&](const auto& attr) {
+            using attribute_type = std::decay_t<decltype(attr)>;
+            if constexpr (attributes::detail::is_child_key_v<attribute_type>)
+            {
+                for (const auto& element : node.value())
+                {
+                    if (element.*attribute_type::ptr == candidate.*attribute_type::ptr)
+                        throw duplicate_child_key_error{};
+                }
+            }
+        });
+    }
+}
 
 inline bool parse_index(std::string_view text, std::size_t& out)
 {
@@ -423,8 +521,10 @@ try
 
             auto candidate = node.value();
             kl::serialization::deserialize(candidate, value, ctx);
-            detail::validate_candidate(candidate, ctx);
+            detail::rollback_value rollback{node.value()};
             node.value() = std::move(candidate);
+            detail::validate_tree(r.value, ctx);
+            rollback.commit();
 
             r.state.modifications.notify_changed(
                 path, kl::ctti::is_reflectable_v<node_value_type>);
@@ -463,7 +563,7 @@ try
                 return operation_result{status_code::method_not_allowed, {}};
 
             using collection_type = std::decay_t<decltype(node.value())>;
-            if constexpr (kl::detail::is_growable_range<collection_type>::value)
+            if constexpr (detail::is_postable_range_v<collection_type>)
             {
                 using element_type = typename collection_type::value_type;
 
@@ -472,6 +572,9 @@ try
                 detail::check_duplicate_child_key(node, candidate);
                 detail::validate_candidate(candidate, ctx);
                 node.value().push_back(std::move(candidate));
+                detail::pop_back_rollback rollback{node.value()};
+                detail::validate_tree(r.value, ctx);
+                rollback.commit();
                 r.state.modifications.notify_changed(path, true);
 
                 return operation_result{status_code::created, {}};
@@ -528,7 +631,10 @@ try
                 candidate.reset();
                 // This is most likely no-op since candidate is optional<T>, not T
                 detail::validate_candidate(candidate, ctx);
+                detail::rollback_value rollback{node.value()};
                 node.value() = std::move(candidate);
+                detail::validate_tree(r.value, ctx);
+                rollback.commit();
 
                 r.state.modifications.notify_changed(
                     path, kl::ctti::is_reflectable_v<typename optional_traits::value_type>);

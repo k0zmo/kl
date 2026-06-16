@@ -13,6 +13,7 @@ KL_HAS_TYPEDEF_HELPER(key_type)
 KL_VALID_EXPR_HELPER(
     has_push_back,
     std::declval<T&>().push_back(std::declval<typename T::value_type&>()))
+KL_VALID_EXPR_HELPER(has_pop_back, std::declval<T&>().pop_back())
 KL_VALID_EXPR_HELPER(has_reserve, std::declval<T&>().reserve(0U))
 KL_VALID_EXPR_HELPER(has_at, std::declval<T&>().at(0U))
 KL_VALID_EXPR_HELPER(has_begin, std::declval<const T&>().begin())

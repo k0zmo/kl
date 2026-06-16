@@ -99,6 +99,36 @@ struct OptionalValidatedRoot
 };
 KL_REFLECT_STRUCT(OptionalValidatedRoot, maybe_limits)
 
+struct NestedValidatedRoot
+{
+    MemberValidated limits;
+};
+KL_REFLECT_STRUCT(NestedValidatedRoot, limits)
+
+struct SizeValidatedRoot
+{
+    std::vector<A> items;
+
+    void validate_resource(kl::json::deserialize_context&) const
+    {
+        if (items.size() > 2)
+            throw kl::resources::validation_error{"too many items"};
+    }
+};
+KL_REFLECT_STRUCT(SizeValidatedRoot, items)
+
+struct RequiredOptionalRoot
+{
+    std::optional<int> required_value;
+
+    void validate_resource(kl::json::deserialize_context&) const
+    {
+        if (!required_value)
+            throw kl::resources::validation_error{"required_value cannot be null"};
+    }
+};
+KL_REFLECT_STRUCT(RequiredOptionalRoot, required_value)
+
 struct CollectionRoot
 {
     std::vector<A> items;
@@ -579,6 +609,36 @@ TEST_CASE("resource put", "[resource]")
               kl::resources::modification_tracker::generation{1});
     }
 
+    SECTION("returns conflict when leaf update breaks root validation")
+    {
+        auto res = kl::resources::make_resource(MemberValidated{1, 5});
+        auto value = R"(10)"_json;
+
+        const auto result = kl::resources::put(res, {"min"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "min must be less than or equal to max");
+        CHECK(res.value.min == 1);
+        CHECK(res.value.max == 5);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns conflict when nested leaf update breaks child validation")
+    {
+        auto res = kl::resources::make_resource(NestedValidatedRoot{{1, 5}});
+        auto value = R"(10)"_json;
+
+        const auto result = kl::resources::put(res, {"limits", "min"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "min must be less than or equal to max");
+        CHECK(res.value.limits.min == 1);
+        CHECK(res.value.limits.max == 5);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
     SECTION("returns conflict when optional contained member validation fails")
     {
         auto res =
@@ -686,6 +746,28 @@ TEST_CASE("resource post", "[resource]")
         CHECK(result.body == "duplicate child key");
         REQUIRE(res.value.string_items.size() == 2);
         CHECK(res.value.string_items[1].i == 2);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns conflict when append breaks root validation")
+    {
+        SizeValidatedRoot root{
+            {
+                A{1, true, 1.5, "first"},
+                A{2, false, 2.5, "second"},
+            },
+        };
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
+
+        const auto result = kl::resources::post(res, {"items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "too many items");
+        REQUIRE(res.value.items.size() == 2);
+        CHECK(res.value.items[0].str == "first");
+        CHECK(res.value.items[1].str == "second");
         CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{1});
     }
@@ -833,6 +915,20 @@ TEST_CASE("resource delete", "[resource]")
         CHECK(result.body.empty());
         REQUIRE(res.value.read_only_maybe_value.has_value());
         CHECK(*res.value.read_only_maybe_value == 7);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns conflict when deletion breaks root validation")
+    {
+        auto res = kl::resources::make_resource(RequiredOptionalRoot{13});
+
+        const auto result = kl::resources::del(res, {"required_value"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "required_value cannot be null");
+        REQUIRE(res.value.required_value.has_value());
+        CHECK(*res.value.required_value == 13);
         CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{1});
     }
