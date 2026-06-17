@@ -117,6 +117,18 @@ struct SizeValidatedRoot
 };
 KL_REFLECT_STRUCT(SizeValidatedRoot, items)
 
+struct MinSizeValidatedRoot
+{
+    std::vector<A> items;
+
+    void validate_resource(kl::json::deserialize_context&) const
+    {
+        if (items.size() < 2)
+            throw kl::resources::validation_error{"too few items"};
+    }
+};
+KL_REFLECT_STRUCT(MinSizeValidatedRoot, items)
+
 struct RequiredOptionalRoot
 {
     std::optional<int> required_value;
@@ -388,6 +400,53 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
         CHECK(res.value.string_items[0].i == 1);
         CHECK(res.value.string_items[1].i == 42);
         CHECK(res.state.modifications.changed_at({"string_items", "second", "i"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("put rejects changing a child key")
+    {
+        kl::json::deserialize_context ctx;
+        auto value = R"("first")"_json;
+
+        const auto result =
+            kl::resources::put(res, {"string_items", "second", "str"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.value.string_items[0].str == "first");
+        CHECK(res.value.string_items[1].str == "second");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("put rejects changing a child key through element replacement")
+    {
+        kl::json::deserialize_context ctx;
+        auto value = R"({"i":2,"b":false,"d":2.5,"str":"renamed"})"_json;
+
+        const auto result =
+            kl::resources::put(res, {"string_items", "second"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.value.string_items[1].str == "second");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("put replaces a keyed element when its key is unchanged")
+    {
+        kl::json::deserialize_context ctx;
+        auto value = R"({"i":42,"b":true,"d":4.5,"str":"second"})"_json;
+
+        const auto result =
+            kl::resources::put(res, {"string_items", "second"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(result.body.empty());
+        CHECK(res.value.string_items[1].i == 42);
+        CHECK(res.value.string_items[1].str == "second");
+        CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -822,6 +881,22 @@ TEST_CASE("resource post", "[resource]")
               kl::resources::modification_tracker::generation{1});
     }
 
+    SECTION("rejects appending to subtree read-only collections")
+    {
+        CollectionRoot root{};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
+
+        const auto result =
+            kl::resources::post(res, {"subtree_read_only_items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.value.subtree_read_only_items.empty());
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
     SECTION("rejects descendants of subtree read-only fields")
     {
         CollectionAccessRoot root{};
@@ -842,6 +917,55 @@ TEST_CASE("resource post", "[resource]")
 TEST_CASE("resource delete", "[resource]")
 {
     kl::json::deserialize_context ctx;
+
+    SECTION("removes indexed collection element")
+    {
+        CollectionRoot root{
+            {
+                A{1, true, 1.5, "first"},
+                A{2, false, 2.5, "second"},
+            },
+            {7, 8, 9},
+        };
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"items", "0"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::no_content);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.items.size() == 1);
+        CHECK(res.value.items[0].str == "second");
+        CHECK(res.state.modifications.changed_at({"items"}) ==
+              kl::resources::modification_tracker::generation{2});
+        CHECK(res.state.modifications.changed_at({"items", "0", "str"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("removes keyed collection element")
+    {
+        KeyedCollectionRoot root{
+            {
+                A{1, true, 1.5, "first"},
+                A{2, false, 2.5, "second"},
+            },
+            {
+                IntKeyedItem{7, "seven", "lucky"},
+                IntKeyedItem{13, "thirteen", "prime"},
+            },
+        };
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"string_items", "second"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::no_content);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.string_items.size() == 1);
+        CHECK(res.value.string_items[0].str == "first");
+        CHECK(res.state.modifications.changed_at({"string_items"}) ==
+              kl::resources::modification_tracker::generation{2});
+        CHECK(res.state.modifications.changed_at({"string_items", "first", "i"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
 
     SECTION("clears nullable scalar path")
     {
@@ -919,6 +1043,46 @@ TEST_CASE("resource delete", "[resource]")
               kl::resources::modification_tracker::generation{1});
     }
 
+    SECTION("rejects read-only collection element deletion")
+    {
+        CollectionRoot root{
+            {},
+            {},
+            {A{1, true, 1.5, "first"}},
+        };
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"read_only_items", "0"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.read_only_items.size() == 1);
+        CHECK(res.value.read_only_items[0].str == "first");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("rejects subtree read-only collection element deletion")
+    {
+        CollectionRoot root{
+            {},
+            {},
+            {},
+            {A{1, true, 1.5, "first"}},
+        };
+        auto res = kl::resources::make_resource(root);
+
+        const auto result =
+            kl::resources::del(res, {"subtree_read_only_items", "0"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.subtree_read_only_items.size() == 1);
+        CHECK(res.value.subtree_read_only_items[0].str == "first");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
     SECTION("returns conflict when deletion breaks root validation")
     {
         auto res = kl::resources::make_resource(RequiredOptionalRoot{13});
@@ -929,6 +1093,27 @@ TEST_CASE("resource delete", "[resource]")
         CHECK(result.body == "required_value cannot be null");
         REQUIRE(res.value.required_value.has_value());
         CHECK(*res.value.required_value == 13);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns conflict when collection deletion breaks root validation")
+    {
+        MinSizeValidatedRoot root{
+            {
+                A{1, true, 1.5, "first"},
+                A{2, false, 2.5, "second"},
+            },
+        };
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"items", "1"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "too few items");
+        REQUIRE(res.value.items.size() == 2);
+        CHECK(res.value.items[0].str == "first");
+        CHECK(res.value.items[1].str == "second");
         CHECK(res.state.modifications.current() ==
               kl::resources::modification_tracker::generation{1});
     }

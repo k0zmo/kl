@@ -29,6 +29,7 @@ public:
     std::string_view operator[](std::size_t i) const noexcept { return data_[i]; }
     std::string_view front() const noexcept { return data_[0]; }
     path_view drop_front() const noexcept { return path_view{data_ + 1, size_ - 1}; }
+    path_view drop_back() const noexcept { return path_view{data_, size_ - 1}; }
 
 private:
     constexpr path_view(const std::string_view* data, std::size_t size) noexcept

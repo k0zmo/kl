@@ -55,6 +55,24 @@ public:
         std::apply([&](const auto&... attr) { (vis(attr), ...); }, attributes_);
     }
 
+    template <typename Attribute, typename Visitor>
+    constexpr void visit_attributes(Visitor&& vis) const
+    {
+        if constexpr (has<Attribute>())
+        {
+            std::apply(
+                [&](const auto&... attr) {
+                    (([&] {
+                         using attr_type = std::decay_t<decltype(attr)>;
+                         if constexpr (attribute_matches_v<Attribute, attr_type>)
+                             vis(attr);
+                     }()),
+                     ...);
+                },
+                attributes_);
+        }
+    }
+
 private:
     template <typename Attribute, std::size_t I>
     constexpr const Attribute* get_impl() const

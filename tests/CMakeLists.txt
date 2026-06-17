@@ -17,7 +17,6 @@ set(test_files
     range_test.cpp
     reflect_enum_test.cpp
     reflect_struct_test.cpp
-    resource_test.cpp
     signal_test.cpp
     split_test.cpp
     stream_join_test.cpp
@@ -28,7 +27,7 @@ set(test_files
 )
 
 if(KL_ENABLE_JSON)
-    list(APPEND test_files json_test.cpp input/typedefs.hpp)
+    list(APPEND test_files json_test.cpp resource_test.cpp input/typedefs.hpp)
     target_link_libraries(kl-tests PRIVATE kl::json)
 endif()
 if(KL_ENABLE_YAML)
