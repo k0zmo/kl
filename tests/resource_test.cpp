@@ -1063,6 +1063,124 @@ TEST_CASE("resource post", "[resource]")
     }
 }
 
+TEST_CASE("resource patch", "[resource]")
+{
+    kl::json::deserialize_context ctx;
+
+    SECTION("updates present fields and preserves missing fields recursively")
+    {
+        B b{1, false, "root", {42, true, 3.14, "nested"}};
+        auto res = kl::resources::make_resource(b);
+        auto value = R"({"str":"updated","a":{"i":99}})"_json;
+
+        const auto result = kl::resources::patch(res, {}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(res.value.i == 1);
+        CHECK_FALSE(res.value.b);
+        CHECK(res.value.str == "updated");
+        CHECK(res.value.a.i == 99);
+        CHECK(res.value.a.b);
+        CHECK(res.value.a.d == 3.14);
+        CHECK(res.value.a.str == "nested");
+        CHECK(res.state.modifications.changed_at({"a", "str"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("explicit null resets optional")
+    {
+        OptionalRoot root{7, AccessInner{1, 2}, 3, 4};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"maybe_value":null})"_json;
+
+        const auto result = kl::resources::patch(res, {}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK_FALSE(res.value.maybe_value);
+        REQUIRE(res.value.maybe_inner);
+        CHECK(res.value.maybe_inner->value == 1);
+        CHECK(res.value.value == 3);
+        CHECK(res.value.read_only_maybe_value == 4);
+    }
+
+    SECTION("replaces collection fields")
+    {
+        CollectionRoot root{{A{1, true, 1.5, "first"}}, {1, 2, 3}};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"values":[7,8]})"_json;
+
+        const auto result = kl::resources::patch(res, {}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        REQUIRE(res.value.items.size() == 1);
+        CHECK(res.value.items[0].str == "first");
+        CHECK(res.value.values == std::vector<int>{7, 8});
+    }
+
+    SECTION("rolls back when the patched resource is invalid")
+    {
+        auto res = kl::resources::make_resource(MemberValidated{1, 5});
+        auto value = R"({"min":10})"_json;
+
+        const auto result = kl::resources::patch(res, {}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "min must be less than or equal to max");
+        CHECK(res.value.min == 1);
+        CHECK(res.value.max == 5);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("rejects changing a keyed collection element identity")
+    {
+        KeyedCollectionRoot root{
+            {A{1, true, 1.5, "first"}},
+            {IntKeyedItem{7, "seven", "lucky"}},
+        };
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"str":"renamed"})"_json;
+
+        const auto result =
+            kl::resources::patch(res, {"string_items", "first"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(res.value.string_items[0].str == "first");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("rejects directly addressed read-only paths")
+    {
+        AccessRoot root{};
+        root.inner.read_only_value = 4;
+        auto res = kl::resources::make_resource(root);
+        auto value = R"(9)"_json;
+
+        const auto result =
+            kl::resources::patch(res, {"inner", "read_only_value"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(res.value.inner.read_only_value == 4);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("returns bad request for an incompatible patch")
+    {
+        B b{1, false, "root", {42, true, 3.14, "nested"}};
+        auto res = kl::resources::make_resource(b);
+        auto value = R"({"a":{"i":"bad"}})"_json;
+
+        const auto result = kl::resources::patch(res, {}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::bad_request);
+        CHECK(res.value.a.i == 42);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+}
+
 TEST_CASE("resource delete", "[resource]")
 {
     kl::json::deserialize_context ctx;

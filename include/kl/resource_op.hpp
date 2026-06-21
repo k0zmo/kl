@@ -929,6 +929,55 @@ catch (const kl::serialization::deserialize_error&)
     return operation_result{status_code::bad_request, {}};
 }
 
+template <typename T, typename Value, typename Context>
+operation_result patch(resource<T>& r, path_view path, const Value& value, Context& ctx)
+try
+{
+    return kl::resources::visit_at_path<operation_result>(
+        r.value, path, [&](auto node, access_context& access_ctx) {
+            if (access_ctx.is_node_read_only<decltype(node)>())
+                return operation_result{status_code::method_not_allowed, {}};
+
+            using node_value_type = std::decay_t<decltype(node.value())>;
+
+            auto candidate = node.value();
+            kl::serialization::patch(candidate, value, ctx);
+            if (!node.preserves_identity(candidate))
+                return operation_result{status_code::method_not_allowed, {}};
+
+            detail::rollback_value rollback{
+                node.value(), detail::move_if_noexcept_backup};
+            node.value() = std::move(candidate);
+            detail::validate_tree(r.value, ctx);
+            rollback.commit();
+
+            r.state.modifications.notify_changed(
+                path, kl::ctti::is_reflectable_v<node_value_type>);
+
+            return operation_result{status_code::ok, {}};
+        });
+}
+catch (const path_segment_not_found_error&)
+{
+    return operation_result{status_code::not_found, {}};
+}
+catch (const path_not_traversable_error&)
+{
+    return operation_result{status_code::not_found, {}};
+}
+catch (const validation_error& ex)
+{
+    return operation_result{status_code::conflict, ex.what()};
+}
+catch (const duplicate_child_key_error& ex)
+{
+    return operation_result{status_code::conflict, ex.what()};
+}
+catch (const kl::serialization::deserialize_error&)
+{
+    return operation_result{status_code::bad_request, {}};
+}
+
 template <typename T, typename Context>
 operation_result del(resource<T>& r, path_view path, Context& ctx)
 try

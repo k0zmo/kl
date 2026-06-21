@@ -414,16 +414,24 @@ struct json_tree_backend
 {
     using value_type = rapidjson::Value;
 
+    // These are backend_traits hooks. Go straight to the dispatcher instead of
+    // bouncing through the public json::* wrappers.
     template <typename T, typename Context>
     static value_type serialize(const T& value, Context& ctx)
     {
-        return json::serialize(value, ctx);
+        return serialization::detail::serialize_with_backend<json::tree_tag>(value, ctx);
     }
 
     template <typename T, typename Context>
     static void deserialize(T& out, const value_type& value, Context& ctx)
     {
-        json::deserialize(out, value, ctx);
+        serialization::detail::deserialize_with_backend<json::tree_tag>(out, value, ctx);
+    }
+
+    template <typename T, typename Context>
+    static void patch(T& out, const value_type& value, Context& ctx)
+    {
+        serialization::detail::patch_with_backend<json::tree_tag>(out, value, ctx);
     }
 
     // Map stuff
@@ -753,6 +761,15 @@ void deserialize_adl(json::tree_tag, json::view& out, const rapidjson::Value& va
     out = json::view{value};
 }
 
+// patch_adl implementation
+
+template <typename T, typename Context>
+auto patch_adl(json::tree_tag, T& out, const rapidjson::Value& value, Context& ctx)
+    -> decltype(detail::patch_adl<json::detail::json_tree_backend>(out, value, ctx), void())
+{
+    detail::patch_adl<json::detail::json_tree_backend>(out, value, ctx);
+}
+
 template <>
 struct backend_traits<json::detail::json_stream_backend>
 {
@@ -779,6 +796,13 @@ struct backend_traits<json::detail::json_tree_backend>
         -> decltype(deserialize_adl(json::tree_tag{}, out, value, ctx), void())
     {
         deserialize_adl(json::tree_tag{}, out, value, ctx);
+    }
+
+    template <typename T, typename Context>
+    static auto patch(T& out, const rapidjson::Value& value, Context& ctx)
+        -> decltype(patch_adl(json::tree_tag{}, out, value, ctx), void())
+    {
+        patch_adl(json::tree_tag{}, out, value, ctx);
     }
 };
 
@@ -873,6 +897,20 @@ T deserialize(const rapidjson::Value& value, Context& ctx)
     json::deserialize(out, value, ctx);
     return out;
 }
+
+template <typename T, typename Context>
+void patch(T& out, const rapidjson::Value& value, Context& ctx)
+{
+    serialization::detail::patch_with_backend<tree_tag>(out, value, ctx);
+}
+
+template <typename T>
+void patch(T& out, const rapidjson::Value& value)
+{
+    deserialize_context ctx{};
+    json::patch(out, value, ctx);
+}
+
 } // namespace kl::json
 
 inline rapidjson::Document operator""_json(const char* s, std::size_t len)

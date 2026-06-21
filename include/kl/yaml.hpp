@@ -326,16 +326,24 @@ struct yaml_tree_backend
 {
     using value_type = YAML::Node;
 
+    // These are backend_traits hooks. Go straight to the dispatcher instead of
+    // bouncing through the public yaml::* wrappers.
     template <typename T, typename Context>
     static value_type serialize(const T& value, Context& ctx)
     {
-        return yaml::serialize(value, ctx);
+        return serialization::detail::serialize_with_backend<yaml::tree_tag>(value, ctx);
     }
 
     template <typename T, typename Context>
     static void deserialize(T& out, const value_type& value, Context& ctx)
     {
-        yaml::deserialize(out, value, ctx);
+        serialization::detail::deserialize_with_backend<yaml::tree_tag>(out, value, ctx);
+    }
+
+    template <typename T, typename Context>
+    static void patch(T& out, const value_type& value, Context& ctx)
+    {
+        serialization::detail::patch_with_backend<yaml::tree_tag>(out, value, ctx);
     }
 
     // Map stuff
@@ -558,6 +566,15 @@ void deserialize_adl(yaml::tree_tag, yaml::view& out, const YAML::Node& value, C
     out = yaml::view{value};
 }
 
+// patch_adl implementation
+
+template <typename T, typename Context>
+auto patch_adl(yaml::tree_tag, T& out, const YAML::Node& value, Context& ctx)
+    -> decltype(detail::patch_adl<yaml::detail::yaml_tree_backend>(out, value, ctx), void())
+{
+    detail::patch_adl<yaml::detail::yaml_tree_backend>(out, value, ctx);
+}
+
 template <>
 struct backend_traits<yaml::detail::yaml_stream_backend>
 {
@@ -600,6 +617,13 @@ struct backend_traits<yaml::detail::yaml_tree_backend>
         -> decltype(deserialize_adl(yaml::tree_tag{}, out, value, ctx), void())
     {
         deserialize_adl(yaml::tree_tag{}, out, value, ctx);
+    }
+
+    template <typename T, typename Context>
+    static auto patch(T& out, const YAML::Node& value, Context& ctx)
+        -> decltype(patch_adl(yaml::tree_tag{}, out, value, ctx), void())
+    {
+        patch_adl(yaml::tree_tag{}, out, value, ctx);
     }
 };
 
@@ -681,6 +705,20 @@ T deserialize(const YAML::Node& value, Context& ctx)
     yaml::deserialize(out, value, ctx);
     return out;
 }
+
+template <typename T, typename Context>
+void patch(T& out, const YAML::Node& value, Context& ctx)
+{
+    serialization::detail::patch_with_backend<tree_tag>(out, value, ctx);
+}
+
+template <typename T>
+void patch(T& out, const YAML::Node& value)
+{
+    deserialize_context ctx{};
+    yaml::patch(out, value, ctx);
+}
+
 } // namespace kl::yaml
 
 inline YAML::Node operator""_yaml(const char* s, std::size_t)

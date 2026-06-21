@@ -41,6 +41,12 @@ T deserialize(const rapidjson::Value& value);
 template <typename T, typename Context>
 T deserialize(const rapidjson::Value& value, Context& ctx);
 
+template <typename T>
+void patch(T& out, const rapidjson::Value& value);
+
+template <typename T, typename Context>
+void patch(T& out, const rapidjson::Value& value, Context& ctx);
+
 struct deserialize_error;
 struct parse_error;
 } // namespace kl::json

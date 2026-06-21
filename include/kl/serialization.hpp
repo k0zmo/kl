@@ -12,37 +12,45 @@ namespace kl::serialization {
 /*
    Customization contract
    ======================
-  
-   There are two user-facing customization mechanisms:
-  
+
+   User code can customize serialization in two ways:
+
    1. Specialize `kl::serialization::serializer<T>`.
-      This has higher dispatch priority than backend ADL. If `serializer<T>`
-      provides `dump()`, `serialize()`, or `deserialize()`, that member is selected
-      before any `dump_adl()`, `serialize_adl()`, or `deserialize_adl()` overload.
-  
-   2. Provide backend ADL overloads.
-      The backend tag is the first argument and identifies the concrete backend
-      family. For example, JSON uses `kl::json::stream_tag` for `dump_adl()` and
-      `kl::json::tree_tag` for `serialize_adl()`/`deserialize_adl()`. YAML follows
-      the same stream_tag/tree_tag split.
-  
+      `serializer<T>` wins over backend ADL. If it provides `dump()`,
+      `serialize()`, `deserialize()`, or `patch()`, that member is used before
+      any matching backend ADL overload.
+
+   2. Define backend ADL overloads.
+      The first argument is the backend tag. JSON uses `kl::json::stream_tag`
+      for `dump_adl()` and `kl::json::tree_tag` for
+      `serialize_adl()`/`deserialize_adl()`. YAML uses the same
+      stream_tag/tree_tag split.
+
           void dump_adl(kl::json::stream_tag, const T&, Context&);
           rapidjson::Value serialize_adl(kl::json::tree_tag, const T&, Context&);
           void deserialize_adl(kl::json::tree_tag, T&, const rapidjson::Value&, Context&);
-  
-      Backend-independent ADL can be written by templating the tag:
-  
+
+      To support more than one backend, template the tag:
+
           template <typename Tag, typename Context>
           auto serialize_adl(Tag, const T&, Context&);
           template <typename Tag, typename Value, typename Context>
           void deserialize_adl(Tag, T&, const Value&, Context&);
-  
-   Direct `kl::serialization::dump()/serialize()/deserialize()` calls require a
-   context carrying `backend_type`. Built-in contexts do this by inheriting the
-   public backend tags. Backend-specific wrappers such as `kl::json::dump()`,
-   `kl::json::serialize()`, and `kl::json::deserialize()` force the backend
-   themselves, so custom contexts used through those wrappers do not need to
-   expose backend_type.
+          template <typename Tag, typename Value, typename Context>
+          void patch_adl(Tag, T&, const Value&, Context&);
+
+      A type with custom deserialization has a custom wire format, so it should
+      also provide matching PATCH behavior. If `serializer<T>::deserialize()`
+      exists without `serializer<T>::patch()`, attempting to patch T fails at
+      compile time. Custom `deserialize_adl()` cannot currently be distinguished
+      from the built-in reflected fallback; types using it must also provide a
+      matching `patch_adl()` to avoid reflected PATCH semantics.
+
+   Direct `kl::serialization::dump()/serialize()/deserialize()/patch()` calls
+   require a context with `backend_type`. Backend wrappers such as
+   `kl::json::dump()`, `kl::json::serialize()`, and `kl::json::deserialize()`
+   choose the backend themselves, so custom contexts used through those wrappers
+   do not need `backend_type`.
 */
 
 namespace detail {
@@ -115,6 +123,38 @@ auto deserialize(T& out, const Value& value, Context& ctx, priority_tag<2>)
     serializer<T>::deserialize(out, value, ctx);
 }
 
+template <typename T, typename Backend, typename Value, typename Context>
+void patch(T& out, const Value& value, Context& ctx, priority_tag<0>)
+{
+    // No `patch` implementation exists.
+    // We can fall back to deserialize only if the type has no custom serializer deserialize.
+    static_assert(
+        is_serializer_patch_compatible_v<T, Value, Context>,
+        "serializer<T> defines deserialize(), so it must also define patch()");
+
+    detail::deserialize<T, Backend>(out, value, ctx, priority_tag<2>{});
+}
+
+template <typename T, typename Backend, typename Value, typename Context>
+auto patch(T& out, const Value& value, Context& ctx, priority_tag<1>)
+    -> decltype(backend_traits<Backend>::patch(out, value, ctx), void())
+{
+    // A custom serializer deserialize may use a custom wire format. Without a
+    // matching patch, reflected `patch` semantics would be a bad guess.
+    static_assert(
+        is_serializer_patch_compatible_v<T, Value, Context>,
+        "serializer<T> defines deserialize(), so it must also define patch()");
+
+    backend_traits<Backend>::patch(out, value, ctx);
+}
+
+template <typename T, typename Backend, typename Value, typename Context>
+auto patch(T& out, const Value& value, Context& ctx, priority_tag<2>)
+    -> decltype(serializer<T>::patch(out, value, ctx), void())
+{
+    serializer<T>::patch(out, value, ctx);
+}
+
 } // namespace detail
 
 template <typename T, typename Context>
@@ -133,19 +173,6 @@ void dump_with_backend(const T& obj, Context& ctx)
     detail::dump<T, backend>(obj, ctx, priority_tag<2>{});
 }
 
-} // namespace detail
-
-template <typename T, typename Context>
-auto serialize(const T& obj, Context& ctx)
-    -> decltype(detail::serialize<T, detail::backend_t<Context>>(
-        obj, ctx, priority_tag<2>{}))
-{
-    using backend = detail::backend_t<Context>;
-    return detail::serialize<T, backend>(obj, ctx, priority_tag<2>{});
-}
-
-namespace detail {
-
 template <typename BackendIdentity, typename T, typename Context>
 auto serialize_with_backend(const T& obj, Context& ctx)
     -> decltype(detail::serialize<T, backend_t<BackendIdentity>>(obj, ctx, priority_tag<2>{}))
@@ -161,7 +188,23 @@ void deserialize_with_backend(T& out, const Value& value, Context& ctx)
     detail::deserialize<T, backend>(out, value, ctx, priority_tag<2>{});
 }
 
+template <typename BackendIdentity, typename T, typename Value, typename Context>
+void patch_with_backend(T& out, const Value& value, Context& ctx)
+{
+    using backend = backend_t<BackendIdentity>;
+    detail::patch<T, backend>(out, value, ctx, priority_tag<2>{});
+}
+
 } // namespace detail
+
+template <typename T, typename Context>
+auto serialize(const T& obj, Context& ctx)
+    -> decltype(detail::serialize<T, detail::backend_t<Context>>(
+        obj, ctx, priority_tag<2>{}))
+{
+    using backend = detail::backend_t<Context>;
+    return detail::serialize<T, backend>(obj, ctx, priority_tag<2>{});
+}
 
 template <typename T, typename Value, typename Context>
 void deserialize(T& out, const Value& value, Context& ctx)
@@ -177,6 +220,13 @@ T deserialize(const Value& value, Context& ctx)
     T out;
     serialization::deserialize(out, value, ctx);
     return out;
+}
+
+template <typename T, typename Value, typename Context>
+void patch(T& out, const Value& value, Context& ctx)
+{
+    using backend = detail::backend_t<Context>;
+    detail::patch<T, backend>(out, value, ctx, priority_tag<2>{});
 }
 
 } // namespace kl::serialization
