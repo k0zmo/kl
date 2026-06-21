@@ -6,6 +6,7 @@
 #include "kl/resource_attributes.hpp"
 #include "kl/serialization.hpp"
 #include "kl/serialization_error.hpp"
+#include "kl/type_traits.hpp"
 #include "kl/utility.hpp"
 
 #include <cassert>
@@ -114,7 +115,7 @@ template <typename Element, typename Key>
 bool key_matches(const Element&, const Key& key, std::string_view segment, kl::priority_tag<0>)
 {
     // Default key matching implementation
-    return key == segment;
+    return std::string_view{key} == segment;
 }
 
 } // namespace impl
@@ -261,10 +262,12 @@ struct is_string_like<std::basic_string<Char, Traits, Allocator>> : std::true_ty
 template <typename Char, typename Traits>
 struct is_string_like<std::basic_string_view<Char, Traits>> : std::true_type {};
 
-// A type trait telling whether T can be traversed using an index via .at()
+// A type trait telling whether T can be traversed using a positional index via .at()
 template <typename T>
 inline constexpr bool is_index_traversable_v =
-    kl::detail::has_at_v<T> && !is_string_like<std::decay_t<T>>::value;
+    kl::detail::has_at_v<T> &&
+    !is_string_like<std::decay_t<T>>::value &&
+    !kl::detail::is_map_alike<std::decay_t<T>>::value;
 
 // A type trait for all ranges excluding a string-like types
 template <typename T>
@@ -334,6 +337,14 @@ void validate_node_tree(Node node, Context& ctx)
         ctti::reflect_object(value, [&](auto field) {
             validate_node_tree(field_node<decltype(field)>{field}, ctx);
         });
+    }
+    else if constexpr (kl::detail::is_map_alike<value_type>::value)
+    {
+        for (auto& element : value)
+        {
+            using mapped_type = std::remove_reference_t<decltype((element.second))>;
+            validate_node_tree(element_node<mapped_type>{element.second}, ctx);
+        }
     }
     else if constexpr (is_non_string_range_v<value_type>)
     {
@@ -444,6 +455,24 @@ inline bool parse_index(std::string_view text, std::size_t& out)
     return true;
 }
 
+KL_VALID_EXPR_HELPER(
+    has_find_with_string_view,
+    std::declval<T&>().find(std::declval<std::string_view>()))
+
+template <typename Map>
+auto find_key(Map& map, std::string_view segment)
+{
+    if constexpr (has_find_with_string_view_v<Map>)
+    {
+        return map.find(segment);
+    }
+    else
+    {
+        using key_type = typename std::decay_t<Map>::key_type;
+        return map.find(key_type{segment});
+    }
+}
+
 template <typename Result, typename Node, typename Visitor>
 Result visit_node(Node node, path_view path, std::size_t stop_remaining,
                   access_context& ctx, Visitor&& visitor)
@@ -482,6 +511,23 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
             return std::move(*result);
 
         throw path_segment_not_found_error {};
+    }
+    else if constexpr (kl::detail::is_map_alike<value_type>::value)
+    {
+        access_context child_ctx = ctx;
+        child_ctx.update(node);
+
+        const auto it = find_key(node.value(), path.front());
+        if (it == node.value().end())
+            throw path_segment_not_found_error{};
+
+        return visit_node<Result>(
+            element_node<std::remove_reference_t<decltype((it->second))>>{
+                it->second},
+            path.drop_front(),
+            stop_remaining,
+            child_ctx,
+            std::forward<Visitor>(visitor));
     }
     else if constexpr (Node::template has_attribute<attributes::child_key_base_t>() &&
                        is_key_traversable_v<value_type>)
@@ -637,7 +683,37 @@ bool delete_direct_child(resource<Root>& r, Node node, path_view full_path,
     using value_type = std::decay_t<decltype(node.value())>;
     auto& collection = node.value();
 
-    if constexpr (Node::template has_attribute<attributes::child_key_base_t>() &&
+    if constexpr (kl::detail::is_map_alike<value_type>::value)
+    {
+        const auto it = find_key(collection, remaining.front());
+        if (it == collection.end())
+            throw path_segment_not_found_error{};
+
+        if (access_ctx.is_child_node_read_only<Node>())
+        {
+            out = operation_result{status_code::method_not_allowed, {}};
+        }
+        else
+        {
+            if constexpr (is_deletable_range_v<value_type>)
+            {
+                rollback_value rollback{collection, copy_backup};
+                collection.erase(it);
+                validate_tree(r.value, ctx);
+                rollback.commit();
+
+                r.state.modifications.notify_changed(full_path.drop_back(), true);
+                out = operation_result{status_code::no_content, {}};
+            }
+            else
+            {
+                out = operation_result{status_code::method_not_allowed, {}};
+            }
+        }
+
+        return true;
+    }
+    else if constexpr (Node::template has_attribute<attributes::child_key_base_t>() &&
                        is_key_traversable_v<value_type>)
     {
         bool found = false;

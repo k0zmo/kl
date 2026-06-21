@@ -7,6 +7,8 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include <cstddef>
+#include <functional>
+#include <map>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -153,6 +155,18 @@ KL_REFLECT_STRUCT(CollectionRoot,
                   values,
                   (read_only_items, attr::read_only),
                   (subtree_read_only_items, attr::subtree_read_only))
+
+struct MapCollectionRoot
+{
+    std::map<std::string, A> items;
+};
+KL_REFLECT_STRUCT(MapCollectionRoot, items)
+
+struct ValidatedMapCollectionRoot
+{
+    std::map<std::string, MemberValidated, std::less<>> items;
+};
+KL_REFLECT_STRUCT(ValidatedMapCollectionRoot, items)
 
 struct CollectionAccessInner
 {
@@ -350,6 +364,85 @@ TEST_CASE("resource indexed collection traversal", "[resource]")
         const auto missing = kl::resources::get(res, {"items", "2"}, dumper);
         CHECK(missing.status == kl::resources::status_code::not_found);
         CHECK(missing.body.empty());
+    }
+}
+
+TEST_CASE("resource map traversal", "[resource]")
+{
+    MapCollectionRoot root{
+        {
+            {"first", A{1, true, 1.5, "first"}},
+            {"fifth", A{5, false, 5.5, "fifth"}},
+            {"ninth", A{9, true, 9.5, "ninth"}},
+        },
+    };
+    auto res = kl::resources::make_resource(root);
+    auto dumper = [](const auto& value) { return kl::json::dump(value); };
+
+    SECTION("gets mapped values by key")
+    {
+        const auto element = kl::resources::get(res, {"items", "fifth"}, dumper);
+        CHECK(element.status == kl::resources::status_code::ok);
+        CHECK(element.body == R"({"i":5,"b":false,"d":5.5,"str":"fifth"})");
+
+        const auto leaf = kl::resources::get(res, {"items", "ninth", "str"}, dumper);
+        CHECK(leaf.status == kl::resources::status_code::ok);
+        CHECK(leaf.body == R"("ninth")");
+    }
+
+    SECTION("puts mapped values without exposing the key")
+    {
+        kl::json::deserialize_context ctx;
+        auto value = R"(42)"_json;
+
+        const auto result =
+            kl::resources::put(res, {"items", "fifth", "i"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(result.body.empty());
+        CHECK(res.value.items.at("fifth").i == 42);
+        CHECK(res.value.items.count("fifth") == 1);
+    }
+
+    SECTION("returns not found for missing keys")
+    {
+        const auto result = kl::resources::get(res, {"items", "missing"}, dumper);
+
+        CHECK(result.status == kl::resources::status_code::not_found);
+        CHECK(result.body.empty());
+    }
+}
+
+TEST_CASE("resource map validation", "[resource]")
+{
+    ValidatedMapCollectionRoot root{
+        {
+            {"limits", MemberValidated{1, 10}},
+        },
+    };
+    auto res = kl::resources::make_resource(root);
+    auto dumper = [](const auto& value) { return kl::json::dump(value); };
+    kl::json::deserialize_context ctx;
+    auto value = R"(20)"_json;
+
+    SECTION("gets mapped values by key (transparent lookup)")
+    {
+        const auto element = kl::resources::get(res, {"items", "limits"}, dumper);
+        CHECK(element.status == kl::resources::status_code::ok);
+        CHECK(element.body == R"({"min":1,"max":10})");
+    }
+
+    SECTION("validate leaf constaint")
+    {
+        const auto result =
+            kl::resources::put(res, {"items", "limits", "min"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "min must be less than or equal to max");
+        CHECK(res.value.items.at("limits").min == 1);
+        CHECK(res.value.items.at("limits").max == 10);
+        CHECK(res.state.modifications.current() ==
+            kl::resources::modification_tracker::generation{1});
     }
 }
 
@@ -995,6 +1088,26 @@ TEST_CASE("resource delete", "[resource]")
               kl::resources::modification_tracker::generation{2});
         CHECK(res.state.modifications.changed_at({"items", "0", "str"}) ==
               kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("removes the map key addressed by the path")
+    {
+        MapCollectionRoot root{
+            {
+                {"first", A{1, true, 1.5, "first"}},
+                {"fifth", A{5, false, 5.5, "fifth"}},
+                {"ninth", A{9, true, 9.5, "ninth"}},
+            },
+        };
+        auto res = kl::resources::make_resource(root);
+
+        const auto result = kl::resources::del(res, {"items", "first"}, ctx);
+
+        CHECK(result.status == kl::resources::status_code::no_content);
+        CHECK(result.body.empty());
+        CHECK(res.value.items.count("first") == 0);
+        CHECK(res.value.items.count("fifth") == 1);
+        CHECK(res.value.items.count("ninth") == 1);
     }
 
     SECTION("removes keyed collection element")
