@@ -293,28 +293,62 @@ inline constexpr bool is_deletable_range_v =
     std::is_copy_constructible_v<T> && // Take a snapshot before erase
     std::is_move_assignable_v<T>; // Restore from snapshot if validation fails
 
-template <typename T, typename Context>
-void validate_tree(T& value, Context& ctx)
+template <typename Node>
+void validate_unique_child_keys(Node node)
 {
-    validate_self(value, ctx);
+    if constexpr (Node::template has_attribute<attributes::child_key_base_t>())
+    {
+        node.template visit_attributes<attributes::child_key_base_t>([&](const auto& attr) {
+            const auto end = node.value().end();
+            for (auto first = node.value().begin(); first != end; ++first)
+            {
+                auto second = first;
+                for (++second; second != end; ++second)
+                {
+                    if ((*first).*(attr.ptr) == (*second).*(attr.ptr))
+                        throw duplicate_child_key_error{};
+                }
+            }
+        });
+    }
+}
 
-    using value_type = std::decay_t<T>;
+template <typename Node, typename Context>
+void validate_node_tree(Node node, Context& ctx)
+{
+    auto& value = node.value();
+    validate_self(value, ctx);
+    validate_unique_child_keys(node);
+
+    using value_type = std::decay_t<decltype(value)>;
     if constexpr (optional_traits<value_type>::is_optional)
     {
         if (value)
-            validate_tree(*value, ctx);
+        {
+            using contained_type = std::remove_reference_t<decltype(*value)>;
+            validate_node_tree(element_node<contained_type>{*value}, ctx);
+        }
     }
     else if constexpr (kl::ctti::is_reflectable_v<value_type>)
     {
         ctti::reflect_object(value, [&](auto field) {
-            validate_tree(field.value(), ctx);
+            validate_node_tree(field_node<decltype(field)>{field}, ctx);
         });
     }
     else if constexpr (is_non_string_range_v<value_type>)
     {
         for (auto& element : value)
-            validate_tree(element, ctx);
+        {
+            using element_type = std::remove_reference_t<decltype(element)>;
+            validate_node_tree(element_node<element_type>{element}, ctx);
+        }
     }
+}
+
+template <typename T, typename Context>
+void validate_tree(T& value, Context& ctx)
+{
+    validate_node_tree(root_node<T>{value}, ctx);
 }
 
 inline constexpr struct copy_backup_t {} copy_backup{};
@@ -386,10 +420,9 @@ template <typename Node, typename Element>
 void check_duplicate_child_key(Node node, const Element& candidate)
 {
     node.template visit_attributes<attributes::child_key_base_t>([&](const auto& attr) {
-        using attribute_type = std::decay_t<decltype(attr)>;
         for (const auto& element : node.value())
         {
-            if (element.*attribute_type::ptr == candidate.*attribute_type::ptr)
+            if (element.*(attr.ptr) == candidate.*attr.ptr)
                 throw duplicate_child_key_error{};
         }
     });
@@ -461,12 +494,12 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
             if (result)
                 return;
 
-            using attribute_type = std::decay_t<decltype(attr)>;
             for (auto& element : node.value())
             {
-                if (!key_matches(element, element.*attribute_type::ptr, path.front()))
+                if (!key_matches(element, element.*(attr.ptr), path.front()))
                     continue;
 
+                using attribute_type = std::decay_t<decltype(attr)>;
                 result = std::make_unique<Result>(
                     visit_node<Result>(
                         element_node<std::remove_reference_t<decltype(element)>,
@@ -614,8 +647,7 @@ bool delete_direct_child(resource<Root>& r, Node node, path_view full_path,
 
             for (auto it = collection.begin(); it != collection.end(); ++it)
             {
-                using attribute_type = std::decay_t<decltype(attr)>;
-                if (!key_matches(*it, (*it).*attribute_type::ptr, remaining.front()))
+                if (!key_matches(*it, (*it).*(attr.ptr), remaining.front()))
                     continue;
 
                 found = true;
@@ -757,6 +789,10 @@ catch (const validation_error& ex)
 {
     return operation_result{status_code::conflict, ex.what()};
 }
+catch (const duplicate_child_key_error& ex)
+{
+    return operation_result{status_code::conflict, ex.what()};
+}
 catch (const kl::serialization::deserialize_error&)
 {
     return operation_result{status_code::bad_request, {}};
@@ -875,6 +911,10 @@ catch (const path_segment_not_found_error&)
 catch (const path_not_traversable_error&)
 {
     return operation_result{status_code::not_found, {}};
+}
+catch (const duplicate_child_key_error& ex)
+{
+    return operation_result{status_code::conflict, ex.what()};
 }
 catch (const validation_error& ex)
 {

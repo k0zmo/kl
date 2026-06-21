@@ -450,6 +450,41 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
               kl::resources::modification_tracker::generation{2});
     }
 
+    SECTION("put rejects duplicate keys when replacing a keyed collection")
+    {
+        kl::json::deserialize_context ctx;
+        auto value =
+            R"([{"i":3,"b":true,"d":3.5,"str":"duplicate"},{"i":4,"b":false,"d":4.5,"str":"duplicate"}])"_json;
+
+        const auto result =
+            kl::resources::put(res, {"string_items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "duplicate child key");
+        REQUIRE(res.value.string_items.size() == 2);
+        CHECK(res.value.string_items[0].str == "first");
+        CHECK(res.value.string_items[1].str == "second");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
+    SECTION("put rejects duplicate keys when replacing the root")
+    {
+        kl::json::deserialize_context ctx;
+        auto value =
+            R"({"string_items":[{"i":3,"b":true,"d":3.5,"str":"duplicate"},{"i":4,"b":false,"d":4.5,"str":"duplicate"}],"int_items":[{"id":7,"name":"seven","note":"lucky"},{"id":13,"name":"thirteen","note":"prime"}]})"_json;
+
+        const auto result = kl::resources::put(res, {}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::conflict);
+        CHECK(result.body == "duplicate child key");
+        REQUIRE(res.value.string_items.size() == 2);
+        CHECK(res.value.string_items[0].str == "first");
+        CHECK(res.value.string_items[1].str == "second");
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
     SECTION("keyed collections do not fall back to index traversal")
     {
         CHECK_THROWS_AS(dump_json(res.value, {"string_items", "0"}),
