@@ -589,6 +589,27 @@ TEST_CASE("resource put", "[resource]")
               kl::resources::modification_tracker::generation{1});
     }
 
+    SECTION("rejects descendants of subtree read-only collection elements")
+    {
+        CollectionRoot root{
+            {},
+            {},
+            {},
+            {A{4, true, 1.5, "first"}},
+        };
+        auto res = kl::resources::make_resource(root);
+        auto value = R"(9)"_json;
+
+        const auto result =
+            kl::resources::put(res, {"subtree_read_only_items", "0", "i"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::method_not_allowed);
+        CHECK(result.body.empty());
+        CHECK(res.value.subtree_read_only_items[0].i == 4);
+        CHECK(res.state.modifications.current() ==
+              kl::resources::modification_tracker::generation{1});
+    }
+
     SECTION("returns not found for missing path")
     {
         AccessRoot root{};

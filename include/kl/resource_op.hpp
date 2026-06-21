@@ -44,21 +44,18 @@ struct access_context
     }
 
     template <typename Node>
-    access_context update(const Node&) noexcept
+    void update(const Node&) noexcept
     {
-        access_context copy = *this;
         subtree_read_only = subtree_read_only ||
             Node::template has_attribute<attributes::subtree_read_only_t>();
-        return copy;
     }
 
     template <typename Node, typename Field>
-    access_context update(const Node& node, const Field& field) noexcept
+    void update(const Node& node, const Field& field) noexcept
     {
-        auto copy = update(node);
+        update(node);
         node_read_only = node_read_only ||
             node.is_immutable_child(field.value());
-        return copy;
     }
 };
 
@@ -437,7 +434,8 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
             if (path.front() != field.name())
                 return;
 
-            const auto ctx_before = ctx.update(node, field);
+            const auto ctx_before = ctx;
+            ctx.update(node, field);
             result = std::make_unique<Result>(
                 visit_node<Result>(field_node<decltype(field)>{field},
                                    path.drop_front(),
@@ -455,7 +453,8 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
     else if constexpr (Node::template has_attribute<attributes::child_key_base_t>() &&
                        is_key_traversable_v<value_type>)
     {
-        access_context child_ctx = ctx.update(node);
+        access_context child_ctx = ctx;
+        child_ctx.update(node);
 
         std::unique_ptr<Result> result;
         node.template visit_attributes<attributes::child_key_base_t>([&](const auto& attr) {
@@ -491,7 +490,8 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
         if (!parse_index(path.front(), index))
             throw path_segment_not_found_error{};
 
-        access_context child_ctx = ctx.update(node);
+        access_context child_ctx = ctx;
+        child_ctx.update(node);
 
         auto& element = [&]() -> decltype(auto) {
             try
