@@ -274,6 +274,14 @@ template <typename T>
 inline constexpr bool is_non_string_range_v =
    kl::detail::is_range<T>::value && !is_string_like<std::decay_t<T>>::value;
 
+// Whether replacing a node also replaces values addressable below that node.
+template <typename T>
+inline constexpr bool has_addressable_descendants_v =
+    kl::ctti::is_reflectable_v<std::decay_t<T>> ||
+    optional_traits<std::decay_t<T>>::is_optional ||
+    kl::detail::is_map_alike<std::decay_t<T>>::value ||
+    is_non_string_range_v<std::decay_t<T>>;
+
 // A type trait telling whether T can be traversed using a key from subsequent path segment
 template <typename T>
 inline constexpr bool is_key_traversable_v = is_non_string_range_v<T>;
@@ -846,7 +854,7 @@ try
             rollback.commit();
 
             r.state.modifications.notify_changed(
-                path, kl::ctti::is_reflectable_v<node_value_type>);
+                path, detail::has_addressable_descendants_v<node_value_type>);
 
             return operation_result{status_code::ok, {}};
         });
@@ -952,7 +960,7 @@ try
             rollback.commit();
 
             r.state.modifications.notify_changed(
-                path, kl::ctti::is_reflectable_v<node_value_type>);
+                path, detail::has_addressable_descendants_v<node_value_type>);
 
             return operation_result{status_code::ok, {}};
         });

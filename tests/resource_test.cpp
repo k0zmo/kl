@@ -659,6 +659,32 @@ TEST_CASE("resource put", "[resource]")
               kl::resources::modification_tracker::generation{2});
     }
 
+    SECTION("marks collection replacements as subtree changes")
+    {
+        CollectionRoot root{{A{1, true, 1.5, "first"}}, {1, 2, 3}};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"([{"i":2,"b":false,"d":2.5,"str":"second"}])"_json;
+
+        const auto result = kl::resources::put(res, {"items"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(res.state.modifications.changed_at({"items", "0", "str"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("marks optional object replacements as subtree changes")
+    {
+        OptionalRoot root{7, AccessInner{1, 2}, 3, 4};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"({"value":9,"read_only_value":10})"_json;
+
+        const auto result = kl::resources::put(res, {"maybe_inner"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(res.state.modifications.changed_at({"maybe_inner", "value"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
     SECTION("replaces root and marks subtree changed")
     {
         B b{1, false, "Test", {42, true, 3.14, "Hello world!"}};
@@ -1115,6 +1141,20 @@ TEST_CASE("resource patch", "[resource]")
         REQUIRE(res.value.items.size() == 1);
         CHECK(res.value.items[0].str == "first");
         CHECK(res.value.values == std::vector<int>{7, 8});
+    }
+
+    SECTION("marks directly patched collection replacements as subtree changes")
+    {
+        CollectionRoot root{{}, {1, 2, 3}};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"([7,8])"_json;
+
+        const auto result =
+            kl::resources::patch(res, {"values"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(res.state.modifications.changed_at({"values", "0"}) ==
+              kl::resources::modification_tracker::generation{2});
     }
 
     SECTION("rolls back when the patched resource is invalid")
