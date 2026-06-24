@@ -202,6 +202,12 @@ public:
         return false;
     }
 
+    template <typename Attribute, typename Visitor>
+    void visit_attributes(Visitor&&) const
+    {
+        // No-op
+    }
+
     template <typename Child>
     bool is_immutable_child(const Child&) const noexcept
     {
@@ -234,6 +240,12 @@ public:
     {
         // Collection elements have no field attributes of their own.
         return false;
+    }
+
+    template <typename Attribute, typename Visitor>
+    void visit_attributes(Visitor&&) const
+    {
+        // No-op
     }
 
     // Checks whether a given child is a key (attribute child_key points to it)
