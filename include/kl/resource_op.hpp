@@ -146,9 +146,10 @@ bool key_matches(const Element& element, const Key& key, std::string_view segmen
 }
 
 template <typename Field>
-struct field_node
+class field_node
 {
-    Field field_;
+public:
+    field_node(Field f) noexcept : field_{std::move(f)} {}
 
     decltype(auto) value() const noexcept(noexcept(field_.value()))
     {
@@ -178,12 +179,16 @@ struct field_node
     {
         return true;
     }
+
+private:
+    Field field_;
 };
 
 template <typename T>
-struct root_node
+class root_node
 {
-    T& value_;
+public:
+    root_node(T& value) noexcept : value_{value} {}
 
     decltype(auto) value() const noexcept
     {
@@ -208,12 +213,16 @@ struct root_node
     {
         return true;
     }
+
+private:
+    T& value_;
 };
 
 template <typename T, auto ChildKeyPtr = nullptr>
-struct element_node
+class element_node
 {
-    T& value_;
+public:
+    element_node(T& value) noexcept : value_{value} {}
 
     decltype(auto) value() const noexcept
     {
@@ -250,6 +259,9 @@ struct element_node
         else
             return value_.*ChildKeyPtr == candidate.*ChildKeyPtr;
     }
+
+private:
+    T& value_;
 };
 
 // We don't want to classify string as path-traversable
@@ -336,30 +348,27 @@ void validate_node_tree(Node node, Context& ctx)
     {
         if (value)
         {
-            using contained_type = std::remove_reference_t<decltype(*value)>;
-            validate_node_tree(element_node<contained_type>{*value}, ctx);
+            validate_node_tree(element_node{*value}, ctx);
         }
     }
     else if constexpr (kl::ctti::is_reflectable_v<value_type>)
     {
         ctti::reflect_object(value, [&](auto field) {
-            validate_node_tree(field_node<decltype(field)>{field}, ctx);
+            validate_node_tree(field_node{field}, ctx);
         });
     }
     else if constexpr (kl::detail::is_map_alike<value_type>::value)
     {
         for (auto& element : value)
         {
-            using mapped_type = std::remove_reference_t<decltype((element.second))>;
-            validate_node_tree(element_node<mapped_type>{element.second}, ctx);
+             validate_node_tree(element_node{element.second}, ctx);
         }
     }
     else if constexpr (is_non_string_range_v<value_type>)
     {
         for (auto& element : value)
         {
-            using element_type = std::remove_reference_t<decltype(element)>;
-            validate_node_tree(element_node<element_type>{element}, ctx);
+            validate_node_tree(element_node{element}, ctx);
         }
     }
 }
@@ -367,7 +376,7 @@ void validate_node_tree(Node node, Context& ctx)
 template <typename T, typename Context>
 void validate_tree(T& value, Context& ctx)
 {
-    validate_node_tree(root_node<T>{value}, ctx);
+    validate_node_tree(root_node{value}, ctx);
 }
 
 inline constexpr struct copy_backup_t {} copy_backup{};
@@ -507,7 +516,7 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
             const auto ctx_before = ctx;
             ctx.update(node, field);
             result = std::make_unique<Result>(
-                visit_node<Result>(field_node<decltype(field)>{field},
+                visit_node<Result>(field_node{field},
                                    path.drop_front(),
                                    stop_remaining,
                                    ctx,
@@ -530,8 +539,7 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
             throw path_segment_not_found_error{};
 
         return visit_node<Result>(
-            element_node<std::remove_reference_t<decltype((it->second))>>{
-                it->second},
+            element_node{it->second},
             path.drop_front(),
             stop_remaining,
             child_ctx,
@@ -592,7 +600,7 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
         }();
 
         return visit_node<Result>(
-            element_node<std::remove_reference_t<decltype(element)>>{element},
+            element_node{element},
             path.drop_front(),
             stop_remaining,
             child_ctx,
@@ -612,7 +620,7 @@ Result visit_at_path(T& object, path_view path, std::size_t stop_remaining,
                      Visitor&& visitor)
 {
     access_context ctx;
-    return detail::visit_node<Result>(detail::root_node<T>{object}, path,
+    return detail::visit_node<Result>(detail::root_node{object}, path,
                                       stop_remaining, ctx,
                                       std::forward<Visitor>(visitor));
 }
