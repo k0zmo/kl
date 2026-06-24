@@ -508,9 +508,7 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
             if (result)
                 return;
 
-            // FIXME: Use canonical resource name here.
-            // Could be field.name(), or serialized_name(field) if rename() should affect paths.
-            if (path.front() != field.name())
+            if (path.front() != kl::serialization::detail::serialized_name(field))
                 return;
 
             const auto ctx_before = ctx;
@@ -522,7 +520,7 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
                                    ctx,
                                    std::forward<Visitor>(visitor)));
             ctx = ctx_before;
-        }); 
+        });
 
         if (result)
             return std::move(*result);

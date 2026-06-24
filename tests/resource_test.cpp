@@ -1,6 +1,7 @@
 #include "kl/resource.hpp"
 #include "kl/resource_attributes.hpp"
 #include "kl/resource_op.hpp"
+#include "kl/serialization_attributes.hpp"
 #include "kl/reflect_struct.hpp"
 #include "kl/json.hpp"
 
@@ -17,6 +18,7 @@
 namespace {
 
 namespace attr = kl::resources::attributes;
+namespace ser_attr = kl::serialization::attributes;
 
 struct A
 {
@@ -35,6 +37,13 @@ struct B
     A a;
 };
 KL_REFLECT_STRUCT(B, i, b, str, a)
+
+struct RenamedResourceRoot
+{
+    int cpp_name;
+};
+KL_REFLECT_STRUCT(RenamedResourceRoot,
+                  (cpp_name, ser_attr::rename("wireName")))
 
 struct AccessInner
 {
@@ -198,6 +207,7 @@ KL_REFLECT_STRUCT(KeyedCollectionRoot,
                   (string_items, attr::child_key<&A::str>),
                   (int_items, attr::child_key<&IntKeyedItem::id>))
 
+[[maybe_unused]] // false-positive, used in ADL context
 bool resource_key_matches(const IntKeyedItem&, int key, std::string_view segment)
 {
     std::size_t index = 0;
@@ -213,6 +223,7 @@ struct AdlValidated
 };
 KL_REFLECT_STRUCT(AdlValidated, value)
 
+[[maybe_unused]] // false-positive, used in ADL context
 void validate_resource(const AdlValidated& value, kl::json::deserialize_context&)
 {
     if (value.value == 13)
@@ -310,6 +321,16 @@ TEST_CASE("resource get", "[resource]")
 
         CHECK(nested.status == kl::resources::status_code::ok);
         CHECK(nested.body == "1");
+    }
+
+    SECTION("uses serialized field names for renamed fields")
+    {
+        auto renamed_res = kl::resources::make_resource(RenamedResourceRoot{7});
+
+        const auto result = kl::resources::get(renamed_res, {"wireName"}, dumper);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(result.body == "7");
     }
 
     SECTION("returns not found for missing path")
