@@ -527,7 +527,21 @@ Result visit_node(Node node, path_view path, std::size_t stop_remaining,
         if (result)
             return std::move(*result);
 
-        throw path_segment_not_found_error {};
+        throw path_segment_not_found_error{};
+    }
+    else if constexpr (optional_traits<value_type>::is_optional)
+    {
+        if (!node.value())
+            throw path_segment_not_found_error{};
+
+        access_context child_ctx = ctx;
+        child_ctx.update(node);
+
+        return visit_node<Result>(element_node{*node.value()},
+                                  path,
+                                  stop_remaining,
+                                  child_ctx,
+                                  std::forward<Visitor>(visitor));
     }
     else if constexpr (kl::detail::is_map_alike<value_type>::value)
     {

@@ -300,6 +300,18 @@ TEST_CASE("resource get", "[resource]")
         CHECK(nested.body == R"("Hello world!")");
     }
 
+    SECTION("returns nested value inside engaged optional")
+    {
+        OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
+        auto optional_res = kl::resources::make_resource(root);
+
+        const auto nested =
+            kl::resources::get(optional_res, {"maybe_inner", "value"}, dumper);
+
+        CHECK(nested.status == kl::resources::status_code::ok);
+        CHECK(nested.body == "1");
+    }
+
     SECTION("returns not found for missing path")
     {
         const auto result = kl::resources::get(res, {"a", "missing"}, dumper);
@@ -681,6 +693,22 @@ TEST_CASE("resource put", "[resource]")
         const auto result = kl::resources::put(res, {"maybe_inner"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(res.state.modifications.changed_at({"maybe_inner", "value"}) ==
+              kl::resources::modification_tracker::generation{2});
+    }
+
+    SECTION("updates nested value inside engaged optional")
+    {
+        OptionalRoot root{7, AccessInner{1, 2}, 3, 4};
+        auto res = kl::resources::make_resource(root);
+        auto value = R"(9)"_json;
+
+        const auto result = kl::resources::put(res, {"maybe_inner", "value"}, value, ctx);
+
+        CHECK(result.status == kl::resources::status_code::ok);
+        CHECK(result.body.empty());
+        REQUIRE(res.value.maybe_inner.has_value());
+        CHECK(res.value.maybe_inner->value == 9);
         CHECK(res.state.modifications.changed_at({"maybe_inner", "value"}) ==
               kl::resources::modification_tracker::generation{2});
     }
