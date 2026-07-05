@@ -845,6 +845,8 @@ bool delete_direct_child(resource<Root>& r, Node node, path_view full_path,
 
 } // namespace detail
 
+namespace detail {
+
 template <typename T, typename Dumper>
 operation_result get(const resource<T>& r, path_view path, Dumper&& dumper)
 try
@@ -1084,6 +1086,38 @@ catch (const duplicate_child_key_error& ex)
 catch (const validation_error& ex)
 {
     return operation_result{status_code::conflict, ex.what()};
+}
+
+} // namespace detail
+
+template <typename T, typename Dumper>
+operation_result get(const resource<T>& r, const path& path, Dumper&& dumper)
+{
+    return detail::get(r, path.view(), std::forward<Dumper>(dumper));
+}
+
+template <typename T, typename Value, typename Context>
+operation_result put(resource<T>& r, const path& path, const Value& value, Context& ctx)
+{
+    return detail::put(r, path.view(), value, ctx);
+}
+
+template <typename T, typename Value, typename Context>
+operation_result post(resource<T>& r, const path& path, const Value& value, Context& ctx)
+{
+    return detail::post(r, path.view(), value, ctx);
+}
+
+template <typename T, typename Value, typename Context>
+operation_result patch(resource<T>& r, const path& path, const Value& value, Context& ctx)
+{
+    return detail::patch(r, path.view(), value, ctx);
+}
+
+template <typename T, typename Context>
+operation_result del(resource<T>& r, const path& path, Context& ctx)
+{
+    return detail::del(r, path.view(), ctx);
 }
 
 } // namespace kl::resources
