@@ -9,16 +9,9 @@
 // Per-field attributes for controlling serialization/deserialization behaviour.
 namespace kl::serialization::attributes {
 
-// Tag types for field-level serialization control
 struct skip_serialization_t {};
 struct skip_deserialization_t {};
 struct skip_t : skip_serialization_t, skip_deserialization_t {};
-struct skip_if_null_t {};
-struct emit_null_t {};
-struct allow_missing_t {};
-struct skip_if_empty_t {};
-struct flatten_t {};
-struct extra_fields_t {};
 
 template <typename Validator>
 struct validate_t
@@ -104,23 +97,23 @@ inline constexpr skip_t skip{};
 
 // Serialization only. Omit this field when serialization::is_null_value(field.value()) is true.
 // Overrides the context-wide skip_null_fields setting.
-inline constexpr skip_if_null_t skip_if_null{};
+inline constexpr struct skip_if_null_t {} skip_if_null{};
 
 // Serialization only. Force this field to be emitted even
 // when the context-wide skip_null_fields is true.
-inline constexpr emit_null_t emit_null{};
+inline constexpr struct emit_null_t {} emit_null{};
 
 // Deserialization only. If the input key is absent, leave the existing field value unchanged.
-inline constexpr allow_missing_t allow_missing{};
+inline constexpr struct allow_missing_t {} allow_missing{};
 
 // Serialization only. Omit empty strings/containers
-inline constexpr skip_if_empty_t skip_if_empty{};
+inline constexpr struct skip_if_empty_t {} skip_if_empty{};
 
 // Serialize/deserialize reflected object fields directly in the parent object.
-inline constexpr flatten_t flatten{};
+inline constexpr struct flatten_t {} flatten{};
 
 // Serialize/deserialize map-like field entries directly in the parent object.
-inline constexpr extra_fields_t extra_fields{};
+inline constexpr struct extra_fields_t {} extra_fields{};
 
 // Deserialization only. If the input field is missing or present-but-null, assign value
 template <typename T>

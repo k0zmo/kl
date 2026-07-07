@@ -23,6 +23,45 @@
 
 namespace kl::serialization::detail {
 
+template <typename T, typename Value, typename Context>
+struct serializer_patch_compatibility
+{
+private:
+    template <typename, typename, typename, typename = void>
+    struct has_deserialize : std::false_type {};
+
+    // Checks whether serializer<U> defines a correct
+    // `deserialize(U& out, const Value&, Context&)` member function
+    template <typename U, typename V, typename C>
+    struct has_deserialize<
+        U, V, C,
+        std::void_t<decltype(serializer<U>::deserialize(
+            std::declval<U&>(), std::declval<const V&>(),
+            std::declval<C&>()))>> : std::true_type {};
+
+    template <typename, typename, typename, typename = void>
+    struct has_patch : std::false_type {};
+
+    // Checks whether serializer<U> defines a correct
+    // `patch(U& out, const Value&, Context&)` member function
+    template <typename U, typename V, typename C>
+    struct has_patch<
+        U, V, C,
+        std::void_t<decltype(serializer<U>::patch(
+            std::declval<U&>(), std::declval<const V&>(),
+            std::declval<C&>()))>> : std::true_type {};
+
+public:
+    // A serializer with its own deserialize() owns the wire format, so it must also
+    // provide patch(). Otherwise patching can use the normal deserialize fallback.
+    static constexpr bool value =
+        !has_deserialize<T, Value, Context>::value || has_patch<T, Value, Context>::value;
+};
+
+template <typename T, typename Value, typename Context>
+inline constexpr bool is_serializer_patch_compatible_v =
+    serializer_patch_compatibility<T, Value, Context>::value;
+
 template <typename Attribute, typename Field>
 constexpr bool has_attribute(const Field&)
 {
@@ -1076,6 +1115,130 @@ void deserialize_adl(std::optional<T>& out, const typename Backend::value_type& 
     T element{};
     Backend::deserialize(element, value, ctx);
     out = std::move(element);
+}
+
+// patch_adl implementation
+
+template <typename Backend, typename Reflectable, typename Context,
+          enable_if<ctti::is_reflectable<Reflectable>> = true>
+void patch_adl(Reflectable& out, const typename Backend::value_type& value,
+               Context& ctx)
+try
+{
+    static_assert(deserialize_field_names_validator<Reflectable>::validate(),
+                  "reflected patch field name collision (duplicate canonical name)");
+
+    // A non-map patch replaces the whole reflected value.
+    if (!Backend::is_map(value))
+    {
+        Backend::deserialize(out, value, ctx);
+        return;
+    }
+
+    const auto* reserved_names = reserved_field_names<Reflectable>();
+
+    ctti::reflect_object(out, [&value, &reserved_names, &ctx](auto field) {
+        check_field_attributes<decltype(field)>();
+
+        if constexpr (!has_attribute<attributes::skip_deserialization_t>(field))
+        {
+            using Field = decltype(field);
+            if constexpr (Field::template has<attributes::extra_fields_t>())
+            {
+                assert(reserved_names);
+                auto& extras = field.value();
+
+                Backend::for_each_field(value, [&](const auto& key, const auto& node) {
+                    std::string key_value;
+                    bool key_deserialized = false;
+
+                    try
+                    {
+                        Backend::deserialize(key_value, key, ctx);
+                        key_deserialized = true;
+                        if (reserved_names->find(key_value) != reserved_names->end())
+                            return;
+
+                        auto existing = extras.find(key_value);
+                        if (existing != extras.end())
+                        {
+                            Backend::patch(existing->second, node, ctx);
+                        }
+                        else
+                        {
+                            typename remove_cvref_t<decltype(extras)>::mapped_type
+                                mapped_value{};
+                            Backend::patch(mapped_value, node, ctx);
+                            extras.emplace(std::move(key_value),
+                                           std::move(mapped_value));
+                        }
+                    }
+                    catch (deserialize_error& ex)
+                    {
+                        std::string msg = "error when patching extra field ";
+                        msg += key_deserialized ? key_value : "key";
+                        ex.add(msg.c_str());
+                        throw;
+                    }
+                });
+                return;
+            }
+
+            try
+            {
+                if constexpr (Field::template has<attributes::flatten_t>())
+                {
+                    Backend::patch(field.value(), value, ctx);
+                    return;
+                }
+
+                const char* name = resolve_field_name<Backend>(value, field);
+                if (!name)
+                    return;
+
+                const auto& node = Backend::at_field(value, name);
+                if (Backend::is_null(node) && apply_null_field_policy(field))
+                    return;
+                Backend::patch(field.value(), node, ctx);
+                validate_field(field);
+            }
+            catch (deserialize_error& ex)
+            {
+                std::string msg = "error when patching field " +
+                                  std::string(field.name());
+                ex.add(msg.c_str());
+                throw;
+            }
+        }
+    });
+}
+catch (deserialize_error& ex)
+{
+    std::string msg = "error when patching type " +
+                      std::string(ctti::name<Reflectable>());
+    ex.add(msg.c_str());
+    throw;
+}
+
+template <typename Backend, typename T, typename Context>
+void patch_adl(std::optional<T>& out, const typename Backend::value_type& value,
+               Context& ctx)
+{
+    if (Backend::is_null(value))
+        return out.reset();
+
+    if (out)
+    {
+        Backend::patch(*out, value, ctx);
+    }
+    else
+    {
+        static_assert(std::is_default_constructible_v<T>,
+                      "patching an empty optional requires a default constructible value type");
+        T element{};
+        Backend::patch(element, value, ctx);
+        out = std::move(element);
+    }
 }
 
 } // namespace kl::serialization::detail

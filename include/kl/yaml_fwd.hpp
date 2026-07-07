@@ -40,6 +40,12 @@ T deserialize(const YAML::Node& value);
 template <typename T, typename Context>
 T deserialize(const YAML::Node& value, Context& ctx);
 
+template <typename T>
+void patch(T& out, const YAML::Node& value);
+
+template <typename T, typename Context>
+void patch(T& out, const YAML::Node& value, Context& ctx);
+
 struct deserialize_error;
 struct parse_error;
 

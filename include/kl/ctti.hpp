@@ -8,6 +8,7 @@
 #include <cstddef>
 #include <string>
 #include <tuple>
+#include <type_traits>
 #include <typeinfo>
 #include <utility>
 
@@ -37,13 +38,13 @@ public:
     }
 
     template <typename Attribute>
-    static constexpr bool has()
+    static constexpr bool has() noexcept
     {
         return (attribute_matches_v<Attribute, Attributes> || ...);
     }
 
     template <typename Attribute>
-    constexpr const Attribute* get() const
+    constexpr const Attribute* get() const noexcept
     {
         return get_impl<Attribute, 0>();
     }
@@ -52,6 +53,24 @@ public:
     constexpr void visit_attributes(Visitor&& vis) const
     {
         std::apply([&](const auto&... attr) { (vis(attr), ...); }, attributes_);
+    }
+
+    template <typename Attribute, typename Visitor>
+    constexpr void visit_attributes(Visitor&& vis) const
+    {
+        if constexpr (has<Attribute>())
+        {
+            std::apply(
+                [&](const auto&... attr) {
+                    (([&] {
+                         using attr_type = std::decay_t<decltype(attr)>;
+                         if constexpr (attribute_matches_v<Attribute, attr_type>)
+                             vis(attr);
+                     }()),
+                     ...);
+                },
+                attributes_);
+        }
     }
 
 private:
@@ -117,7 +136,7 @@ public:
 
     using detail::field_base<Object, Attributes...>::field_base;
 
-    constexpr decltype(auto) value() const { return ((this->object()).*Ptr); }
+    constexpr decltype(auto) value() const noexcept { return ((this->object()).*Ptr); }
 };
 
 // We can't use CTAD deduction guides for class template with non-deduced
@@ -145,7 +164,11 @@ public:
     {
     }
 
-    constexpr decltype(auto) value() const { return accessor_(this->object()); }
+    constexpr decltype(auto) value() const
+        noexcept(std::is_nothrow_invocable_v<const Accessor&, Object&>)
+    {
+        return accessor_(this->object());
+    }
 
 private:
     Accessor accessor_;

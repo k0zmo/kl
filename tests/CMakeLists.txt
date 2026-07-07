@@ -27,7 +27,7 @@ set(test_files
 )
 
 if(KL_ENABLE_JSON)
-    list(APPEND test_files json_test.cpp input/typedefs.hpp)
+    list(APPEND test_files json_test.cpp resource_test.cpp input/typedefs.hpp)
     target_link_libraries(kl-tests PRIVATE kl::json)
 endif()
 if(KL_ENABLE_YAML)

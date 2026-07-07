@@ -55,6 +55,10 @@ namespace attr = kl::serialization::attributes;
 
 namespace {
 
+struct bare_patch_context
+{
+};
+
 struct serialization_record
 {
     int i;
@@ -365,6 +369,13 @@ struct serializer<custom_empty_value>
         serialization::dump(value.empty, ctx);
     }
 };
+
+static_assert(!detail::is_serializer_patch_compatible_v<
+              custom_empty_value, rapidjson::Value,
+              kl::json::deserialize_context>);
+static_assert(detail::is_serializer_patch_compatible_v<
+              serialization_record, rapidjson::Value,
+              kl::json::deserialize_context>);
 
 template <typename T>
 using serialization_validator = kl::serialization::detail::serialize_field_names_validator<T>;
@@ -833,6 +844,117 @@ c: 30
         CHECK(yaml_out.inner.b == 20);
         CHECK(!yaml_out.inner.skipped_null);
         CHECK(yaml_out.c == 30);
+    }
+}
+
+TEST_CASE("serialization - patch", "[serialization]")
+{
+    SECTION("JSON recursively patches reflected and flattened fields")
+    {
+        flattened_outer_record out{1, {2, 3}, 4};
+        auto value = kl::json::parse(R"({"b":20})");
+        bare_patch_context ctx;
+
+        kl::json::patch(out, value, ctx);
+
+        CHECK(out.a == 1);
+        CHECK(out.inner.b == 20);
+        CHECK(out.inner.skipped_null == 3);
+        CHECK(out.c == 4);
+    }
+
+    SECTION("YAML recursively patches reflected and flattened fields")
+    {
+        flattened_outer_record out{1, {2, 3}, 4};
+        auto value = YAML::Load("b: 20");
+
+        kl::yaml::patch(out, value);
+
+        CHECK(out.a == 1);
+        CHECK(out.inner.b == 20);
+        CHECK(out.inner.skipped_null == 3);
+        CHECK(out.c == 4);
+    }
+
+    SECTION("explicit null resets optional while a missing field is preserved")
+    {
+        nullish_serialization_record out{1, 2, 3, 4};
+        auto value = kl::json::parse(R"({"present":null})");
+        kl::json::deserialize_context ctx;
+
+        kl::serialization::patch(out, value, ctx);
+
+        CHECK(out.context_null == 1);
+        CHECK(out.skipped_null == 2);
+        CHECK(out.emitted_null == 3);
+        CHECK_FALSE(out.present);
+    }
+
+    SECTION("collections use replacement semantics")
+    {
+        serialization_record out{1, "kept", {1, 2, 3}};
+        auto value = kl::json::parse(R"({"values":[7,8]})");
+        kl::json::deserialize_context ctx;
+
+        kl::serialization::patch(out, value, ctx);
+
+        CHECK(out.i == 1);
+        CHECK(out.s == "kept");
+        CHECK(out.values == std::vector<int>{7, 8});
+    }
+
+    SECTION("sequence input replaces a reflected value using normal deserialization")
+    {
+        serialization_record out{1, "old", {1, 2, 3}};
+        auto value = kl::json::parse(R"([7,"new",[8,9]])");
+        kl::json::deserialize_context ctx;
+
+        kl::serialization::patch(out, value, ctx);
+
+        CHECK(out.i == 7);
+        CHECK(out.s == "new");
+        CHECK(out.values == std::vector<int>{8, 9});
+    }
+
+    SECTION("renamed fields and aliases resolve like deserialization")
+    {
+        renamed_serialization_record out{1, 2, 3};
+        auto value = kl::json::parse(
+            R"({"token":20,"request-timeout":30})");
+        kl::json::deserialize_context ctx;
+
+        kl::serialization::patch(out, value, ctx);
+
+        CHECK(out.id == 1);
+        CHECK(out.api_token == 20);
+        CHECK(out.timeout == 30);
+    }
+
+    SECTION("empty optional reflectable value is constructed and patched")
+    {
+        std::optional<flattened_inner_record> out;
+        auto value = kl::json::parse(R"({"b":20})");
+        kl::json::deserialize_context ctx;
+
+        kl::serialization::patch(out, value, ctx);
+
+        REQUIRE(out);
+        CHECK(out->b == 20);
+        CHECK_FALSE(out->skipped_null);
+    }
+
+    SECTION("extra fields are updated without removing absent entries")
+    {
+        int_extra_fields_record out{1, {{"old", 2}, {"changed", 3}}};
+        auto value = kl::json::parse(R"({"a":10,"changed":30,"added":40})");
+        kl::json::deserialize_context ctx;
+
+        kl::serialization::patch(out, value, ctx);
+
+        CHECK(out.a == 10);
+        const std::map<std::string, int> expected{
+            {"added", 40}, {"changed", 30}, {"old", 2}};
+        CHECK(out.extra == expected);
     }
 }
 
