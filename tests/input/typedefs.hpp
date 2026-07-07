@@ -3,6 +3,7 @@
 #include "kl/enum_set.hpp"
 #include "kl/reflect_enum.hpp"
 #include "kl/reflect_struct.hpp"
+#include "kl/serialization_attributes.hpp"
 
 #include <cstddef>
 #include <cstdint>
@@ -21,6 +22,17 @@ struct optional_test
 };
 KL_REFLECT_STRUCT(optional_test, non_opt, opt)
 
+struct skipped_deserialization_sequence_test
+{
+    int a{};
+    int skipped{13};
+    int b{};
+};
+KL_REFLECT_STRUCT(skipped_deserialization_sequence_test,
+                  a,
+                  (skipped, kl::serialization::attributes::skip_deserialization),
+                  b)
+
 struct inner_t
 {
     int r = 1337;
@@ -34,16 +46,16 @@ struct Manual
     int b = 416;
     double c = 2.71828;
 };
-template <typename Visitor, typename Self>
-constexpr void reflect_struct(Visitor&& vis, Self&& self,
-                              ::kl::record_class<Manual>)
+template <typename Factory, typename Visitor>
+constexpr void reflect_struct_fields(Factory&& factory, Visitor&& vis,
+                                     ::kl::ctti::record_class<Manual>)
 {
-    vis(self.a.r, "Ar");
-    vis(self.a.d, "Ad");
-    vis(self.b, "B");
-    vis(self.c, "C");
+    vis(KL_ACCESSOR_FIELD_NAMED("Ar", object.a.r));
+    vis(KL_ACCESSOR_FIELD_NAMED("Ad", object.a.d));
+    vis(KL_ACCESSOR_FIELD_NAMED("B", object.b));
+    vis(KL_ACCESSOR_FIELD_NAMED("C", object.c));
 }
-constexpr std::size_t reflect_num_fields(::kl::record_class<Manual>) noexcept
+constexpr std::size_t reflect_num_fields(::kl::ctti::record_class<Manual>) noexcept
 {
     return 4U;
 }

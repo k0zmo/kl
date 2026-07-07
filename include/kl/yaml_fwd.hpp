@@ -19,10 +19,8 @@ std::string dump(const T& obj);
 template <typename T, typename Context>
 void dump(const T& obj, Context& ctx);
 
-template <typename T>
-struct serializer;
-
 class serialize_context;
+class deserialize_context;
 
 template <typename T>
 YAML::Node serialize(const T& obj);
@@ -33,8 +31,14 @@ YAML::Node serialize(const T& obj, Context& ctx);
 template <typename T>
 void deserialize(T& out, const YAML::Node& value);
 
+template <typename T, typename Context>
+void deserialize(T& out, const YAML::Node& value, Context& ctx);
+
 template <typename T>
 T deserialize(const YAML::Node& value);
+
+template <typename T, typename Context>
+T deserialize(const YAML::Node& value, Context& ctx);
 
 struct deserialize_error;
 struct parse_error;

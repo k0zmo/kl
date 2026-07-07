@@ -1,8 +1,8 @@
 #include "kl/json.hpp"
 #include "kl/ctti.hpp"
-#include "kl/enum_set.hpp"
 #include "kl/reflect_enum.hpp"
 #include "kl/reflect_struct.hpp"
+#include "kl/serialization_error.hpp"
 #include "kl/utility.hpp"
 
 #include "input/typedefs.hpp"
@@ -17,9 +17,8 @@
 #include <rapidjson/stringbuffer.h>
 #include <rapidjson/writer.h>
 
-#include <chrono>
+#include <array>
 #include <cstdint>
-#include <cstring>
 #include <deque>
 #include <list>
 #include <map>
@@ -39,7 +38,7 @@ static std::string to_string(const rapidjson::Value& v)
     return std::string(buffer.GetString());
 }
 
-TEST_CASE("json")
+TEST_CASE("json", "[json][serialization]")
 {
     using namespace kl;
 
@@ -76,7 +75,7 @@ TEST_CASE("json")
     SECTION("parse error")
     {
         REQUIRE_NOTHROW(R"([])"_json);
-        REQUIRE_THROWS_AS(R"([{]})"_json, json::parse_error);
+        REQUIRE_THROWS_AS(R"([{]})"_json, serialization::parse_error);
     }
 
     SECTION("serialize inner_t")
@@ -117,7 +116,7 @@ TEST_CASE("json")
     {
         auto j = R"({"d": 1.0})"_json;
         REQUIRE_THROWS_AS(json::deserialize<inner_t>(j),
-                          json::deserialize_error);
+                          serialization::deserialize_error);
         REQUIRE_THROWS_WITH(json::deserialize<inner_t>(j),
                             "type must be an integral but is a kNullType\n"
                             "error when deserializing field r\n"
@@ -145,7 +144,7 @@ TEST_CASE("json")
     {
         auto j = R"({"Ad": 3.0, "B": 331, "C": 7.66})"_json;
         REQUIRE_THROWS_AS(json::deserialize<Manual>(j),
-                          json::deserialize_error);
+                          serialization::deserialize_error);
         REQUIRE_THROWS_WITH(json::deserialize<Manual>(j),
                             "type must be an integral but is a kNullType\n"
                             "error when deserializing field Ar\n"
@@ -154,7 +153,7 @@ TEST_CASE("json")
 
         j = R"({"Ad": 3.0, "Ar": 21, "C": 7.66})"_json;
         REQUIRE_THROWS_AS(json::deserialize<Manual>(j),
-                          json::deserialize_error);
+                          serialization::deserialize_error);
         REQUIRE_THROWS_WITH(json::deserialize<Manual>(j),
                             "type must be an integral but is a kNullType\n"
                             "error when deserializing field B\n"
@@ -200,6 +199,19 @@ TEST_CASE("json")
         REQUIRE(arr[1].GetDouble() == Catch::Approx(3.14));
         REQUIRE(arr[2] == "lab");
         REQUIRE(arr[3] == true);
+    }
+    
+    SECTION("serialize pair")
+    {
+        auto t = std::make_pair(13, colour_space::lab);
+        auto j = json::serialize(t);
+
+        REQUIRE(j.IsArray());
+        auto arr = j.GetArray();
+
+        REQUIRE(arr.Size() == 2);
+        REQUIRE(arr[0] == 13);
+        REQUIRE(arr[1] == "lab");
     }
 
     SECTION("deserialize simple - wrong types")
@@ -269,7 +281,30 @@ TEST_CASE("json")
 
         j = R"([7, 13, "rgb", 1, true])"_json;
         REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
-                            "type must be a boolean but is a kNumberType");
+                            "sequence size is greater than declared tuple field count");
+    }
+
+    SECTION("deserialize pair")
+    {
+        auto t = std::make_pair(13, colour_space::lab);
+        auto j = json::serialize(t);
+
+        auto obj = json::deserialize<decltype(t)>(j);
+        REQUIRE(std::get<0>(obj) == 13);
+        REQUIRE(std::get<1>(obj) == colour_space::lab);
+
+        j = R"([7, "rgb"])"_json;
+        obj = json::deserialize<decltype(t)>(j);
+        REQUIRE(std::get<0>(obj) == 7);
+        REQUIRE(std::get<1>(obj) == colour_space::rgb);
+
+        j = R"([7])"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
+                            "type must be a string but is a kNullType");
+
+        j = R"([7, 13, "rgb", 1, true])"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<decltype(t)>(j),
+                            "sequence size is greater than pair field count");
     }
 
     SECTION("serialize different types and 'modes' for enums")
@@ -310,7 +345,7 @@ TEST_CASE("json")
 
         j = R"({"e0": 0, "e1": true, "e2": "oe_one_ref", "e3": "one"})"_json;
         REQUIRE_THROWS_WITH(json::deserialize<enums>(j),
-                            "type must be a number but is a kTrueType\n"
+                            "type must be an integral but is a kTrueType\n"
                             "error when deserializing field e1\n"
                             "error when deserializing type " +
                                 kl::ctti::name<enums>());
@@ -603,7 +638,7 @@ TEST_CASE("json")
         auto j = R"([3,4.0,"QWE"])"_json;
         REQUIRE_THROWS_WITH(
             json::deserialize<inner_t>(j),
-            "array size is greater than declared struct's field count\n"
+            "sequence size is greater than declared struct's field count\n"
             "error when deserializing type " +
                 kl::ctti::name<inner_t>());
 
@@ -613,6 +648,13 @@ TEST_CASE("json")
                             "error when deserializing element 1\n"
                             "error when deserializing type " +
                                 kl::ctti::name<inner_t>());
+
+        j = R"([1,2,3])"_json;
+        REQUIRE_THROWS_WITH(
+            json::deserialize<skipped_deserialization_sequence_test>(j),
+            "sequence size is greater than declared struct's field count\n"
+            "error when deserializing type " +
+                kl::ctti::name<skipped_deserialization_sequence_test>());
     }
 
     SECTION("deserialize to struct from an array - tail optional fields")
@@ -621,6 +663,12 @@ TEST_CASE("json")
         auto obj = json::deserialize<optional_test>(j);
         REQUIRE(obj.non_opt == 234);
         REQUIRE(!obj.opt);
+
+        j = R"([1,2])"_json;
+        auto skipped = json::deserialize<skipped_deserialization_sequence_test>(j);
+        REQUIRE(skipped.a == 1);
+        REQUIRE(skipped.skipped == 13);
+        REQUIRE(skipped.b == 2);
     }
 
     SECTION("deserialize floating-point number to int")
@@ -673,6 +721,16 @@ TEST_CASE("json")
         REQUIRE(std::get<0>(t) == 4);
         REQUIRE(std::get<1>(t));
         REQUIRE(!std::get<2>(t).has_value());
+
+        j = R"([4,true,"value"])"_json;
+        t = json::deserialize<tuple_t>(j);
+        REQUIRE(std::get<0>(t) == 4);
+        REQUIRE(std::get<1>(t));
+        REQUIRE(std::get<2>(t) == "value");
+
+        j = R"([4,true,"value","extra"])"_json;
+        REQUIRE_THROWS_WITH(json::deserialize<tuple_t>(j),
+                            "sequence size is greater than declared tuple field count");
     }
 
     SECTION("unsigned: check 32")
@@ -714,6 +772,13 @@ TEST_CASE("json")
             std::unordered_map<std::string, inner_t>{{"inner", inner_t{}}});
         REQUIRE(j5.IsObject());
         REQUIRE(j5.MemberCount() == 1);
+
+        auto j6 = json::serialize(std::array{1, 2, 3});
+        REQUIRE(j6.IsArray());
+        REQUIRE(j6.Size() == 3);
+        REQUIRE(j6[0] == 1);
+        REQUIRE(j6[1] == 2);
+        REQUIRE(j6[2] == 3);
     }
 
     SECTION("from std containers")
@@ -747,82 +812,64 @@ TEST_CASE("json")
         REQUIRE(umap.count("inner") == 1);
         REQUIRE(umap["inner"].d == Catch::Approx(3));
         REQUIRE(umap["inner"].r == 3648);
+
+        auto j3 = R"([1,2,3])"_json;
+        auto array = json::deserialize<std::array<int, 3>>(j3);
+        REQUIRE(array == std::array{1, 2, 3});
+
+        j3 = R"([1,2,3,4])"_json;
+        REQUIRE_THROWS_WITH((json::deserialize<std::array<int, 3>>(j3)),
+                            "sequence size is greater than declared range field count");
+
+        j3 = R"([1])"_json;
+        auto optional_array = json::deserialize<std::array<std::optional<int>, 2>>(j3);
+        REQUIRE(optional_array[0] == 1);
+        REQUIRE(!optional_array[1]);
     }
-}
-
-namespace kl {
-namespace json {
-
-template <>
-struct serializer<std::chrono::seconds>
-{
-    template <typename Context>
-    static rapidjson::Value to_json(const std::chrono::seconds& t, Context& ctx)
-    {
-        return json::serialize(t.count(), ctx);
-    }
-
-    static void from_json(std::chrono::seconds& out,
-                          const rapidjson::Value& value)
-    {
-        out = std::chrono::seconds{json::deserialize<long long>(value)};
-    }
-
-    template <typename Context>
-    static void encode(const std::chrono::seconds& s, Context& ctx)
-    {
-        json::dump(s.count(), ctx);
-    }
-};
-} // namespace json
-} // namespace kl
-
-TEST_CASE("json - extended")
-{
-    using namespace std::chrono;
-    chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}};
-    auto j = kl::json::serialize(t);
-    auto obj = kl::json::deserialize<chrono_test>(j);
 }
 
 template <typename Context>
-rapidjson::Value to_json(global_struct, Context& ctx)
+rapidjson::Value serialize_adl(kl::json::tree_tag, global_struct, Context& ctx)
 {
     return kl::json::serialize("global_struct", ctx);
 }
 
-void from_json(global_struct& out, const rapidjson::Value& value)
+template <typename Context>
+void deserialize_adl(kl::json::tree_tag, global_struct& out,
+                     const rapidjson::Value& value, Context&)
 {
     if (value != "global_struct")
-        throw kl::json::deserialize_error{""};
+        throw kl::serialization::deserialize_error{""};
     out = global_struct{};
 }
 
 namespace my {
 
 template <typename Context>
-rapidjson::Value to_json(none_t, Context&)
+rapidjson::Value serialize_adl(kl::json::tree_tag, none_t, Context&)
 {
     return rapidjson::Value{};
 }
 
-void from_json(none_t& out, const rapidjson::Value& value)
+template <typename Context>
+void deserialize_adl(kl::json::tree_tag, none_t& out, const rapidjson::Value& value, Context&)
 {
-    out = value.IsNull() ? none_t{} : throw kl::json::deserialize_error{""};
+    out = value.IsNull() ? none_t{} : throw kl::serialization::deserialize_error{""};
 }
 
 // Defining such function with specializaton would not be possible as there's no
 // way to partially specialize a function template.
 template <typename T, typename Context>
-rapidjson::Value to_json(const value_wrapper<T>& t, Context& ctx)
+rapidjson::Value serialize_adl(kl::json::tree_tag, const value_wrapper<T>& t, Context& ctx)
 {
     return kl::json::serialize(t.value, ctx);
 }
 
-template <typename T>
-void from_json(value_wrapper<T>& out, const rapidjson::Value& value)
+template <typename T, typename Context>
+void deserialize_adl(kl::json::tree_tag, value_wrapper<T>& out,
+                     const rapidjson::Value& value, Context& ctx)
 {
-    out = value_wrapper<T>{kl::json::deserialize<T>(value)};
+    out = value_wrapper<T>{kl::json::deserialize<T>(value, ctx)};
 }
 } // namespace my
 
@@ -877,7 +924,7 @@ TEST_CASE("json - enum_set")
     }
 }
 
-TEST_CASE("json dump")
+TEST_CASE("json dump", "[json][serialization]")
 {
     using namespace kl;
 
@@ -894,6 +941,7 @@ TEST_CASE("json dump")
         CHECK(json::dump(std::string{"qwe"}) == "\"qwe\"");
         CHECK(json::dump(13.11) == "13.11");
         CHECK(json::dump(ordinary_enum::oe_one) == "0");
+        CHECK(json::dump(ordinary_enum_reflectable::oe_one_ref) == "\"oe_one_ref\"");
         CHECK(json::dump(std::string_view{"qwe"}) == "\"qwe\"");
     }
 
@@ -904,28 +952,23 @@ TEST_CASE("json dump")
 
     SECTION("Manual")
     {
-        CHECK(json::dump(Manual{}) ==
-              R"({"Ar":1337,"Ad":3.1459259999999998,"B":416,"C":2.71828})");
+        CHECK(json::dump(Manual{}) == R"({"Ar":1337,"Ad":3.1459259999999998,"B":416,"C":2.71828})");
     }
 
     SECTION("different types and 'modes' for enums")
     {
-        CHECK(json::dump(enums{}) ==
-              R"({"e0":0,"e1":0,"e2":"oe_one_ref","e3":"one"})");
+        CHECK(json::dump(enums{}) == R"({"e0":0,"e1":0,"e2":"oe_one_ref","e3":"one"})");
     }
 
     SECTION("test unsigned types")
     {
         auto res = json::dump(unsigned_test{});
-        CHECK(
-            res ==
-            R"({"u8":128,"u16":32768,"u32":4294967295,"u64":18446744073709551615})");
+        CHECK(res == R"({"u8":128,"u16":32768,"u32":4294967295,"u64":18446744073709551615})");
     }
 
     SECTION("enum_set")
     {
-        auto f = kl::enum_set{device_type::cpu} | device_type::gpu |
-                 device_type::accelerator;
+        auto f = kl::enum_set{device_type::cpu} | device_type::gpu | device_type::accelerator;
         auto res = json::dump(f);
         CHECK(res == R"(["cpu","gpu","accelerator"])");
 
@@ -979,12 +1022,11 @@ TEST_CASE("json dump")
     SECTION("complex structure with std/boost containers")
     {
         auto res = json::dump(test_t{});
-        CHECK(
-            res ==
-            R"({"hello":"world","t":true,"f":false,"i":123,)"
-            R"("pi":3.1415998935699463,"a":[1,2,3,4],"ad":[[1,2],[3,4,5]],)"
-            R"("space":"lab","tup":[1,3.140000104904175,"QWE"],"map":{"1":"hls","2":"rgb"},)"
-            R"("inner":{"r":1337,"d":3.1459259999999998}})");
+        CHECK(res ==
+              R"({"hello":"world","t":true,"f":false,"i":123,)"
+              R"("pi":3.1415998935699463,"a":[1,2,3,4],"ad":[[1,2],[3,4,5]],)"
+              R"("space":"lab","tup":[1,3.140000104904175,"QWE"],"map":{"1":"hls","2":"rgb"},)"
+              R"("inner":{"r":1337,"d":3.1459259999999998}})");
     }
 
     SECTION("unsigned: check value greater than 0x7FFFFFFU")
@@ -1003,62 +1045,16 @@ TEST_CASE("json dump")
         auto j3 = json::dump(std::deque<inner_t>{inner_t{}});
         CHECK(j3 == R"([{"r":1337,"d":3.1459259999999998}])");
 
-        auto j4 =
-            json::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
+        auto j4 = json::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
         CHECK(j4 == R"({"inner1":{"r":1337,"d":3.1459259999999998}})");
 
-        auto j5 = json::dump(
-            std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
+        auto j5 = json::dump(std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
         CHECK(j5 == R"({"inner2":{"r":1337,"d":3.1459259999999998}})");
     }
 }
 
-namespace {
-
-class my_dump_context
-{
-public:
-    using writer_type = rapidjson::Writer<rapidjson::StringBuffer>;
-
-    explicit my_dump_context(writer_type& writer) : writer_{writer} {}
-
-    writer_type& writer() const { return writer_; }
-
-    template <typename Key, typename Value>
-    bool skip_field(const Key& key, const Value&)
-    {
-        return !std::strcmp(key, "secret");
-    }
-
-private:
-    writer_type& writer_;
-};
-} // namespace
-
-TEST_CASE("json dump - custom context")
-{
-    using namespace kl;
-    using namespace rapidjson;
-
-    StringBuffer sb;
-    Writer<StringBuffer> writer{sb};
-    my_dump_context ctx{writer};
-
-    json::dump(struct_with_blacklisted{}, ctx);
-    std::string res = sb.GetString();
-    CHECK(res == R"({"value":34,"other_non_secret":true})");
-}
-
-TEST_CASE("json dump - extended")
-{
-    using namespace std::chrono;
-    chrono_test t{2, seconds{10}, {seconds{6}, seconds{12}}};
-    const auto res = kl::json::dump(t);
-    CHECK(res == R"({"t":2,"sec":10,"secs":[6,12]})");
-}
-
 template <typename Context>
-void encode(global_struct, Context& ctx)
+void dump_adl(kl::json::stream_tag, global_struct, Context& ctx)
 {
     kl::json::dump("global_struct", ctx);
 }
@@ -1066,19 +1062,19 @@ void encode(global_struct, Context& ctx)
 namespace my {
 
 template <typename Context>
-void encode(none_t, Context& ctx)
+void dump_adl(kl::json::stream_tag, none_t, Context& ctx)
 {
     kl::json::dump(nullptr, ctx);
 }
 
 template <typename T, typename Context>
-void encode(const value_wrapper<T>& t, Context& ctx)
+void dump_adl(kl::json::stream_tag, const value_wrapper<T>& t, Context& ctx)
 {
     kl::json::dump(t.value, ctx);
 }
 } // namespace my
 
-TEST_CASE("json dump - overloading")
+TEST_CASE("json dump - overloading", "[json][serialization]")
 {
     aggregate a{{}, {}, {31}};
     auto res = kl::json::dump(a);
@@ -1113,7 +1109,7 @@ KL_REFLECT_STRUCT(event_a, f1, f2, f3)
 using event_c = std::tuple<std::string, bool, std::vector<int>>;
 } // namespace
 
-TEST_CASE("json::view - two-phase deserialization")
+TEST_CASE("json::view - two-phase deserialization", "[json][serialization]")
 {
     auto j = R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}},)"
              R"({"type":"c","data":["d1",false,[1,2,3]]}])"_json;
@@ -1141,6 +1137,29 @@ TEST_CASE("json::view - two-phase deserialization")
     CHECK(kl::json::dump(objs) ==
           R"([{"type":"a","data":{"f1":3,"f2":true,"f3":"something"}})"
           R"(,{"type":"c","data":["d1",false,[1,2,3]]}])");
+    CHECK(kl::json::pretty_dump(objs) ==
+R"([
+    {
+        "type": "a",
+        "data": {
+            "f1": 3,
+            "f2": true,
+            "f3": "something"
+        }
+    },
+    {
+        "type": "c",
+        "data": [
+            "d1",
+            false,
+            [
+                1,
+                2,
+                3
+            ]
+        ]
+    }
+])");
 }
 
 namespace {
@@ -1153,7 +1172,7 @@ struct zxc
     std::vector<int> d;
 
     template <typename Context>
-    friend rapidjson::Value to_json(const zxc& z, Context& ctx)
+    friend rapidjson::Value serialize_adl(kl::json::tree_tag, const zxc& z, Context& ctx)
     {
         return kl::json::to_object(ctx)
             .add("a", z.a)
@@ -1169,15 +1188,17 @@ struct zxc
         //   return ret;
     }
 
-    friend void from_json(zxc& z, const rapidjson::Value& value)
+    template <typename Context>
+    friend void deserialize_adl(kl::json::tree_tag, zxc& z,
+                                const rapidjson::Value& value, Context& ctx)
     {
-        kl::json::from_object(value)
+        kl::json::from_object(value, ctx)
             .extract("a", z.a)
             .extract("b", z.b)
             .extract("c", z.c)
             .extract("d", z.d);
         // Same as:
-        //   kl::json::expect_object(value);
+        //   check that value is an object;
         //   const auto obj = value.GetObject();
         //   kl::json::deserialize(z.a, kl::json::at(obj, "a"));
         //   kl::json::deserialize(z.b, kl::json::at(obj, "b"));
@@ -1196,7 +1217,8 @@ struct zxc_dynamic_names
     std::vector<int> d;
 
     template <typename Context>
-    friend rapidjson::Value to_json(const zxc_dynamic_names& z, Context& ctx)
+    friend rapidjson::Value serialize_adl(kl::json::tree_tag, const zxc_dynamic_names& z,
+                                          Context& ctx)
     {
         std::string names{"abcd long string to subdue SSO optimization"};
         return kl::json::to_object(ctx)
@@ -1208,7 +1230,7 @@ struct zxc_dynamic_names
 };
 } // namespace
 
-TEST_CASE("json: manually (de)serialized type")
+TEST_CASE("json: manually (de)serialized type", "[json][serialization]")
 {
     zxc z{"asd", 3, true, {1, 2, 34}};
     CHECK(to_string(kl::json::serialize(z)) ==
@@ -1231,7 +1253,7 @@ TEST_CASE("json: manually (de)serialized type")
                       "error when deserializing field c");
 }
 
-TEST_CASE("json: to_array and to_object")
+TEST_CASE("json: to_array and to_object", "[json][serialization]")
 {
     kl::json::owning_serialize_context ctx;
 
@@ -1257,14 +1279,15 @@ TEST_CASE("json: to_array and to_object")
           R"({"a":"zxc","b":222,"c":false,"d":[1]}]})");
 }
 
-TEST_CASE("json: from_array and from_object")
+TEST_CASE("json: from_array and from_object", "[json][serialization]")
 {
     const auto j =
         R"({"ctx":123,"array":[{"r":331,"d":5.6},{"something":true},3]})"_json;
 
     int ctx;
     kl::json::view av;
-    kl::json::from_object(j).extract("ctx", ctx).extract("array", av);
+    kl::json::deserialize_context context;
+    kl::json::from_object(j, context).extract("ctx", ctx).extract("array", av);
     REQUIRE(ctx == 123);
     const auto& jarr = kl::json::at(j.GetObject(), "array");
     REQUIRE(jarr == av.value());
@@ -1272,16 +1295,38 @@ TEST_CASE("json: from_array and from_object")
     inner_t inn;
     kl::json::view view;
     int i;
-    kl::json::from_array(jarr).extract(inn).extract(view, 1).extract(i);
+    kl::json::from_array(jarr, context).extract(inn).extract(view, 1).extract(i);
     REQUIRE(inn.r == 331);
     REQUIRE(inn.d == Catch::Approx(5.6));
     REQUIRE(i == 3);
 
     bool smth;
-    kl::json::from_object(view.value()).extract("something", smth);
+    kl::json::from_object(view.value(), context).extract("something", smth);
     REQUIRE(smth);
 
-    REQUIRE_THROWS_WITH(kl::json::from_array(jarr).extract(smth, 2),
+    REQUIRE_THROWS_WITH(kl::json::from_array(jarr, context).extract(smth, 2),
                         "type must be a boolean but is a kNumberType\n"
                         "error when deserializing element 2");
+}
+
+TEST_CASE("json serialize owns dynamic map keys", "[json][serialization]")
+{
+    std::map<std::string, int> source;
+    auto [it, inserted] = source.emplace("dynamic-key-that-must-be-copied", 7);
+    REQUIRE(inserted);
+
+    auto value = kl::json::serialize(source);
+
+    REQUIRE(value.IsObject());
+    REQUIRE(value.MemberCount() == 1);
+
+    auto member_it = value.MemberBegin();
+    REQUIRE(member_it != value.MemberEnd());
+
+    CHECK(std::string_view{member_it->name.GetString(), member_it->name.GetStringLength()} ==
+          "dynamic-key-that-must-be-copied");
+
+    // This should not point into the source map's string storage.
+    // With the current json_tree_backend::add_field implementation, it does.
+    CHECK(member_it->name.GetString() != it->first.c_str());
 }

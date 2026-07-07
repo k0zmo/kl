@@ -51,13 +51,11 @@ public:
 
 private:
     // because `d` and `e` are private
-    template <typename Visitor, typename Self>
-    friend constexpr void reflect_struct(Visitor&&, Self&&,
-                                         ::kl::record_class<T>);
+    KL_REFLECT_STRUCT_DERIVED_FRIEND(T, (A, S), d, e)
+
     std::string d;
     std::vector<std::string> e;
 };
-KL_REFLECT_STRUCT_DERIVED(T, (A, S), d, e)
 } // namespace inner
 
 struct B : A
@@ -74,10 +72,48 @@ struct ZZZ
     int& ref_a = a;
     const int& ref_b = b;
 };
-KL_REFLECT_STRUCT(ZZZ, a, b, ref_a, ref_b)
-} // namespace test
+template <typename Factory, typename Visitor>
+[[maybe_unused]] constexpr void reflect_struct_fields(Factory&& factory, Visitor&& vis,
+                                                      ::kl::ctti::record_class<ZZZ>)
+{
+    vis(KL_ACCESSOR_FIELD(a));
+    vis(KL_ACCESSOR_FIELD(b));
+    vis(KL_ACCESSOR_FIELD(ref_a));
+    vis(KL_ACCESSOR_FIELD(ref_b));
+}
 
-namespace {
+[[maybe_unused]] constexpr std::size_t
+    reflect_num_fields(::kl::ctti::record_class<ZZZ>) noexcept
+{
+    return 4;
+}
+
+struct attr_base {};
+struct attr_derived : attr_base {};
+struct attr_value
+{
+    int value;
+};
+
+struct WithAttrs
+{
+    int visible;
+    int annotated;
+};
+KL_REFLECT_STRUCT(WithAttrs, visible, (annotated, attr_derived{}, attr_value{42}))
+
+struct has_attr_tester
+{
+    int a;
+    int b;
+    int c;
+    KL_REFLECT_STRUCT_FRIEND(has_attr_tester, (a, attr_base{}), (b), (c, attr_value{3}))
+};
+static_assert(kl::ctti::has_any_attribute<has_attr_tester, attr_base>());
+static_assert(!kl::ctti::has_any_attribute<has_attr_tester, attr_derived>());
+static_assert(kl::ctti::has_any_attribute<has_attr_tester, attr_value>());
+static_assert(kl::ctti::has_any_attribute<has_attr_tester, attr_base, attr_value>());
+static_assert(kl::ctti::has_any_attribute<has_attr_tester, attr_derived, attr_base>());
 
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<T>& v)
@@ -91,25 +127,10 @@ std::ostream& operator<<(std::ostream& os, const std::array<T, N>& v)
     return os << kl::stream_join(v);
 }
 
-template <typename T>
-std::ostream& trampoline_operator(std::ostream& os, const T& obj)
-{
-    os << obj;
-    return os;
-}
-} // namespace
-
-namespace test {
-
 std::ostream& operator<<(std::ostream& os, const A& a)
 {
-    kl::ctti::reflect(a, [&os](auto& field, auto name) {
-        os << name << ": ";
-        // This is used so GCC 7 and 8 will also consider `operator<<` for
-        // vector<T> and array<T,N> defined above (see
-        // https://godbolt.org/z/dw9DdN)
-        trampoline_operator(os, field);
-        os << "\n";
+    kl::ctti::reflect_object(a, [&os](auto field) {
+        os << field.name() << ": " << field.value() << "\n";
     });
     return os;
 }
@@ -128,28 +149,54 @@ TEST_CASE("ctti")
     SECTION("type not registered")
     {
         using T = std::vector<int>;
-        REQUIRE(!kl::ctti::is_reflectable<T>);
+        REQUIRE(!kl::ctti::is_reflectable_v<T>);
     }
 
     SECTION("global type A")
     {
-        REQUIRE(kl::ctti::is_reflectable<A>);
+        REQUIRE(kl::ctti::is_reflectable_v<A>);
         REQUIRE(kl::ctti::num_fields<A>() == 2);
 
         std::ostringstream ss;
         A a = {"ZXC", {1,2,3}, 0};
-        kl::ctti::reflect(a, [&ss](auto& field, auto name){
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect_object(a, [&ss](auto field){
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "x: ZXC\ny: 1, 2, 3\n");
+    }
+
+    SECTION("field attributes")
+    {
+        WithAttrs value{1, 2};
+        unsigned acc{};
+        kl::ctti::reflect_object(value, [&](auto field) {
+            if (acc == 0)
+            {
+                CHECK(field.name() == "visible"s);
+                CHECK(field.value() == 1);
+                CHECK(!field.template has<attr_base>());
+            }
+            else
+            {
+                CHECK(field.name() == "annotated"s);
+                CHECK(field.value() == 2);
+                CHECK(field.template has<attr_base>());
+                REQUIRE(field.template get<attr_base>() != nullptr);
+                REQUIRE(field.template get<attr_value>() != nullptr);
+                CHECK(field.template get<attr_value>()->value == 42);
+            }
+            ++acc;
+        });
+
+        CHECK(acc == 2);
     }
 
     SECTION("global type B, derives from A")
     {
         using B = ns::B;
 
-        REQUIRE(kl::ctti::is_reflectable<B>);
+        REQUIRE(kl::ctti::is_reflectable_v<B>);
         REQUIRE(kl::ctti::num_fields<B>() == 3);
 
         std::ostringstream ss;
@@ -158,8 +205,8 @@ TEST_CASE("ctti")
         b.y = {0, 1337};
         b.zzz = 123;
         b.z = 0;
-        kl::ctti::reflect(b, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect_object(b, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
@@ -177,8 +224,8 @@ TEST_CASE("ctti")
         const B& ref_b = b;
 
         std::ostringstream ss;
-        kl::ctti::reflect(ref_b, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect_object(ref_b, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "x: QWE\ny: 0, 1337\nzzz: 123\n");
@@ -186,15 +233,15 @@ TEST_CASE("ctti")
 
     SECTION("type S in namespace ns with std::array<>")
     {
-        REQUIRE(kl::ctti::is_reflectable<S>);
+        REQUIRE(kl::ctti::is_reflectable_v<S>);
         static_assert(kl::ctti::num_fields<S>() == 4);
 
         const S s = {5, false, {3.14f}, A{"ZXC", {1, 2, 3, 4, 5, 6}, 0}};
 
         std::ostringstream ss;
         ss << std::boolalpha;
-        kl::ctti::reflect(s, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect_object(s, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "a: 5\nb: false\nc: 3.14, 0, 0\naa: x: ZXC\ny: 1, "
@@ -203,7 +250,7 @@ TEST_CASE("ctti")
 
     SECTION("type Sdev")
     {
-        REQUIRE(kl::ctti::is_reflectable<Sdev>);
+        REQUIRE(kl::ctti::is_reflectable_v<Sdev>);
         static_assert(kl::ctti::num_fields<Sdev>() == 3);
 
         Sdev sd{};
@@ -213,8 +260,8 @@ TEST_CASE("ctti")
 
         std::ostringstream ss;
         ss << std::boolalpha;
-        kl::ctti::reflect(sd, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect_object(sd, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
 
         REQUIRE(ss.str() == "a: 3400\nb: true\nadev: 114\n");
@@ -224,7 +271,7 @@ TEST_CASE("ctti")
     {
         using T = ns::inner::T;
 
-        REQUIRE(kl::ctti::is_reflectable<T>);
+        REQUIRE(kl::ctti::is_reflectable_v<T>);
         REQUIRE(kl::ctti::num_fields<T>() == 2 + 2+ 4);
 
         T t{"HELLO",{"WORLD", "Hello"}};
@@ -234,11 +281,27 @@ TEST_CASE("ctti")
 
         std::ostringstream ss;
         ss << std::boolalpha;
-        kl::ctti::reflect(t, [&ss](auto& field, auto name) {
-            ss << name << ": " << field << "\n";
+        kl::ctti::reflect_object(t, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
         });
         REQUIRE(ss.str() == "x: \ny: .\na: 2\nb: true\nc: 2.71, 3.14, "
                             "1.67\naa: x: \ny: .\n\nd: HELLO\ne: WORLD, "
                             "Hello\n");
+    }
+
+    SECTION("type ZZZ, with references")
+    {
+        REQUIRE(kl::ctti::is_reflectable_v<ZZZ>);
+        static_assert(kl::ctti::num_fields<ZZZ>() == 4);
+
+        const ZZZ zzz = {5, 11};
+
+        std::ostringstream ss;
+        ss << std::boolalpha;
+        kl::ctti::reflect_object(zzz, [&ss](auto field) {
+            ss << field.name() << ": " << field.value() << "\n";
+        });
+
+        REQUIRE(ss.str() == "a: 5\nb: 11\nref_a: 5\nref_b: 11\n");
     }
 }

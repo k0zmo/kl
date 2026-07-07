@@ -58,6 +58,25 @@ TEST_CASE("type_traits")
                       int>::value);
     }
 
+    SECTION("member_pointer_traits")
+    {
+        struct s
+        {
+            int value;
+            const double constant = 0.0;
+        };
+
+        static_assert(std::is_same<
+                      kl::member_pointer_traits<&s::value>::value_type,
+                      int>::value);
+        static_assert(std::is_same<
+                      kl::member_pointer_traits<&s::value>::class_type,
+                      s>::value);
+        static_assert(std::is_same<
+                      kl::member_pointer_traits<&s::constant>::value_type,
+                      const double>::value);
+    }
+
     SECTION("func_traits - functor")
     {
         struct op { bool operator()(double d) { return d < 0.0; } };

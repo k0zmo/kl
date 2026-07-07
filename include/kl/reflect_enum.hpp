@@ -30,7 +30,7 @@
      kl::enum_reflector<ns::enum_>::from_string("bb");
      kl::enum_reflector<ns::enum_>::count();
      kl::enum_reflector<ns::enum_>::values();
- * Alternatively, use kl::reflect<ns::enum_>()
+ * Alternatively, use kl::reflect_enum<ns::enum_>()
 
  * Remarks: Macro KL_REFLECT_ENUM works for unscoped enums as well as scoped
    enums.

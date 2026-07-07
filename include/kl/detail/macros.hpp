@@ -9,6 +9,8 @@
 #include <boost/preprocessor/seq/size.hpp>
 #include <boost/preprocessor/stringize.hpp>
 #include <boost/preprocessor/tuple/elem.hpp>
+#include <boost/preprocessor/tuple/enum.hpp>
+#include <boost/preprocessor/tuple/pop_front.hpp>
 #include <boost/preprocessor/tuple/push_back.hpp>
 #include <boost/preprocessor/tuple/size.hpp>
 #include <boost/preprocessor/variadic/to_tuple.hpp>
@@ -19,6 +21,9 @@
 
 // Concatenates two identifiers
 #define KL_CONCAT(a_, b_) BOOST_PP_CAT(a_, b_)
+
+// Expands to then_ if cond_ is non-zero, otherwise to else_
+#define KL_IF(cond_, then_, else_) BOOST_PP_IF(cond_, then_, else_)
 
 // Turns a, b, c into (a)(b)(c)
 #define KL_VARIADIC_TO_SEQ(...) BOOST_PP_VARIADIC_TO_SEQ(__VA_ARGS__)
@@ -56,6 +61,40 @@
 // Returns the tuple element of given index
 #define KL_TUPLE_ELEM(index_, tuple_) BOOST_PP_TUPLE_ELEM(index_, tuple_)
 
+// Returns the tuple with first element removed
+#define KL_TUPLE_POP_FRONT(tuple_) BOOST_PP_TUPLE_POP_FRONT(tuple_)
+
+// Expands tuple elements as comma-separated tokens
+#define KL_TUPLE_ENUM(tuple_) BOOST_PP_TUPLE_ENUM(tuple_)
+
+// Expands to ", tail..." when tuple_ has more than one element, otherwise empty.
+// Useful when tuple_[0] is a primary value and remaining elements are optional
+// constructor/function arguments.
+#define KL_TUPLE_ENUM_POP_FRONT_COMMA(tuple_)                                  \
+    KL_IF(KL_TUPLE_SIZE_MINUS_ONE(tuple_),                                     \
+          KL_TUPLE_ENUM_POP_FRONT_COMMA_IMPL,                                  \
+          KL_TUPLE_ENUM_POP_FRONT_COMMA_EMPTY)(tuple_)
+
+#define KL_TUPLE_ENUM_POP_FRONT_COMMA_IMPL(tuple_)                             \
+    , KL_TUPLE_ENUM(KL_TUPLE_POP_FRONT(tuple_))
+
+#define KL_TUPLE_ENUM_POP_FRONT_COMMA_EMPTY(tuple_)
+
+// Expands tuple's tail (every element after the first) wrapping each entry
+// inside a nullary lambda that returns that entry, prefixed by a leading
+// comma. For (name, attr1, attr2) the expansion is
+//   , []{ return attr1; }, []{ return attr2; }
+#define KL_TUPLE_ENUM_POP_FRONT_LAMBDA_COMMA(tuple_)                           \
+    KL_IF(KL_TUPLE_SIZE_MINUS_ONE(tuple_),                                     \
+          KL_TUPLE_ENUM_POP_FRONT_LAMBDA_COMMA_IMPL,                           \
+          KL_TUPLE_ENUM_POP_FRONT_COMMA_EMPTY)(tuple_)
+
+#define KL_TUPLE_ENUM_POP_FRONT_LAMBDA_COMMA_IMPL(tuple_)                      \
+    KL_TUPLE_FOR_EACH(KL_TUPLE_POP_FRONT(tuple_), KL_LAMBDA_WRAP_COMMA_ENTRY)
+
+#define KL_LAMBDA_WRAP_COMMA_ENTRY(arg_)                                       \
+    , [] { return arg_; }
+
 // Append arg_ to the tuple_
 #define KL_TUPLE_PUSH_BACK(tuple_, arg_) BOOST_PP_TUPLE_PUSH_BACK(tuple_, arg_)
 
@@ -71,8 +110,8 @@
 //   (x, y)    -> (x, y)    :nop
 //   (x, y, z) -> (x, y, z) :nop
 #define KL_TUPLE_EXTEND_BY_FIRST_IMPL(tuple_)                                  \
-    BOOST_PP_IF(KL_TUPLE_SIZE_MINUS_ONE(tuple_), tuple_,                       \
-                KL_TUPLE_PUSH_BACK(tuple_, KL_TUPLE_ELEM(0, tuple_)))
+    KL_IF(KL_TUPLE_SIZE_MINUS_ONE(tuple_), tuple_,                             \
+          KL_TUPLE_PUSH_BACK(tuple_, KL_TUPLE_ELEM(0, tuple_)))
 
 // Does the for -each for the tuple.
 // Body is a macro invoked with (tuple_[i])

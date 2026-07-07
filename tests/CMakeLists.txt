@@ -25,26 +25,31 @@ set(test_files
     utility_test.cpp
     zip_test.cpp
 )
-target_sources(kl-tests PRIVATE ${test_files})
-target_link_libraries(kl-tests PRIVATE
-    kl::kl
-    Catch2::Catch2WithMain
-)
 
 if(KL_ENABLE_JSON)
-    target_sources(kl-tests PRIVATE json_test.cpp input/typedefs.hpp)
+    list(APPEND test_files json_test.cpp input/typedefs.hpp)
     target_link_libraries(kl-tests PRIVATE kl::json)
 endif()
 if(KL_ENABLE_YAML)
-    target_sources(kl-tests PRIVATE yaml_test.cpp input/typedefs.hpp)
+    list(APPEND test_files yaml_test.cpp input/typedefs.hpp)
     target_link_libraries(kl-tests PRIVATE kl::yaml)
 endif()
+if(KL_ENABLE_JSON AND KL_ENABLE_YAML)
+    list(APPEND test_files serialization_test.cpp)
+endif()
+
+target_sources(kl-tests PRIVATE ${test_files})
 
 kl_source_group(kl-tests
     TREE ${CMAKE_CURRENT_SOURCE_DIR}
     PREFIX kl
 )
 set_target_properties(kl-tests PROPERTIES FOLDER kl.tests)
+
+target_link_libraries(kl-tests PRIVATE
+    kl::kl
+    Catch2::Catch2WithMain
+)
 
 foreach(test_file ${test_files})
     get_filename_component(no_ext ${test_file} NAME_WE)

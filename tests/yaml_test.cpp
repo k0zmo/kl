@@ -4,6 +4,7 @@
 #include "kl/yaml.hpp"
 #include "kl/ctti.hpp"
 #include "kl/enum_set.hpp"
+#include "kl/serialization_error.hpp"
 #include "input/typedefs.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -13,9 +14,8 @@
 
 #include <yaml-cpp/yaml.h>
 
-#include <chrono>
+#include <array>
 #include <cstdint>
-#include <cstring>
 #include <deque>
 #include <list>
 #include <map>
@@ -27,7 +27,7 @@
 #include <utility>
 #include <vector>
 
-TEST_CASE("yaml")
+TEST_CASE("yaml", "[yaml][serialization]")
 {
     using namespace kl;
 
@@ -56,14 +56,13 @@ TEST_CASE("yaml")
         CHECK(yaml::deserialize<unsigned>("33"_yaml) == 33U);
         CHECK(yaml::deserialize<bool>("true"_yaml));
         CHECK(yaml::deserialize<double>("13.11"_yaml) == Catch::Approx{13.11});
-        CHECK(yaml::deserialize<ordinary_enum>("0"_yaml) ==
-              ordinary_enum::oe_one);
+        CHECK(yaml::deserialize<ordinary_enum>("0"_yaml) == ordinary_enum::oe_one);
     }
 
     SECTION("parse error")
     {
         REQUIRE_NOTHROW(R"([])"_yaml);
-        REQUIRE_THROWS_AS(R"([{]})"_yaml, yaml::parse_error);
+        REQUIRE_THROWS_AS(R"([{]})"_yaml, serialization::parse_error);
     }
 
     SECTION("serialize inner_t")
@@ -94,8 +93,7 @@ TEST_CASE("yaml")
 
     SECTION("deserialize inner_t - empty yaml")
     {
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>({}),
-                          yaml::deserialize_error);
+        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>({}), serialization::deserialize_error);
         REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>({}),
                             "type must be a sequence or map but is a Null\n"
                             "error when deserializing type " +
@@ -105,13 +103,11 @@ TEST_CASE("yaml")
     SECTION("deserialize inner_t - missing one field")
     {
         auto y = "d: 1.0"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y),
-                            "type must be a scalar but is a Null\n"
-                            "error when deserializing field r\n"
-                            "error when deserializing type " +
-                                kl::ctti::name<inner_t>());
+        REQUIRE_THROWS_AS(yaml::deserialize<inner_t>(y), serialization::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<inner_t>(y), "type must be a scalar but is a Null\n"
+                                                           "error when deserializing field r\n"
+                                                           "error when deserializing type " +
+                                                               kl::ctti::name<inner_t>());
     }
 
     SECTION("deserialize inner_t - one additional field")
@@ -133,21 +129,17 @@ TEST_CASE("yaml")
     SECTION("deserialize Manual - missing one field")
     {
         auto y = "Ad: 1.0\nB: 22\nC: 6.777"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y),
-                            "type must be a scalar but is a Null\n"
-                            "error when deserializing field Ar\n"
-                            "error when deserializing type " +
-                                kl::ctti::name<Manual>());
+        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y), serialization::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y), "type must be a scalar but is a Null\n"
+                                                          "error when deserializing field Ar\n"
+                                                          "error when deserializing type " +
+                                                              kl::ctti::name<Manual>());
         y = "Ad: 1.0\nAr: 2\nC: 6.777"_yaml;
-        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y),
-                          yaml::deserialize_error);
-        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y),
-                            "type must be a scalar but is a Null\n"
-                            "error when deserializing field B\n"
-                            "error when deserializing type " +
-                                kl::ctti::name<Manual>());
+        REQUIRE_THROWS_AS(yaml::deserialize<Manual>(y), serialization::deserialize_error);
+        REQUIRE_THROWS_WITH(yaml::deserialize<Manual>(y), "type must be a scalar but is a Null\n"
+                                                          "error when deserializing field B\n"
+                                                          "error when deserializing type " +
+                                                              kl::ctti::name<Manual>());
     }
 
     SECTION("deserialize Manual")
@@ -187,6 +179,18 @@ TEST_CASE("yaml")
         CHECK(y[1].as<double>() == Catch::Approx(3.14));
         CHECK(y[2].as<std::string>() == "lab");
         CHECK(y[3].as<bool>() == true);
+    }
+
+    SECTION("serialize pair")
+    {
+        auto t = std::make_pair(13, colour_space::lab);
+        auto y = yaml::serialize(t);
+
+        REQUIRE(y.IsSequence());
+
+        REQUIRE(y.size() == 2);
+        CHECK(y[0].as<int>() == 13);
+        CHECK(y[1].as<std::string>() == "lab");
     }
 
     SECTION("deserialize simple - wrong types")
@@ -248,6 +252,29 @@ TEST_CASE("yaml")
         REQUIRE(std::get<3>(obj) == true);
 
         y = R"([7, 13, hls])"_yaml;
+        REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
+                            "type must be a scalar but is a Null");
+
+        y = "7, 13, rgb, 1, true"_yaml;
+        REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
+                            "type must be a sequence but is a Scalar");
+    }
+
+    SECTION("deserialize pair")
+    {
+        auto t = std::make_pair(13, colour_space::lab);
+        auto y = yaml::serialize(t);
+
+        auto obj = yaml::deserialize<decltype(t)>(y);
+        REQUIRE(std::get<0>(obj) == 13);
+        REQUIRE(std::get<1>(obj) == colour_space::lab);
+
+        y = "[7, rgb]"_yaml;
+        obj = yaml::deserialize<decltype(t)>(y);
+        REQUIRE(std::get<0>(obj) == 7);
+        REQUIRE(std::get<1>(obj) == colour_space::rgb);
+
+        y = R"([7])"_yaml;
         REQUIRE_THROWS_WITH(yaml::deserialize<decltype(t)>(y),
                             "type must be a scalar but is a Null");
 
@@ -411,8 +438,7 @@ TEST_CASE("yaml")
         REQUIRE(y["tup"].IsSequence());
         REQUIRE(y["tup"].size() == 3);
         REQUIRE(y["tup"].as<YAML::Node>()[0].as<int>() == 1);
-        REQUIRE(y["tup"].as<YAML::Node>()[1].as<double>() ==
-                Catch::Approx{3.14f});
+        REQUIRE(y["tup"].as<YAML::Node>()[1].as<double>() == Catch::Approx{3.14f});
         REQUIRE(y["tup"].as<YAML::Node>()[2].as<std::string>() == "QWE");
 
         REQUIRE(y["map"].IsMap());
@@ -612,6 +638,13 @@ tup:
                             "error when deserializing element 1\n"
                             "error when deserializing type " +
                                 kl::ctti::name<inner_t>());
+
+        y = "[1,2,3]"_yaml;
+        REQUIRE_THROWS_WITH(
+            yaml::deserialize<skipped_deserialization_sequence_test>(y),
+            "sequence size is greater than declared struct's field count\n"
+            "error when deserializing type " +
+                kl::ctti::name<skipped_deserialization_sequence_test>());
     }
 
     SECTION("deserialize to struct from an array - tail optional fields")
@@ -620,6 +653,12 @@ tup:
         auto obj = yaml::deserialize<optional_test>(y);
         REQUIRE(obj.non_opt == 234);
         REQUIRE(!obj.opt);
+
+        y = "[1,2]"_yaml;
+        auto skipped = yaml::deserialize<skipped_deserialization_sequence_test>(y);
+        REQUIRE(skipped.a == 1);
+        REQUIRE(skipped.skipped == 13);
+        REQUIRE(skipped.b == 2);
     }
 
     SECTION("deserialize floating-point number to int")
@@ -674,6 +713,16 @@ tup:
         REQUIRE(std::get<0>(t) == 4);
         REQUIRE(std::get<1>(t));
         REQUIRE(!std::get<2>(t).has_value());
+
+        y = R"([4,true,value])"_yaml;
+        t = yaml::deserialize<tuple_t>(y);
+        REQUIRE(std::get<0>(t) == 4);
+        REQUIRE(std::get<1>(t));
+        REQUIRE(std::get<2>(t) == "value");
+
+        y = R"([4,true,value,extra])"_yaml;
+        REQUIRE_THROWS_WITH(yaml::deserialize<tuple_t>(y),
+                            "sequence size is greater than declared tuple field count");
     }
 
     SECTION("to std containers")
@@ -699,6 +748,13 @@ tup:
             std::unordered_map<std::string, inner_t>{{"inner", inner_t{}}});
         REQUIRE(y5.IsMap());
         REQUIRE(y5.size() == 1);
+
+        auto y6 = yaml::serialize(std::array{1, 2, 3});
+        REQUIRE(y6.IsSequence());
+        REQUIRE(y6.size() == 3);
+        REQUIRE(y6[0].as<int>() == 1);
+        REQUIRE(y6[1].as<int>() == 2);
+        REQUIRE(y6[2].as<int>() == 3);
     }
 
     SECTION("from std containers")
@@ -732,85 +788,69 @@ tup:
         REQUIRE(umap.count("inner") == 1);
         REQUIRE(umap["inner"].d == Catch::Approx(3));
         REQUIRE(umap["inner"].r == 3648);
+
+        auto y3 = "[1,2,3]"_yaml;
+        auto array = yaml::deserialize<std::array<int, 3>>(y3);
+        REQUIRE(array == std::array{1, 2, 3});
+
+        y3 = "[1,2,3,4]"_yaml;
+        REQUIRE_THROWS_WITH((yaml::deserialize<std::array<int, 3>>(y3)),
+                            "sequence size is greater than declared range field count");
+
+        y3 = "[1]"_yaml;
+        auto optional_array = yaml::deserialize<std::array<std::optional<int>, 2>>(y3);
+        REQUIRE(optional_array[0] == 1);
+        REQUIRE(!optional_array[1]);
     }
-}
-
-namespace kl {
-namespace yaml {
-
-template <>
-struct serializer<std::chrono::seconds>
-{
-    template <typename Context>
-    static YAML::Node to_yaml(const std::chrono::seconds& t, Context& ctx)
-    {
-        return yaml::serialize(t.count(), ctx);
-    }
-
-    static void from_yaml(std::chrono::seconds& out, const YAML::Node& value)
-    {
-        out = std::chrono::seconds{yaml::deserialize<long long>(value)};
-    }
-
-    template <typename Context>
-    static void encode(const std::chrono::seconds& s, Context& ctx)
-    {
-        yaml::dump(s.count(), ctx);
-    }
-};
-} // namespace yaml
-} // namespace kl
-
-TEST_CASE("yaml - extended")
-{
-    using namespace std::chrono;
-    chrono_test t{2, seconds{10}, {seconds{10}, seconds{10}}};
-    auto y = kl::yaml::serialize(t);
-    auto obj = kl::yaml::deserialize<chrono_test>(y);
 }
 
 template <typename Context>
-YAML::Node to_yaml(global_struct, Context& ctx)
+YAML::Node serialize_adl(kl::yaml::tree_tag, global_struct, Context& ctx)
 {
     return kl::yaml::serialize("global_struct", ctx);
 }
 
-void from_yaml(global_struct& out, const YAML::Node& value)
+template <typename Context>
+void deserialize_adl(kl::yaml::tree_tag, global_struct& out, const YAML::Node& value,
+                     Context&)
 {
     if (value.Scalar() != "global_struct")
-        throw kl::yaml::deserialize_error{""};
+        throw kl::serialization::deserialize_error{""};
     out = global_struct{};
 }
 
 namespace my {
 
 template <typename Context>
-YAML::Node to_yaml(none_t, Context&)
+YAML::Node serialize_adl(kl::yaml::tree_tag, none_t, Context&)
 {
     return YAML::Node{};
 }
 
-void from_yaml(none_t& out, const YAML::Node& value)
+template <typename Context>
+void deserialize_adl(kl::yaml::tree_tag, none_t& out, const YAML::Node& value,
+                     Context&)
 {
-    out = value.IsNull() ? none_t{} : throw kl::yaml::deserialize_error{""};
+    out = value.IsNull() ? none_t{} : throw kl::serialization::deserialize_error{""};
 }
 
 // Defining such function with specializaton would not be possible as there's no
 // way to partially specialize a function template.
 template <typename T, typename Context>
-YAML::Node to_yaml(const value_wrapper<T>& t, Context& ctx)
+YAML::Node serialize_adl(kl::yaml::tree_tag, const value_wrapper<T>& t, Context& ctx)
 {
     return kl::yaml::serialize(t.value, ctx);
 }
 
-template <typename T>
-void from_yaml(value_wrapper<T>& out, const YAML::Node& value)
+template <typename T, typename Context>
+void deserialize_adl(kl::yaml::tree_tag, value_wrapper<T>& out, const YAML::Node& value,
+                     Context& ctx)
 {
-    out = value_wrapper<T>{kl::yaml::deserialize<T>(value)};
+    out = value_wrapper<T>{kl::yaml::deserialize<T>(value, ctx)};
 }
 } // namespace my
 
-TEST_CASE("yaml - overloading")
+TEST_CASE("yaml - overloading", "[yaml][serialization]")
 {
     aggregate a{{}, {}, {31}};
     auto y = kl::yaml::serialize(a);
@@ -820,7 +860,7 @@ TEST_CASE("yaml - overloading")
     REQUIRE(obj.w.value == 31);
 }
 
-TEST_CASE("yaml - enum_set")
+TEST_CASE("yaml - enum_set", "[yaml][serialization]")
 {
     SECTION("to yaml")
     {
@@ -861,7 +901,7 @@ TEST_CASE("yaml - enum_set")
     }
 }
 
-TEST_CASE("yaml dump")
+TEST_CASE("yaml dump", "[yaml][serialization]")
 {
     using namespace kl;
 
@@ -878,6 +918,7 @@ TEST_CASE("yaml dump")
         CHECK(yaml::dump(std::string{"qwe"}) == "qwe");
         CHECK(yaml::dump(13.22).substr(0, 5) == "13.22");
         CHECK(yaml::dump(ordinary_enum::oe_one) == "0");
+        CHECK(yaml::dump(ordinary_enum_reflectable::oe_one_ref) == "oe_one_ref");
     }
 
     SECTION("inner_t")
@@ -887,8 +928,7 @@ TEST_CASE("yaml dump")
 
     SECTION("Manual")
     {
-        CHECK(yaml::dump(Manual{}) ==
-              "Ar: 1337\nAd: 3.145926\nB: 416\nC: 2.71828");
+        CHECK(yaml::dump(Manual{}) == "Ar: 1337\nAd: 3.145926\nB: 416\nC: 2.71828");
     }
 
     SECTION("different types and 'modes' for enums")
@@ -912,8 +952,7 @@ TEST_CASE("yaml dump")
 
     SECTION("enum_set")
     {
-        auto f = kl::enum_set{device_type::cpu} | device_type::gpu |
-                 device_type::accelerator;
+        auto f = kl::enum_set{device_type::cpu} | device_type::gpu | device_type::accelerator;
         auto res = yaml::dump(f);
         CHECK(res == "- cpu\n- gpu\n- accelerator");
 
@@ -1012,58 +1051,16 @@ inner:
         auto y3 = yaml::dump(std::deque<inner_t>{inner_t{}});
         CHECK(y3 == "- r: 1337\n  d: 3.145926");
 
-        auto y4 =
-            yaml::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
+        auto y4 = yaml::dump(std::map<std::string, inner_t>{{"inner1", inner_t{}}});
         CHECK(y4 == "inner1:\n  r: 1337\n  d: 3.145926");
 
-        auto y5 = yaml::dump(
-            std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
+        auto y5 = yaml::dump(std::unordered_map<std::string, inner_t>{{"inner2", inner_t{}}});
         CHECK(y5 == "inner2:\n  r: 1337\n  d: 3.145926");
     }
 }
 
-namespace {
-
-class my_dump_context
-{
-public:
-    explicit my_dump_context(YAML::Emitter& emitter) : emitter_{emitter} {}
-
-    YAML::Emitter& emitter() const { return emitter_; }
-
-    template <typename Key, typename Value>
-    bool skip_field(const Key& key, const Value&)
-    {
-        return !std::strcmp(key, "secret");
-    }
-
-private:
-    YAML::Emitter& emitter_;
-};
-} // namespace
-
-TEST_CASE("yaml dump - custom context")
-{
-    using namespace kl;
-
-    YAML::Emitter emitter;
-    my_dump_context ctx{emitter};
-
-    yaml::dump(struct_with_blacklisted{}, ctx);
-    std::string res = emitter.c_str();
-    CHECK(res == "value: 34\nother_non_secret: true");
-}
-
-TEST_CASE("yaml dump - extended")
-{
-    using namespace std::chrono;
-    chrono_test t{2, seconds{10}, {seconds{6}, seconds{12}}};
-    const auto res = kl::yaml::dump(t);
-    CHECK(res == "t: 2\nsec: 10\nsecs:\n  - 6\n  - 12");
-}
-
 template <typename Context>
-void encode(global_struct, Context& ctx)
+void dump_adl(kl::yaml::stream_tag, global_struct, Context& ctx)
 {
     kl::yaml::dump("global_struct", ctx);
 }
@@ -1071,19 +1068,19 @@ void encode(global_struct, Context& ctx)
 namespace my {
 
 template <typename Context>
-void encode(none_t, Context& ctx)
+void dump_adl(kl::yaml::stream_tag, none_t, Context& ctx)
 {
     kl::yaml::dump(nullptr, ctx);
 }
 
 template <typename T, typename Context>
-void encode(const value_wrapper<T>& t, Context& ctx)
+void dump_adl(kl::yaml::stream_tag, const value_wrapper<T>& t, Context& ctx)
 {
     kl::yaml::dump(t.value, ctx);
 }
 } // namespace my
 
-TEST_CASE("yaml dump - overloading")
+TEST_CASE("yaml dump - overloading", "[yaml][serialization]")
 {
     aggregate a{{}, {}, {31}};
     auto res = kl::yaml::dump(a);
@@ -1118,7 +1115,7 @@ KL_REFLECT_STRUCT(event_a, f1, f2, f3)
 using event_c = std::tuple<std::string, bool, std::vector<int>>;
 } // namespace
 
-TEST_CASE("yaml::view - two-phase deserialization")
+TEST_CASE("yaml::view - two-phase deserialization", "[yaml][serialization]")
 {
     auto y =
         R"(---
@@ -1182,7 +1179,7 @@ struct zxc
     std::vector<int> d;
 
     template <typename Context>
-    friend YAML::Node to_yaml(const zxc& z, Context& ctx)
+    friend YAML::Node serialize_adl(kl::yaml::tree_tag, const zxc& z, Context& ctx)
     {
         return kl::yaml::to_map(ctx)
             .add("a", z.a)
@@ -1198,15 +1195,17 @@ struct zxc
         //   return ret;
     }
 
-    friend void from_yaml(zxc& z, const YAML::Node& value)
+    template <typename Context>
+    friend void deserialize_adl(kl::yaml::tree_tag, zxc& z, const YAML::Node& value,
+                                Context& ctx)
     {
-        kl::yaml::from_map(value)
+        kl::yaml::from_map(value, ctx)
             .extract("a", z.a)
             .extract("b", z.b)
             .extract("c", z.c)
             .extract("d", z.d);
         // Same as:
-        //   kl::yaml::expect_map(value);
+        //   check that value is a map;
         //   kl::yaml::deserialize(z.a, kl::yaml::at(value, "a"));
         //   kl::yaml::deserialize(z.b, kl::yaml::at(value, "b"));
         //   kl::yaml::deserialize(z.c, kl::yaml::at(value, "c"));
@@ -1217,7 +1216,7 @@ struct zxc
 };
 } // namespace
 
-TEST_CASE("yaml: manually (de)serialized type")
+TEST_CASE("yaml: manually (de)serialized type", "[yaml][serialization]")
 {
     zxc z{"asd", 3, true, {1, 2, 34}};
     CHECK(YAML::Dump(kl::yaml::serialize(z)) ==
@@ -1249,7 +1248,7 @@ d:
                       "\nerror when deserializing field c");
 }
 
-TEST_CASE("yaml: to_sequence and to_map")
+TEST_CASE("yaml: to_sequence and to_map", "[yaml][serialization]")
 {
     kl::yaml::serialize_context ctx;
 
@@ -1274,7 +1273,7 @@ TEST_CASE("yaml: to_sequence and to_map")
                  R"(, {a: zxc, b: 222, c: false, d: [1]}]})");
 }
 
-TEST_CASE("yaml: from_sequence and from_map")
+TEST_CASE("yaml: from_sequence and from_map", "[yaml][serialization]")
 {
     const auto y =
         R"(ctx: 123
@@ -1286,7 +1285,8 @@ array:
 
     int ctx;
     kl::yaml::view av;
-    kl::yaml::from_map(y).extract("ctx", ctx).extract("array", av);
+    kl::yaml::deserialize_context context;
+    kl::yaml::from_map(y, context).extract("ctx", ctx).extract("array", av);
     REQUIRE(ctx == 123);
     const auto& yseq = kl::yaml::at(y, "array");
     REQUIRE(yseq == av.value());
@@ -1294,7 +1294,7 @@ array:
     inner_t inn;
     kl::yaml::view view;
     int i;
-    kl::yaml::from_sequence(av.value())
+    kl::yaml::from_sequence(av.value(), context)
         .extract(inn)
         .extract(view, 1)
         .extract(i);
@@ -1303,10 +1303,10 @@ array:
     REQUIRE(i == 3);
 
     bool smth;
-    kl::yaml::from_map(view.value()).extract("something", smth);
+    kl::yaml::from_map(view.value(), context).extract("something", smth);
     REQUIRE(smth);
 
-    REQUIRE_THROWS_WITH(kl::yaml::from_sequence(av.value()).extract(smth, 2),
+    REQUIRE_THROWS_WITH(kl::yaml::from_sequence(av.value(), context).extract(smth, 2),
                         "yaml-cpp: error at line 6, column 5: bad conversion\n"
                         "error when deserializing element 2");
 }

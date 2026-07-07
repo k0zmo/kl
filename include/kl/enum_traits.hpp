@@ -83,14 +83,14 @@ struct enum_trait_support_range
 
     static_assert(count() > 0, "count() > 0 constaint is not fulfilled");
 
-    constexpr static bool in_range(Enum e) noexcept
+    static constexpr bool in_range(Enum e) noexcept
     {
         return underlying_cast(e) >= min_value() &&
                underlying_cast(e) < max_value();
     }
 
     template <typename Integral, enable_if<std::is_integral<Integral>> = true>
-    constexpr static bool in_range(Integral v) noexcept
+    static constexpr bool in_range(Integral v) noexcept
     {
         return v >= min_value() && v < max_value();
     }

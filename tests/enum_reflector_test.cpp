@@ -113,10 +113,10 @@ TEST_CASE("enum_reflector")
     SECTION("reflector for enum type in namespace")
     {
         using namespace std::string_literals;
-        auto refl = kl::reflect<ns::inner::colour_space>();
+        auto refl = kl::reflect_enum<ns::inner::colour_space>();
 
         REQUIRE(refl.count() == 7);
-        static_assert(kl::reflect<ns::inner::colour_space>().count() == 7, "");
+        static_assert(kl::reflect_enum<ns::inner::colour_space>().count() == 7, "");
 
         SECTION("to_string")
         {
