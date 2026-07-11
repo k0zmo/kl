@@ -1,8 +1,8 @@
 {
-    "name": "Ubuntu 22.04",
+    "name": "Ubuntu 26.04",
     "build": {
-        "dockerfile": "../../docker/ubuntu-22.04/Dockerfile",
-        "context": "../../docker/ubuntu-22.04"
+        "dockerfile": "../../docker/ubuntu-26.04/Dockerfile",
+        "context": "../../docker/ubuntu-26.04"
     },
     "customizations": {
         "vscode": {
@@ -17,8 +17,8 @@
         }
     },
     "containerEnv": {
-        "NINJA_STATUS": "[%r processes, %f/%t @ %o/s : %es] ",
+        "NINJA_STATUS": "[%s/%f/%t] (j%r/%es/%Es/%P) ",
         "CCACHE_DIR": "${containerWorkspaceFolder}/.cache/ccache"
     },
-    "remoteUser": "dev"
+    "remoteUser": "ubuntu"
 }

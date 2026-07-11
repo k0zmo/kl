@@ -17,7 +17,7 @@
         }
     },
     "containerEnv": {
-        "NINJA_STATUS": "[%r processes, %f/%t @ %o/s : %es] ",
+        "NINJA_STATUS": "[%s/%f/%t] (j%r/%es/%Es/%P) ",
         "CCACHE_DIR": "${containerWorkspaceFolder}/.cache/ccache"
     },
     "remoteUser": "ubuntu"
