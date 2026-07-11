@@ -61,6 +61,13 @@ target_link_libraries(kl
 if(TARGET Boost::disable_autolinking)
     target_link_libraries(kl PRIVATE Boost::disable_autolinking)
 endif()
+
+# Silence the warning about the __COUNTER__ usage on a recent Clang
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND 
+   CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 22)
+    target_compile_options(kl PUBLIC -Wno-c2y-extensions)
+endif()
+
 kl_source_group(kl TREE ${kl_SOURCE_DIR})
 set_target_properties(kl PROPERTIES FOLDER kl DEBUG_POSTFIX d)
 add_library(kl::kl ALIAS kl)
