@@ -1,6 +1,7 @@
 #include "kl/resource.hpp"
 #include "kl/resource_attributes.hpp"
 #include "kl/resource_op.hpp"
+#include "kl/path.hpp"
 #include "kl/serialization_attributes.hpp"
 #include "kl/reflect_struct.hpp"
 #include "kl/json.hpp"
@@ -231,7 +232,7 @@ void validate_resource(const AdlValidated& value, kl::json::deserialize_context&
 }
 
 template <typename T>
-auto dump_json(const T& obj, const kl::resources::path& path)
+auto dump_json(const T& obj, const kl::path& path)
 {
     return kl::resources::visit_at_path<std::string>(
         obj, path.view(),
@@ -240,32 +241,6 @@ auto dump_json(const T& obj, const kl::resources::path& path)
 
 } // namespace
 
-TEST_CASE("resource path parses URL-style strings", "[resource]")
-{
-    auto check_path = [](const kl::resources::path& path,
-                         std::initializer_list<std::string_view> expected) {
-        REQUIRE(path.size() == expected.size());
-
-        std::size_t index = 0;
-        for (auto segment : expected)
-            CHECK(path[index++] == segment);
-    };
-
-    check_path(kl::resources::path{""}, {});
-    check_path(kl::resources::path{"/"}, {});
-    check_path(kl::resources::path{"/a/b"}, {"a", "b"});
-    check_path(kl::resources::path{"/a//b/"}, {"a", "b"});
-    check_path(kl::resources::path{"/a/../b"}, {"b"});
-    check_path(kl::resources::path{"/a/./b"}, {"a", "b"});
-    check_path(kl::resources::path{"/a/%2E/%2E%2E"}, {"a", ".", ".."});
-
-    CHECK_THROWS_AS(kl::resources::path{"/a/%"}, kl::resources::path_parse_error);
-    CHECK_THROWS_AS(kl::resources::path{"/items/name%2Fsurname"},
-                    kl::resources::path_parse_error);
-    CHECK_THROWS_AS(kl::resources::path{"/items/name%2fsurname"},
-                    kl::resources::path_parse_error);
-}
-
 TEST_CASE("resource", "[resource]")
 {
     B b{1, false, "Test", {42, true, 3.14, "Hello world!"}};
@@ -273,29 +248,29 @@ TEST_CASE("resource", "[resource]")
 
     SECTION("dumps values at path")
     {
-        CHECK(dump_json(res.value, kl::resources::path{""}) ==
+        CHECK(dump_json(res.value, kl::path{""}) ==
               R"({"i":1,"b":false,"str":"Test","a":{"i":42,"b":true,"d":3.14,"str":"Hello world!"}})");
-        CHECK(dump_json(res.value, kl::resources::path{"/str"}) == R"("Test")");
-        CHECK(dump_json(res.value, kl::resources::path{"/a"}) ==
+        CHECK(dump_json(res.value, kl::path{"/str"}) == R"("Test")");
+        CHECK(dump_json(res.value, kl::path{"/a"}) ==
               R"({"i":42,"b":true,"d":3.14,"str":"Hello world!"})");
-        CHECK(dump_json(res.value, kl::resources::path{"/a/i"}) == "42");
-        CHECK(dump_json(res.value, kl::resources::path{"/a/str"}) == "\"Hello world!\"");
+        CHECK(dump_json(res.value, kl::path{"/a/i"}) == "42");
+        CHECK(dump_json(res.value, kl::path{"/a/str"}) == "\"Hello world!\"");
     }
 
     SECTION("reports invalid paths")
     {
-        CHECK_THROWS_AS(dump_json(res.value, kl::resources::path{"/a/str1"}),
+        CHECK_THROWS_AS(dump_json(res.value, kl::path{"/a/str1"}),
                         kl::resources::path_segment_not_found_error);
-        CHECK_THROWS_AS(dump_json(res.value, kl::resources::path{"/c"}),
+        CHECK_THROWS_AS(dump_json(res.value, kl::path{"/c"}),
                         kl::resources::path_segment_not_found_error);
-        CHECK_THROWS_AS(dump_json(res.value, kl::resources::path{"/a/str/x"}),
+        CHECK_THROWS_AS(dump_json(res.value, kl::path{"/a/str/x"}),
                         kl::resources::path_not_traversable_error);
     }
 
     SECTION("serializes value at path")
     {
         kl::json::owning_serialize_context serctx;
-        auto json = kl::resources::serialize_at_path(res.value, kl::resources::path{"/a/str"}.view(), serctx);
+        auto json = kl::resources::serialize_at_path(res.value, kl::path{"/a/str"}.view(), serctx);
         CHECK(kl::json::dump(json) == "\"Hello world!\"");
     }
 
@@ -303,7 +278,7 @@ TEST_CASE("resource", "[resource]")
     {
         auto a1j = R"({"i":13,"b":false,"d":2.72,"str":"byebye"})"_json;
         kl::json::deserialize_context dectx;
-        kl::resources::deserialize_at_path(res.value, kl::resources::path{"/a"}.view(), a1j, dectx);
+        kl::resources::deserialize_at_path(res.value, kl::path{"/a"}.view(), a1j, dectx);
         CHECK(res.value.a.i == 13);
         CHECK(res.value.a.b == false);
         CHECK(res.value.a.d == 2.72);
@@ -313,9 +288,9 @@ TEST_CASE("resource", "[resource]")
         CHECK(res.value.str == "Test");
 
         auto strj = R"("updated")"_json;
-        kl::resources::deserialize_at_path(res.value, kl::resources::path{"/a/str"}.view(), strj, dectx);
+        kl::resources::deserialize_at_path(res.value, kl::path{"/a/str"}.view(), strj, dectx);
         CHECK(res.value.a.str == "updated");
-        CHECK(dump_json(res.value, kl::resources::path{"/a/str"}) == R"("updated")");
+        CHECK(dump_json(res.value, kl::path{"/a/str"}) == R"("updated")");
     }
 }
 
@@ -327,19 +302,19 @@ TEST_CASE("resource get", "[resource]")
 
     SECTION("returns serialized value at path")
     {
-        const auto root = kl::resources::get(res, kl::resources::path{""}, dumper);
+        const auto root = kl::resources::get(res, kl::path{""}, dumper);
         CHECK(root.status == kl::resources::status_code::ok);
         CHECK(root.body ==
               R"({"i":1,"b":false,"str":"Test","a":{"i":42,"b":true,"d":3.14,"str":"Hello world!"}})");
 
-        const auto nested = kl::resources::get(res, kl::resources::path{"/a/str"}, dumper);
+        const auto nested = kl::resources::get(res, kl::path{"/a/str"}, dumper);
         CHECK(nested.status == kl::resources::status_code::ok);
         CHECK(nested.body == R"("Hello world!")");
     }
 
     SECTION("normalizes dot segments in string paths")
     {
-        const auto result = kl::resources::get(res, kl::resources::path{"/a/../str"}, dumper);
+        const auto result = kl::resources::get(res, kl::path{"/a/../str"}, dumper);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(result.body == R"("Test")");
@@ -347,7 +322,7 @@ TEST_CASE("resource get", "[resource]")
 
     SECTION("rejects invalid path encoding during construction")
     {
-        CHECK_THROWS_AS(kl::resources::path{"/a/%"}, kl::resources::path_parse_error);
+        CHECK_THROWS_AS(kl::path{"/a/%"}, kl::path_parse_error);
     }
 
     SECTION("returns nested value inside engaged optional")
@@ -356,7 +331,7 @@ TEST_CASE("resource get", "[resource]")
         auto optional_res = kl::resources::make_resource(root);
 
         const auto nested =
-            kl::resources::get(optional_res, kl::resources::path{"/maybe_inner/value"}, dumper);
+            kl::resources::get(optional_res, kl::path{"/maybe_inner/value"}, dumper);
 
         CHECK(nested.status == kl::resources::status_code::ok);
         CHECK(nested.body == "1");
@@ -366,7 +341,7 @@ TEST_CASE("resource get", "[resource]")
     {
         auto renamed_res = kl::resources::make_resource(RenamedResourceRoot{7});
 
-        const auto result = kl::resources::get(renamed_res, kl::resources::path{"/wireName"}, dumper);
+        const auto result = kl::resources::get(renamed_res, kl::path{"/wireName"}, dumper);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(result.body == "7");
@@ -374,7 +349,7 @@ TEST_CASE("resource get", "[resource]")
 
     SECTION("returns not found for missing path")
     {
-        const auto result = kl::resources::get(res, kl::resources::path{"/a/missing"}, dumper);
+        const auto result = kl::resources::get(res, kl::path{"/a/missing"}, dumper);
 
         CHECK(result.status == kl::resources::status_code::not_found);
         CHECK(result.body.empty());
@@ -382,7 +357,7 @@ TEST_CASE("resource get", "[resource]")
 
     SECTION("returns not found when path is not traversable")
     {
-        const auto result = kl::resources::get(res, kl::resources::path{"/a/str/x"}, dumper);
+        const auto result = kl::resources::get(res, kl::path{"/a/str/x"}, dumper);
 
         CHECK(result.status == kl::resources::status_code::not_found);
         CHECK(result.body.empty());
@@ -403,37 +378,37 @@ TEST_CASE("resource indexed collection traversal", "[resource]")
 
     SECTION("serializes collection element by index")
     {
-        CHECK(dump_json(res.value, kl::resources::path{"/items/0"}) ==
+        CHECK(dump_json(res.value, kl::path{"/items/0"}) ==
               R"({"i":1,"b":true,"d":1.5,"str":"first"})");
-        CHECK(dump_json(res.value, kl::resources::path{"/items/1/str"}) == R"("second")");
-        CHECK(dump_json(res.value, kl::resources::path{"/values/2"}) == "9");
+        CHECK(dump_json(res.value, kl::path{"/items/1/str"}) == R"("second")");
+        CHECK(dump_json(res.value, kl::path{"/values/2"}) == "9");
 
         kl::json::owning_serialize_context ctx;
-        auto json = kl::resources::serialize_at_path(res.value, kl::resources::path{"/items/1/i"}.view(), ctx);
+        auto json = kl::resources::serialize_at_path(res.value, kl::path{"/items/1/i"}.view(), ctx);
         CHECK(kl::json::dump(json) == "2");
     }
 
     SECTION("get returns collection element by index")
     {
-        const auto element = kl::resources::get(res, kl::resources::path{"/items/0"}, dumper);
+        const auto element = kl::resources::get(res, kl::path{"/items/0"}, dumper);
         CHECK(element.status == kl::resources::status_code::ok);
         CHECK(element.body == R"({"i":1,"b":true,"d":1.5,"str":"first"})");
 
-        const auto leaf = kl::resources::get(res, kl::resources::path{"/items/1/str"}, dumper);
+        const auto leaf = kl::resources::get(res, kl::path{"/items/1/str"}, dumper);
         CHECK(leaf.status == kl::resources::status_code::ok);
         CHECK(leaf.body == R"("second")");
     }
 
     SECTION("reports invalid collection index paths")
     {
-        CHECK_THROWS_AS(dump_json(res.value, kl::resources::path{"/items/2"}),
+        CHECK_THROWS_AS(dump_json(res.value, kl::path{"/items/2"}),
                         kl::resources::path_segment_not_found_error);
-        CHECK_THROWS_AS(dump_json(res.value, kl::resources::path{"/items/abc"}),
+        CHECK_THROWS_AS(dump_json(res.value, kl::path{"/items/abc"}),
                         kl::resources::path_segment_not_found_error);
-        CHECK_THROWS_AS(dump_json(res.value, kl::resources::path{"/values/0/x"}),
+        CHECK_THROWS_AS(dump_json(res.value, kl::path{"/values/0/x"}),
                         kl::resources::path_not_traversable_error);
 
-        const auto missing = kl::resources::get(res, kl::resources::path{"/items/2"}, dumper);
+        const auto missing = kl::resources::get(res, kl::path{"/items/2"}, dumper);
         CHECK(missing.status == kl::resources::status_code::not_found);
         CHECK(missing.body.empty());
     }
@@ -453,11 +428,11 @@ TEST_CASE("resource map traversal", "[resource]")
 
     SECTION("gets mapped values by key")
     {
-        const auto element = kl::resources::get(res, kl::resources::path{"/items/fifth"}, dumper);
+        const auto element = kl::resources::get(res, kl::path{"/items/fifth"}, dumper);
         CHECK(element.status == kl::resources::status_code::ok);
         CHECK(element.body == R"({"i":5,"b":false,"d":5.5,"str":"fifth"})");
 
-        const auto leaf = kl::resources::get(res, kl::resources::path{"/items/ninth/str"}, dumper);
+        const auto leaf = kl::resources::get(res, kl::path{"/items/ninth/str"}, dumper);
         CHECK(leaf.status == kl::resources::status_code::ok);
         CHECK(leaf.body == R"("ninth")");
     }
@@ -468,7 +443,7 @@ TEST_CASE("resource map traversal", "[resource]")
         auto value = R"(42)"_json;
 
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/items/fifth/i"}, value, ctx);
+            kl::resources::put(res, kl::path{"/items/fifth/i"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(result.body.empty());
@@ -478,7 +453,7 @@ TEST_CASE("resource map traversal", "[resource]")
 
     SECTION("returns not found for missing keys")
     {
-        const auto result = kl::resources::get(res, kl::resources::path{"/items/missing"}, dumper);
+        const auto result = kl::resources::get(res, kl::path{"/items/missing"}, dumper);
 
         CHECK(result.status == kl::resources::status_code::not_found);
         CHECK(result.body.empty());
@@ -499,7 +474,7 @@ TEST_CASE("resource map validation", "[resource]")
 
     SECTION("gets mapped values by key (transparent lookup)")
     {
-        const auto element = kl::resources::get(res, kl::resources::path{"/items/limits"}, dumper);
+        const auto element = kl::resources::get(res, kl::path{"/items/limits"}, dumper);
         CHECK(element.status == kl::resources::status_code::ok);
         CHECK(element.body == R"({"min":1,"max":10})");
     }
@@ -507,7 +482,7 @@ TEST_CASE("resource map validation", "[resource]")
     SECTION("validate leaf constaint")
     {
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/items/limits/min"}, value, ctx);
+            kl::resources::put(res, kl::path{"/items/limits/min"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "min must be less than or equal to max");
@@ -535,19 +510,19 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
 
     SECTION("serializes collection element by key")
     {
-        CHECK(dump_json(res.value, kl::resources::path{"/string_items/second"}) ==
+        CHECK(dump_json(res.value, kl::path{"/string_items/second"}) ==
               R"({"i":2,"b":false,"d":2.5,"str":"second"})");
-        CHECK(dump_json(res.value, kl::resources::path{"/string_items/second/i"}) == "2");
+        CHECK(dump_json(res.value, kl::path{"/string_items/second/i"}) == "2");
     }
 
     SECTION("get returns collection element by key")
     {
-        const auto element = kl::resources::get(res, kl::resources::path{"/string_items/first"}, dumper);
+        const auto element = kl::resources::get(res, kl::path{"/string_items/first"}, dumper);
         CHECK(element.status == kl::resources::status_code::ok);
         CHECK(element.body == R"({"i":1,"b":true,"d":1.5,"str":"first"})");
 
         const auto leaf =
-            kl::resources::get(res, kl::resources::path{"/string_items/second/str"}, dumper);
+            kl::resources::get(res, kl::path{"/string_items/second/str"}, dumper);
         CHECK(leaf.status == kl::resources::status_code::ok);
         CHECK(leaf.body == R"("second")");
     }
@@ -558,13 +533,13 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
         auto value = R"(42)"_json;
 
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/string_items/second/i"}, value, ctx);
+            kl::resources::put(res, kl::path{"/string_items/second/i"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(result.body.empty());
         CHECK(res.value.string_items[0].i == 1);
         CHECK(res.value.string_items[1].i == 42);
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/string_items/second/i"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/string_items/second/i"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -574,7 +549,7 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
         auto value = R"("first")"_json;
 
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/string_items/second/str"}, value, ctx);
+            kl::resources::put(res, kl::path{"/string_items/second/str"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -590,7 +565,7 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
         auto value = R"({"i":2,"b":false,"d":2.5,"str":"renamed"})"_json;
 
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/string_items/second"}, value, ctx);
+            kl::resources::put(res, kl::path{"/string_items/second"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -605,7 +580,7 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
         auto value = R"({"i":42,"b":true,"d":4.5,"str":"second"})"_json;
 
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/string_items/second"}, value, ctx);
+            kl::resources::put(res, kl::path{"/string_items/second"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(result.body.empty());
@@ -622,7 +597,7 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
             R"([{"i":3,"b":true,"d":3.5,"str":"duplicate"},{"i":4,"b":false,"d":4.5,"str":"duplicate"}])"_json;
 
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/string_items"}, value, ctx);
+            kl::resources::put(res, kl::path{"/string_items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "duplicate child key");
@@ -639,7 +614,7 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
         auto value =
             R"({"string_items":[{"i":3,"b":true,"d":3.5,"str":"duplicate"},{"i":4,"b":false,"d":4.5,"str":"duplicate"}],"int_items":[{"id":7,"name":"seven","note":"lucky"},{"id":13,"name":"thirteen","note":"prime"}]})"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{""}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{""}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "duplicate child key");
@@ -652,21 +627,21 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
 
     SECTION("keyed collections do not fall back to index traversal")
     {
-        CHECK_THROWS_AS(dump_json(res.value, kl::resources::path{"/string_items/0"}),
+        CHECK_THROWS_AS(dump_json(res.value, kl::path{"/string_items/0"}),
                         kl::resources::path_segment_not_found_error);
 
-        const auto missing = kl::resources::get(res, kl::resources::path{"/string_items/0"}, dumper);
+        const auto missing = kl::resources::get(res, kl::path{"/string_items/0"}, dumper);
         CHECK(missing.status == kl::resources::status_code::not_found);
         CHECK(missing.body.empty());
     }
 
     SECTION("get returns collection element through ADL key matcher")
     {
-        const auto element = kl::resources::get(res, kl::resources::path{"/int_items/13"}, dumper);
+        const auto element = kl::resources::get(res, kl::path{"/int_items/13"}, dumper);
         CHECK(element.status == kl::resources::status_code::ok);
         CHECK(element.body == R"({"id":13,"name":"thirteen","note":"prime"})");
 
-        const auto leaf = kl::resources::get(res, kl::resources::path{"/int_items/7/name"}, dumper);
+        const auto leaf = kl::resources::get(res, kl::path{"/int_items/7/name"}, dumper);
         CHECK(leaf.status == kl::resources::status_code::ok);
         CHECK(leaf.body == R"("seven")");
     }
@@ -675,19 +650,19 @@ TEST_CASE("resource keyed collection traversal", "[resource]")
     {
         kl::json::deserialize_context ctx;
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/int_items/13/note"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/int_items/13/note"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::no_content);
         CHECK(result.body.empty());
         REQUIRE(res.value.int_items[0].note.has_value());
         CHECK_FALSE(res.value.int_items[1].note.has_value());
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/int_items/13/note"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/int_items/13/note"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
     SECTION("get returns not found when custom matcher rejects the segment")
     {
-        const auto result = kl::resources::get(res, kl::resources::path{"/int_items/not-an-int"}, dumper);
+        const auto result = kl::resources::get(res, kl::path{"/int_items/not-an-int"}, dumper);
 
         CHECK(result.status == kl::resources::status_code::not_found);
         CHECK(result.body.empty());
@@ -704,14 +679,14 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(b);
         auto value = R"(99)"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/a/i"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/a/i"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(result.body.empty());
         CHECK(res.value.a.i == 99);
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/a/i"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/a/i"}) ==
               kl::resources::modification_tracker::generation{2});
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/a"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/a"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -721,13 +696,13 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"value":7,"read_only_value":8})"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/inner"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/inner"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(result.body.empty());
         CHECK(res.value.inner.value == 7);
         CHECK(res.value.inner.read_only_value == 8);
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/inner/value"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/inner/value"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -737,10 +712,10 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"([{"i":2,"b":false,"d":2.5,"str":"second"}])"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/items"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/items/0/str"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/items/0/str"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -750,10 +725,10 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"value":9,"read_only_value":10})"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/maybe_inner"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/maybe_inner"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/maybe_inner/value"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/maybe_inner/value"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -763,13 +738,13 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"(9)"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/maybe_inner/value"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/maybe_inner/value"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(result.body.empty());
         REQUIRE(res.value.maybe_inner.has_value());
         CHECK(res.value.maybe_inner->value == 9);
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/maybe_inner/value"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/maybe_inner/value"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -780,7 +755,7 @@ TEST_CASE("resource put", "[resource]")
         auto value =
             R"({"i":2,"b":true,"str":"Root","a":{"i":13,"b":false,"d":2.72,"str":"Nested"}})"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{""}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{""}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(result.body.empty());
@@ -791,9 +766,9 @@ TEST_CASE("resource put", "[resource]")
         CHECK_FALSE(res.value.a.b);
         CHECK(res.value.a.d == 2.72);
         CHECK(res.value.a.str == "Nested");
-        CHECK(res.state.modifications.changed_at(kl::resources::path{""}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{""}) ==
               kl::resources::modification_tracker::generation{2});
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/a/str"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/a/str"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -805,7 +780,7 @@ TEST_CASE("resource put", "[resource]")
         auto value = R"(9)"_json;
 
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/inner/read_only_value"}, value, ctx);
+            kl::resources::put(res, kl::path{"/inner/read_only_value"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -822,7 +797,7 @@ TEST_CASE("resource put", "[resource]")
         auto value = R"(9)"_json;
 
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/subtree_read_only_inner/value"}, value, ctx);
+            kl::resources::put(res, kl::path{"/subtree_read_only_inner/value"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -843,7 +818,7 @@ TEST_CASE("resource put", "[resource]")
         auto value = R"(9)"_json;
 
         const auto result =
-            kl::resources::put(res, kl::resources::path{"/subtree_read_only_items/0/i"}, value, ctx);
+            kl::resources::put(res, kl::path{"/subtree_read_only_items/0/i"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -859,7 +834,7 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"(9)"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/missing"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/missing"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::not_found);
         CHECK(result.body.empty());
@@ -874,7 +849,7 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(b);
         auto value = R"(9)"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/a/str/x"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/a/str/x"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::not_found);
         CHECK(result.body.empty());
@@ -889,7 +864,7 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(b);
         auto value = R"("not an int")"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/a/i"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/a/i"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::bad_request);
         CHECK(result.body.empty());
@@ -904,7 +879,7 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(b);
         auto value = R"({"i":13,"b":"not a bool","d":2.72,"str":"updated"})"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/a"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/a"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::bad_request);
         CHECK(result.body.empty());
@@ -921,7 +896,7 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(MemberValidated{1, 5});
         auto value = R"({"min":10,"max":2})"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{""}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{""}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "min must be less than or equal to max");
@@ -936,7 +911,7 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(MemberValidated{1, 5});
         auto value = R"(10)"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/min"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/min"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "min must be less than or equal to max");
@@ -951,7 +926,7 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(NestedValidatedRoot{{1, 5}});
         auto value = R"(10)"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/limits/min"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/limits/min"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "min must be less than or equal to max");
@@ -967,7 +942,7 @@ TEST_CASE("resource put", "[resource]")
             kl::resources::make_resource(OptionalValidatedRoot{MemberValidated{1, 5}});
         auto value = R"({"min":10,"max":2})"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{"/maybe_limits"}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{"/maybe_limits"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "min must be less than or equal to max");
@@ -983,7 +958,7 @@ TEST_CASE("resource put", "[resource]")
         auto res = kl::resources::make_resource(AdlValidated{7});
         auto value = R"({"value":13})"_json;
 
-        const auto result = kl::resources::put(res, kl::resources::path{""}, value, ctx);
+        const auto result = kl::resources::put(res, kl::path{""}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "13 is not allowed");
@@ -1009,16 +984,16 @@ TEST_CASE("resource post", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
 
-        const auto result = kl::resources::post(res, kl::resources::path{"/items"}, value, ctx);
+        const auto result = kl::resources::post(res, kl::path{"/items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::created);
         CHECK(result.body.empty());
         REQUIRE(res.value.items.size() == 3);
         CHECK(res.value.items[2].i == 3);
         CHECK(res.value.items[2].str == "third");
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/items"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/items"}) ==
               kl::resources::modification_tracker::generation{2});
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/items/2/str"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/items/2/str"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -1037,13 +1012,13 @@ TEST_CASE("resource post", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
 
-        const auto result = kl::resources::post(res, kl::resources::path{"/string_items"}, value, ctx);
+        const auto result = kl::resources::post(res, kl::path{"/string_items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::created);
         CHECK(result.body.empty());
         REQUIRE(res.value.string_items.size() == 3);
         CHECK(res.value.string_items[2].str == "third");
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/string_items/third/i"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/string_items/third/i"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -1062,7 +1037,7 @@ TEST_CASE("resource post", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"i":9,"b":true,"d":9.5,"str":"second"})"_json;
 
-        const auto result = kl::resources::post(res, kl::resources::path{"/string_items"}, value, ctx);
+        const auto result = kl::resources::post(res, kl::path{"/string_items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "duplicate child key");
@@ -1083,7 +1058,7 @@ TEST_CASE("resource post", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
 
-        const auto result = kl::resources::post(res, kl::resources::path{"/items"}, value, ctx);
+        const auto result = kl::resources::post(res, kl::path{"/items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "too many items");
@@ -1105,7 +1080,7 @@ TEST_CASE("resource post", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"i":"bad","b":true,"d":3.5,"str":"third"})"_json;
 
-        const auto result = kl::resources::post(res, kl::resources::path{"/items"}, value, ctx);
+        const auto result = kl::resources::post(res, kl::path{"/items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::bad_request);
         CHECK(result.body.empty());
@@ -1121,7 +1096,7 @@ TEST_CASE("resource post", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"(9)"_json;
 
-        const auto result = kl::resources::post(res, kl::resources::path{"/value"}, value, ctx);
+        const auto result = kl::resources::post(res, kl::path{"/value"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -1135,7 +1110,7 @@ TEST_CASE("resource post", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
 
-        const auto result = kl::resources::post(res, kl::resources::path{"/read_only_items"}, value, ctx);
+        const auto result = kl::resources::post(res, kl::path{"/read_only_items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -1151,7 +1126,7 @@ TEST_CASE("resource post", "[resource]")
         auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
 
         const auto result =
-            kl::resources::post(res, kl::resources::path{"/subtree_read_only_items"}, value, ctx);
+            kl::resources::post(res, kl::path{"/subtree_read_only_items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -1167,7 +1142,7 @@ TEST_CASE("resource post", "[resource]")
         auto value = R"({"i":3,"b":true,"d":3.5,"str":"third"})"_json;
 
         const auto result =
-            kl::resources::post(res, kl::resources::path{"/subtree_read_only_inner/items"}, value, ctx);
+            kl::resources::post(res, kl::path{"/subtree_read_only_inner/items"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -1187,7 +1162,7 @@ TEST_CASE("resource patch", "[resource]")
         auto res = kl::resources::make_resource(b);
         auto value = R"({"str":"updated","a":{"i":99}})"_json;
 
-        const auto result = kl::resources::patch(res, kl::resources::path{""}, value, ctx);
+        const auto result = kl::resources::patch(res, kl::path{""}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK(res.value.i == 1);
@@ -1197,7 +1172,7 @@ TEST_CASE("resource patch", "[resource]")
         CHECK(res.value.a.b);
         CHECK(res.value.a.d == 3.14);
         CHECK(res.value.a.str == "nested");
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/a/str"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/a/str"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -1207,7 +1182,7 @@ TEST_CASE("resource patch", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"maybe_value":null})"_json;
 
-        const auto result = kl::resources::patch(res, kl::resources::path{""}, value, ctx);
+        const auto result = kl::resources::patch(res, kl::path{""}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         CHECK_FALSE(res.value.maybe_value);
@@ -1223,7 +1198,7 @@ TEST_CASE("resource patch", "[resource]")
         auto res = kl::resources::make_resource(root);
         auto value = R"({"values":[7,8]})"_json;
 
-        const auto result = kl::resources::patch(res, kl::resources::path{""}, value, ctx);
+        const auto result = kl::resources::patch(res, kl::path{""}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
         REQUIRE(res.value.items.size() == 1);
@@ -1238,10 +1213,10 @@ TEST_CASE("resource patch", "[resource]")
         auto value = R"([7,8])"_json;
 
         const auto result =
-            kl::resources::patch(res, kl::resources::path{"/values"}, value, ctx);
+            kl::resources::patch(res, kl::path{"/values"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::ok);
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/values/0"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/values/0"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -1250,7 +1225,7 @@ TEST_CASE("resource patch", "[resource]")
         auto res = kl::resources::make_resource(MemberValidated{1, 5});
         auto value = R"({"min":10})"_json;
 
-        const auto result = kl::resources::patch(res, kl::resources::path{""}, value, ctx);
+        const auto result = kl::resources::patch(res, kl::path{""}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "min must be less than or equal to max");
@@ -1270,7 +1245,7 @@ TEST_CASE("resource patch", "[resource]")
         auto value = R"({"str":"renamed"})"_json;
 
         const auto result =
-            kl::resources::patch(res, kl::resources::path{"/string_items/first"}, value, ctx);
+            kl::resources::patch(res, kl::path{"/string_items/first"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(res.value.string_items[0].str == "first");
@@ -1286,7 +1261,7 @@ TEST_CASE("resource patch", "[resource]")
         auto value = R"(9)"_json;
 
         const auto result =
-            kl::resources::patch(res, kl::resources::path{"/inner/read_only_value"}, value, ctx);
+            kl::resources::patch(res, kl::path{"/inner/read_only_value"}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(res.value.inner.read_only_value == 4);
@@ -1300,7 +1275,7 @@ TEST_CASE("resource patch", "[resource]")
         auto res = kl::resources::make_resource(b);
         auto value = R"({"a":{"i":"bad"}})"_json;
 
-        const auto result = kl::resources::patch(res, kl::resources::path{""}, value, ctx);
+        const auto result = kl::resources::patch(res, kl::path{""}, value, ctx);
 
         CHECK(result.status == kl::resources::status_code::bad_request);
         CHECK(res.value.a.i == 42);
@@ -1324,15 +1299,15 @@ TEST_CASE("resource delete", "[resource]")
         };
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/items/0"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/items/0"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::no_content);
         CHECK(result.body.empty());
         REQUIRE(res.value.items.size() == 1);
         CHECK(res.value.items[0].str == "second");
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/items"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/items"}) ==
               kl::resources::modification_tracker::generation{2});
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/items/0/str"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/items/0/str"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -1347,7 +1322,7 @@ TEST_CASE("resource delete", "[resource]")
         };
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/items/first"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/items/first"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::no_content);
         CHECK(result.body.empty());
@@ -1370,15 +1345,15 @@ TEST_CASE("resource delete", "[resource]")
         };
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/string_items/second"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/string_items/second"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::no_content);
         CHECK(result.body.empty());
         REQUIRE(res.value.string_items.size() == 1);
         CHECK(res.value.string_items[0].str == "first");
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/string_items"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/string_items"}) ==
               kl::resources::modification_tracker::generation{2});
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/string_items/first/i"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/string_items/first/i"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -1387,12 +1362,12 @@ TEST_CASE("resource delete", "[resource]")
         OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/maybe_value"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/maybe_value"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::no_content);
         CHECK(result.body.empty());
         CHECK_FALSE(res.value.maybe_value.has_value());
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/maybe_value"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/maybe_value"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -1401,14 +1376,14 @@ TEST_CASE("resource delete", "[resource]")
         OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/maybe_inner"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/maybe_inner"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::no_content);
         CHECK(result.body.empty());
         CHECK_FALSE(res.value.maybe_inner.has_value());
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/maybe_inner"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/maybe_inner"}) ==
               kl::resources::modification_tracker::generation{2});
-        CHECK(res.state.modifications.changed_at(kl::resources::path{"/maybe_inner/value"}) ==
+        CHECK(res.state.modifications.changed_at(kl::path{"/maybe_inner/value"}) ==
               kl::resources::modification_tracker::generation{2});
     }
 
@@ -1418,7 +1393,7 @@ TEST_CASE("resource delete", "[resource]")
         auto res = kl::resources::make_resource(root);
         res.value.maybe_inner->_validate_true = false;
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/maybe_inner"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/maybe_inner"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "validate failed");
@@ -1434,7 +1409,7 @@ TEST_CASE("resource delete", "[resource]")
         OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/value"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/value"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -1448,7 +1423,7 @@ TEST_CASE("resource delete", "[resource]")
         OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/read_only_maybe_value"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/read_only_maybe_value"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -1467,7 +1442,7 @@ TEST_CASE("resource delete", "[resource]")
         };
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/read_only_items/0"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/read_only_items/0"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -1488,7 +1463,7 @@ TEST_CASE("resource delete", "[resource]")
         auto res = kl::resources::make_resource(root);
 
         const auto result =
-            kl::resources::del(res, kl::resources::path{"/subtree_read_only_items/0"}, ctx);
+            kl::resources::del(res, kl::path{"/subtree_read_only_items/0"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::method_not_allowed);
         CHECK(result.body.empty());
@@ -1502,7 +1477,7 @@ TEST_CASE("resource delete", "[resource]")
     {
         auto res = kl::resources::make_resource(RequiredOptionalRoot{13});
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/required_value"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/required_value"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "required_value cannot be null");
@@ -1522,7 +1497,7 @@ TEST_CASE("resource delete", "[resource]")
         };
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/items/1"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/items/1"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::conflict);
         CHECK(result.body == "too few items");
@@ -1538,7 +1513,7 @@ TEST_CASE("resource delete", "[resource]")
         OptionalRoot root{13, AccessInner{1, 2}, 42, 7};
         auto res = kl::resources::make_resource(root);
 
-        const auto result = kl::resources::del(res, kl::resources::path{"/missing"}, ctx);
+        const auto result = kl::resources::del(res, kl::path{"/missing"}, ctx);
 
         CHECK(result.status == kl::resources::status_code::not_found);
         CHECK(result.body.empty());
@@ -1553,48 +1528,48 @@ TEST_CASE("resource modification tracker", "[resource]")
 
     const auto never_changed = kl::resources::modification_tracker::generation{0};
     CHECK(tracker.current() == kl::resources::modification_tracker::generation{1});
-    CHECK(tracker.changed_at(kl::resources::path{""}) == never_changed);
-    CHECK(tracker.changed_at(kl::resources::path{"/settings/video"}) == never_changed);
-    CHECK_FALSE(tracker.changed_since(kl::resources::path{"/settings/video"}, never_changed));
+    CHECK(tracker.changed_at(kl::path{""}) == never_changed);
+    CHECK(tracker.changed_at(kl::path{"/settings/video"}) == never_changed);
+    CHECK_FALSE(tracker.changed_since(kl::path{"/settings/video"}, never_changed));
 
     SECTION("marks paths and ancestors")
     {
-        const auto width_changed = tracker.notify_changed(kl::resources::path{"/settings/video/width"});
+        const auto width_changed = tracker.notify_changed(kl::path{"/settings/video/width"});
         CHECK(width_changed == kl::resources::modification_tracker::generation{2});
         CHECK(tracker.current() == width_changed);
 
-        CHECK(tracker.changed_at(kl::resources::path{""}) == width_changed);
-        CHECK(tracker.changed_at(kl::resources::path{"/settings"}) == width_changed);
-        CHECK(tracker.changed_at(kl::resources::path{"/settings/video"}) == width_changed);
-        CHECK(tracker.changed_at(kl::resources::path{"/settings/video/width"}) == width_changed);
+        CHECK(tracker.changed_at(kl::path{""}) == width_changed);
+        CHECK(tracker.changed_at(kl::path{"/settings"}) == width_changed);
+        CHECK(tracker.changed_at(kl::path{"/settings/video"}) == width_changed);
+        CHECK(tracker.changed_at(kl::path{"/settings/video/width"}) == width_changed);
 
-        CHECK(tracker.changed_at(kl::resources::path{"/settings/video/height"}) == never_changed);
-        CHECK(tracker.changed_at(kl::resources::path{"/settings/audio"}) == never_changed);
-        CHECK(tracker.changed_since(kl::resources::path{"/settings/video"}, never_changed));
-        CHECK_FALSE(tracker.changed_since(kl::resources::path{"/settings/video"}, width_changed));
+        CHECK(tracker.changed_at(kl::path{"/settings/video/height"}) == never_changed);
+        CHECK(tracker.changed_at(kl::path{"/settings/audio"}) == never_changed);
+        CHECK(tracker.changed_since(kl::path{"/settings/video"}, never_changed));
+        CHECK_FALSE(tracker.changed_since(kl::path{"/settings/video"}, width_changed));
 
-        const auto audio_changed = tracker.notify_changed(kl::resources::path{"/settings/audio"});
-        CHECK_FALSE(tracker.changed_since(kl::resources::path{"/settings/video/width"}, audio_changed));
+        const auto audio_changed = tracker.notify_changed(kl::path{"/settings/audio"});
+        CHECK_FALSE(tracker.changed_since(kl::path{"/settings/video/width"}, audio_changed));
     }
 
     SECTION("handles subtree replacement")
     {
-        const auto width_changed = tracker.notify_changed(kl::resources::path{"/settings/video/width"});
-        const auto video_replaced = tracker.notify_changed(kl::resources::path{"/settings/video"}, true);
+        const auto width_changed = tracker.notify_changed(kl::path{"/settings/video/width"});
+        const auto video_replaced = tracker.notify_changed(kl::path{"/settings/video"}, true);
 
         CHECK(video_replaced == kl::resources::modification_tracker::generation{3});
-        CHECK(tracker.changed_at(kl::resources::path{""}) == video_replaced);
-        CHECK(tracker.changed_at(kl::resources::path{"/settings"}) == video_replaced);
-        CHECK(tracker.changed_at(kl::resources::path{"/settings/video"}) == video_replaced);
+        CHECK(tracker.changed_at(kl::path{""}) == video_replaced);
+        CHECK(tracker.changed_at(kl::path{"/settings"}) == video_replaced);
+        CHECK(tracker.changed_at(kl::path{"/settings/video"}) == video_replaced);
 
-        CHECK(tracker.changed_at(kl::resources::path{"/settings/video/width"}) == video_replaced);
-        CHECK(tracker.changed_at(kl::resources::path{"/settings/video/height"}) == video_replaced);
-        CHECK(tracker.changed_at(kl::resources::path{"/settings/video/nested/leaf"}) ==
+        CHECK(tracker.changed_at(kl::path{"/settings/video/width"}) == video_replaced);
+        CHECK(tracker.changed_at(kl::path{"/settings/video/height"}) == video_replaced);
+        CHECK(tracker.changed_at(kl::path{"/settings/video/nested/leaf"}) ==
               video_replaced);
 
-        CHECK(tracker.changed_at(kl::resources::path{"/settings/audio"}) ==
+        CHECK(tracker.changed_at(kl::path{"/settings/audio"}) ==
               kl::resources::modification_tracker::generation{0});
-        CHECK(tracker.changed_since(kl::resources::path{"/settings/video/width"}, width_changed));
+        CHECK(tracker.changed_since(kl::path{"/settings/video/width"}, width_changed));
     }
 }
 
@@ -1602,7 +1577,7 @@ TEST_CASE("resource traversal reports write access constraints", "[resource]")
 {
     AccessRoot root{};
 
-    auto direct_write_forbidden_at_path = [](auto& obj, const kl::resources::path& path) {
+    auto direct_write_forbidden_at_path = [](auto& obj, const kl::path& path) {
         return kl::resources::visit_at_path<
             bool>(obj, path.view(), [](auto node, kl::resources::access_context ctx) {
             return ctx.subtree_read_only ||
@@ -1610,20 +1585,20 @@ TEST_CASE("resource traversal reports write access constraints", "[resource]")
         });
     };
 
-    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::resources::path{""}));
-    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::resources::path{"/value"}));
-    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::resources::path{"/inner"}));
-    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::resources::path{"/inner/value"}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::path{""}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::path{"/value"}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::path{"/inner"}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::path{"/inner/value"}));
 
-    CHECK(direct_write_forbidden_at_path(root, kl::resources::path{"/inner/read_only_value"}));
+    CHECK(direct_write_forbidden_at_path(root, kl::path{"/inner/read_only_value"}));
 
-    CHECK(direct_write_forbidden_at_path(root, kl::resources::path{"/read_only_inner"}));
-    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::resources::path{"/read_only_inner/value"}));
+    CHECK(direct_write_forbidden_at_path(root, kl::path{"/read_only_inner"}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::path{"/read_only_inner/value"}));
 
-    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::resources::path{"/subtree_read_only_inner"}));
-    CHECK(direct_write_forbidden_at_path(root, kl::resources::path{"/subtree_read_only_inner/value"}));
-    CHECK(direct_write_forbidden_at_path(root, kl::resources::path{"/subtree_read_only_inner/read_only_value"}));
+    CHECK_FALSE(direct_write_forbidden_at_path(root, kl::path{"/subtree_read_only_inner"}));
+    CHECK(direct_write_forbidden_at_path(root, kl::path{"/subtree_read_only_inner/value"}));
+    CHECK(direct_write_forbidden_at_path(root, kl::path{"/subtree_read_only_inner/read_only_value"}));
 
-    CHECK(direct_write_forbidden_at_path(root, kl::resources::path{"/fully_read_only_inner"}));
-    CHECK(direct_write_forbidden_at_path(root, kl::resources::path{"/fully_read_only_inner/value"}));
+    CHECK(direct_write_forbidden_at_path(root, kl::path{"/fully_read_only_inner"}));
+    CHECK(direct_write_forbidden_at_path(root, kl::path{"/fully_read_only_inner/value"}));
 }

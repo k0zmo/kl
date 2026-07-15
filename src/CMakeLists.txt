@@ -15,6 +15,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/iterator_facade.hpp
     ${kl_SOURCE_DIR}/include/kl/match.hpp
     ${kl_SOURCE_DIR}/include/kl/meta.hpp
+    ${kl_SOURCE_DIR}/include/kl/path.hpp
     ${kl_SOURCE_DIR}/include/kl/range.hpp
     ${kl_SOURCE_DIR}/include/kl/reflect_enum.hpp
     ${kl_SOURCE_DIR}/include/kl/reflect_struct.hpp
@@ -41,6 +42,7 @@ add_library(kl
     ${kl_SOURCE_DIR}/include/kl/binary_rw/variant.hpp
     ${kl_SOURCE_DIR}/include/kl/binary_rw/vector.hpp
     base64.cpp
+    path.cpp
     serialization_error.cpp
 )
 if(WIN32)

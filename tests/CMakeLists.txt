@@ -14,6 +14,7 @@ set(test_files
     iterator_facade_test.cpp
     match_test.cpp
     meta_test.cpp
+    path_test.cpp
     range_test.cpp
     reflect_enum_test.cpp
     reflect_struct_test.cpp

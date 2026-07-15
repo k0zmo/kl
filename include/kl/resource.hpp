@@ -1,8 +1,7 @@
 #pragma once
 
+#include "kl/path.hpp"
 #include "kl/utility.hpp"
-
-#include <boost/container/small_vector.hpp>
 
 #include <exception>
 #include <cstddef>
@@ -14,218 +13,6 @@
 
 namespace kl::resources {
 
-struct path_segment
-{
-    std::size_t offset;
-    std::size_t length;
-};
-
-namespace detail {
-
-inline std::string_view path_segment_at(const std::string& value,
-                                        const path_segment* segments,
-                                        std::size_t i) noexcept
-{
-    return std::string_view{value}.substr(segments[i].offset, segments[i].length);
-}
-
-} // namespace detail
-
-class path_view
-{
-public:
-    path_view() = default;
-
-    bool empty() const noexcept { return size() == 0; }
-    std::size_t size() const noexcept { return size_; }
-
-    std::string_view operator[](std::size_t i) const noexcept
-    {
-        return detail::path_segment_at(*value_, segments_, i);
-    }
-
-    std::string_view front() const noexcept { return (*this)[0]; }
-    path_view drop_front() const noexcept
-    {
-        return path_view{*value_, segments_ + 1, size_ - 1};
-    }
-
-    path_view drop_back() const noexcept
-    {
-        return path_view{*value_, segments_, size_ - 1};
-    }
-
-private:
-    // Used by modification_tracker
-    std::string_view prefix_key(std::size_t count) const noexcept
-    {
-        if (count == 0)
-            return {};
-
-        const auto segment = segments_[count - 1];
-        return std::string_view{*value_}.substr(0, segment.offset + segment.length);
-    }
-
-    // Used by path
-    path_view(const std::string& value, const path_segment* segments, std::size_t size) noexcept
-        : value_{&value}, segments_{segments}, size_{size}
-    {
-    }
-
-private:
-    const std::string* value_ = nullptr;
-    const path_segment* segments_ = nullptr;
-    std::size_t size_ = 0;
-
-    friend class path;
-    friend class modification_tracker;
-};
-
-class path_parse_error : public std::exception
-{
-public:
-    explicit path_parse_error(const char* message) noexcept
-        : message_{message}
-    {
-    }
-
-    const char* what() const noexcept override
-    {
-        return message_;
-    }
-
-private:
-    const char* message_;
-};
-
-class path
-{
-private:
-    using segment_container = boost::container::small_vector<path_segment, 15>;
-
-public:
-    path() = default;
-    explicit path(std::string_view value) { set(std::move(value)); }
-
-    void set(std::string_view value)
-    {
-        clear();
-
-        if (value.empty() || value == "/")
-            return;
-
-        value_.reserve(value.size());
-        if (value.front() == '/')
-            value.remove_prefix(1);
-
-        while (true)
-        {
-            const auto pos = value.find('/');
-            const auto length = pos == std::string_view::npos ? value.size() : pos;
-            const auto segment = value.substr(0, length);
-
-            if (!segment.empty())
-            {
-                if (segment == ".")
-                {
-                    // Skip
-                }
-                else if (segment == "..")
-                {
-                    pop_segment();
-                }
-                else
-                {
-                    push_decoded_segment(segment);
-                }
-            }
-
-            if (pos == std::string_view::npos)
-                break;
-
-            value.remove_prefix(pos + 1);
-        }
-    }
-
-    void clear() noexcept
-    {
-        value_.clear();
-        segments_.clear();
-    }
-
-    bool empty() const noexcept { return segments_.empty(); }
-    std::size_t size() const noexcept { return segments_.size(); }
-    path_view view() const noexcept
-    {
-        return path_view{value_, segments_.data(), segments_.size()};
-    }
-
-    std::string_view operator[](std::size_t i) const noexcept
-    {
-        return detail::path_segment_at(value_, segments_.data(), i);
-    }
-
-private:
-    constexpr static int from_xdigit(char ch) noexcept
-    {
-        if (ch >= '0' && ch <= '9')
-            return ch - '0';
-        if (ch >= 'A' && ch <= 'F')
-            return 10 + (ch - 'A');
-        if (ch >= 'a' && ch <= 'f')
-            return 10 + (ch - 'a');
-        return -1;
-    }
-
-    void pop_segment()
-    {
-        if (segments_.empty())
-            return;
-
-        const auto offset = segments_.back().offset;
-        value_.erase(offset == 0 ? offset : offset - 1);
-        segments_.pop_back();
-    }
-
-    void push_decoded_segment(std::string_view segment)
-    {
-        if (!value_.empty())
-            value_ += '/';
-
-        const auto offset = value_.size();
-
-        for (std::size_t i = 0; i < segment.size();)
-        {
-            if (segment[i] != '%')
-            {
-                value_ += segment[i++];
-                continue;
-            }
-
-            if (i + 2 >= segment.size())
-                throw path_parse_error{"invalid percent-encoded path segment"};
-
-            const auto hi = from_xdigit(segment[i + 1]);
-            const auto lo = from_xdigit(segment[i + 2]);
-            if (hi < 0 || lo < 0)
-                throw path_parse_error{"invalid percent-encoded path segment"};
-
-            const auto ch = static_cast<char>((hi << 4) | lo);
-            if (ch == '/')
-                throw path_parse_error{"path segment cannot contain '/'"};
-
-            value_ += ch;
-            i += 3;
-        }
-
-        segments_.push_back({offset, value_.size() - offset});
-    }
-
-private:
-    std::string value_;
-    segment_container segments_;
-};
-
 class modification_tracker
 {
 public:
@@ -233,7 +20,7 @@ public:
 
     generation current() const noexcept { return current_;}
 
-    generation notify_changed(const kl::resources::path& path, bool subtree = false)
+    generation notify_changed(const kl::path& path, bool subtree = false)
     {
         return notify_changed(path.view(), subtree);
     }
@@ -245,17 +32,17 @@ public:
 
         // Mark the node and all ancestors, so parent watchers observe child changes
         for (std::size_t i = 0; i <= path.size(); ++i)
-            assign(node_generation_, path.prefix_key(i), gen);
+            assign(node_generation_, path.prefix(i), gen);
 
         // If a whole subtree was replaced, descendants should also appear changed,
         // without walking every reflected child.
         if (subtree)
-            assign(subtree_generation_, path.prefix_key(path.size()), gen);
+            assign(subtree_generation_, path.prefix(path.size()), gen);
 
         return gen;
     }
 
-    generation changed_at(const kl::resources::path& path) const
+    generation changed_at(const kl::path& path) const
     {
         return changed_at(path.view());
     }
@@ -267,7 +54,7 @@ public:
         // If any ancestor subtree was replaced, this path changed too.
         for (std::size_t i = 0U; i <= path.size(); ++i)
         {
-            const auto key = path.prefix_key(i);
+            const auto key = path.prefix(i);
 
             if (i == path.size())
             {
@@ -285,7 +72,7 @@ public:
         return result;
     }
 
-    bool changed_since(const kl::resources::path& path, generation old) const
+    bool changed_since(const kl::path& path, generation old) const
     {
         return changed_since(path.view(), old);
     }
