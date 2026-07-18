@@ -1,7 +1,15 @@
 #include "kl/base64.hpp"
 #include "kl/utility.hpp"
 
-#include <cstring>
+#include <gsl/span>
+
+#include <array>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace kl {
 
@@ -80,47 +88,54 @@ std::string base64_encode_impl(gsl::span<const std::byte> s)
     return ret;
 }
 
-using base64_lut = std::byte[256];
+constexpr std::uint32_t bad_base64_char = 1U << 24;
 
 template <bool IsUrlVariant>
-struct table_initializer
+constexpr std::uint32_t base64_decode_value(std::size_t c)
 {
-    table_initializer(base64_lut& table)
+    if (c >= 'A' && c <= 'Z')
+        return c - 'A';
+    if (c >= 'a' && c <= 'z')
+        return 26U + c - 'a';
+    if (c >= '0' && c <= '9')
+        return 52U + c - '0';
+    if (c == (IsUrlVariant ? '-' : '+'))
+        return 62U;
+    if (c == (IsUrlVariant ? '_' : '/'))
+        return 63U;
+    return bad_base64_char;
+}
+
+template <bool IsUrlVariant, unsigned Shift>
+constexpr auto make_base64_decode_table()
+{
+    std::array<std::uint32_t, 256> table{};
+    for (std::size_t i = 0; i < table.size(); ++i)
     {
-        std::memset(table, 0x80, sizeof(table));
-
-        for (size_t i = 'A'; i <= 'Z'; ++i)
-            table[i] = static_cast<std::byte>(0 + (i - 'A'));
-        for (size_t i = 'a'; i <= 'z'; ++i)
-            table[i] = static_cast<std::byte>(26 + (i - 'a'));
-        for (size_t i = '0'; i <= '9'; ++i)
-            table[i] = static_cast<std::byte>(52 + (i - '0'));
-
-        if constexpr (!IsUrlVariant)
-        {
-            table[static_cast<size_t>('+')] = std::byte{62};
-            table[static_cast<size_t>('/')] = std::byte{63};
-        }
-        else
-        {
-            table[static_cast<size_t>('-')] = std::byte{62};
-            table[static_cast<size_t>('_')] = std::byte{63};
-        }
+        const auto value = base64_decode_value<IsUrlVariant>(i);
+        table[i] = value == bad_base64_char ? value : value << Shift;
     }
-};
+    return table;
+}
 
-constexpr bool is_base64(std::byte b)
+template <bool IsUrlVariant, unsigned Shift>
+constexpr auto base64_decode_table = make_base64_decode_table<IsUrlVariant, Shift>();
+
+template <bool IsUrlVariant, unsigned Shift = 0>
+constexpr std::uint32_t base64_decode_lookup(char c)
 {
-    return underlying_cast(b) <= 0x3F;
+    return base64_decode_table<IsUrlVariant, Shift>[static_cast<unsigned char>(c)];
+}
+
+constexpr bool is_base64(std::uint32_t value)
+{
+    return value <= 0x3F;
 }
 
 template <bool IsUrlVariant>
 std::optional<std::vector<std::byte>> base64_decode_impl(std::string_view str)
 {
-    // Invert lookup table used for encoding
-    static base64_lut table = {};
-    static table_initializer<IsUrlVariant> _{table};
-    auto lookup = [](char index) { return table[static_cast<size_t>(index)]; };
+    auto lookup = [](char c) { return base64_decode_lookup<IsUrlVariant>(c); };
 
     std::optional<std::vector<std::byte>> ret;
 
@@ -162,20 +177,20 @@ std::optional<std::vector<std::byte>> base64_decode_impl(std::string_view str)
 
     for (std::size_t i = 0U; i < full_quad; ++i)
     {
-        const std::byte lut4[] = {lookup(src[0]), lookup(src[1]),
-                                  lookup(src[2]), lookup(src[3])};
+        const auto decoded = base64_decode_lookup<IsUrlVariant, 18>(src[0]) |
+                             base64_decode_lookup<IsUrlVariant, 12>(src[1]) |
+                             base64_decode_lookup<IsUrlVariant,  6>(src[2]) |
+                             base64_decode_lookup<IsUrlVariant,  0>(src[3]);
 
-        // Validate range of input characters (0-63)
-        if (!is_base64(lut4[0]) || !is_base64(lut4[1]) || !is_base64(lut4[2]) ||
-            !is_base64(lut4[3]))
+        if (decoded >= bad_base64_char)
         {
             ret = std::nullopt;
             return ret;
         }
 
-        *dst++ = (lut4[0] << 2) | (lut4[1] >> 4);
-        *dst++ = (lut4[1] << 4) | (lut4[2] >> 2);
-        *dst++ = (lut4[2] << 6) | (lut4[3]);
+        *dst++ = static_cast<std::byte>(decoded >> 16);
+        *dst++ = static_cast<std::byte>(decoded >> 8);
+        *dst++ = static_cast<std::byte>(decoded);
 
         src += 4;
     }
@@ -189,8 +204,10 @@ std::optional<std::vector<std::byte>> base64_decode_impl(std::string_view str)
             return ret;
         }
 
-        *dst++ = (lookup(src[0]) << 2) | (lookup(src[1]) >> 4);
-        *dst++ = (lookup(src[1]) << 4) | (lookup(src[2]) >> 2);
+        *dst++ = static_cast<std::byte>((lookup(src[0]) << 2) |
+                                        (lookup(src[1]) >> 4));
+        *dst++ = static_cast<std::byte>((lookup(src[1]) << 4) |
+                                        (lookup(src[2]) >> 2));
     }
     else if (tail_size == 2)
     {
@@ -200,7 +217,8 @@ std::optional<std::vector<std::byte>> base64_decode_impl(std::string_view str)
             return ret;
         }
 
-        *dst++ = (lookup(src[0]) << 2) | (lookup(src[1]) >> 4);
+        *dst++ = static_cast<std::byte>((lookup(src[0]) << 2) |
+                                        (lookup(src[1]) >> 4));
     }
 
     return ret;

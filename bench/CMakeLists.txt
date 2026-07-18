@@ -1,4 +1,5 @@
 add_executable(kl-bench
+    base64_bench.cpp
     enum_reflector_bench.cpp
     signal_bench.cpp
 )
