@@ -91,7 +91,7 @@ std::string base64_encode_impl(gsl::span<const std::byte> s)
 constexpr std::uint32_t bad_base64_char = 1U << 24;
 
 template <bool IsUrlVariant>
-constexpr std::uint32_t base64_decode_value(std::size_t c)
+constexpr std::uint32_t base64_decode_value(std::uint32_t c)
 {
     if (c >= 'A' && c <= 'Z')
         return c - 'A';
@@ -110,7 +110,7 @@ template <bool IsUrlVariant, unsigned Shift>
 constexpr auto make_base64_decode_table()
 {
     std::array<std::uint32_t, 256> table{};
-    for (std::size_t i = 0; i < table.size(); ++i)
+    for (std::uint32_t i = 0; i < table.size(); ++i)
     {
         const auto value = base64_decode_value<IsUrlVariant>(i);
         table[i] = value == bad_base64_char ? value : value << Shift;
